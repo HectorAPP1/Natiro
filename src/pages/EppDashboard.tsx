@@ -290,7 +290,7 @@ export default function EppDashboard() {
     }
   }
 
-  const handleViewFile = (base64Data: string, fileName: string) => {
+  const handleViewFile = (base64Data: string) => {
     // Convertir base64 a Blob
     const byteString = atob(base64Data.split(',')[1])
     const mimeString = base64Data.split(',')[0].split(':')[1].split(';')[0]
@@ -878,7 +878,7 @@ export default function EppDashboard() {
                       {item.technicalSheetBase64 && item.technicalSheetName ? (
                         <button
                           type="button"
-                          onClick={() => handleViewFile(item.technicalSheetBase64!, item.technicalSheetName!)}
+                          onClick={() => handleViewFile(item.technicalSheetBase64!)}
                           className="inline-flex items-center gap-2 rounded-full border border-celeste-200/70 bg-white/80 px-5 py-2 font-semibold text-celeste-400 transition hover:border-celeste-300 hover:bg-celeste-50"
                         >
                           <FileText className="h-4 w-4" />
@@ -888,7 +888,7 @@ export default function EppDashboard() {
                       {item.certificatesBase64 && item.certificatesName ? (
                         <button
                           type="button"
-                          onClick={() => handleViewFile(item.certificatesBase64!, item.certificatesName!)}
+                          onClick={() => handleViewFile(item.certificatesBase64!)}
                           className="inline-flex items-center gap-2 rounded-full border border-celeste-200/70 bg-white/80 px-5 py-2 font-semibold text-celeste-400 transition hover:border-celeste-300 hover:bg-celeste-50"
                         >
                           <FileText className="h-4 w-4" />
