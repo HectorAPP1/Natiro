@@ -2,8 +2,31 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer components {
+  /* Form inputs dark mode */
+  .dark input[type="text"],
+  .dark input[type="number"],
+  .dark input[type="file"],
+  .dark select,
+  .dark textarea {
+    @apply border-dracula-current bg-dracula-current text-dracula-foreground placeholder-dracula-comment;
+  }
+  
+  .dark input[type="text"]:focus,
+  .dark input[type="number"]:focus,
+  .dark select:focus,
+  .dark textarea:focus {
+    @apply border-dracula-purple;
+  }
+  
+  /* Form labels dark mode */
+  .dark label {
+    @apply text-dracula-comment;
+  }
+}
+
 :root {
-  color-scheme: light;
+  color-scheme: light dark;
 }
 
 html,

@@ -15,6 +15,7 @@ import {
   X,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import ThemeToggle from '../components/ThemeToggle'
 
 export default function ProtectedLayout() {
   const { user, loading, signOutUser } = useAuth()
@@ -53,8 +54,8 @@ export default function ProtectedLayout() {
               desktopCollapsed ? 'justify-center px-3' : 'gap-4 px-6'
             } ${
               isActive
-                ? 'border-mint-200/80 bg-white text-slate-800 shadow-sm'
-                : 'border-transparent text-slate-600 hover:border-celeste-200/60 hover:bg-white/80 hover:text-slate-700'
+                ? 'border-mint-200/80 bg-white text-slate-800 shadow-sm dark:border-dracula-purple/50 dark:bg-dracula-current dark:text-dracula-foreground'
+                : 'border-transparent text-slate-600 hover:border-celeste-200/60 hover:bg-white/80 hover:text-slate-700 dark:text-dracula-comment dark:hover:border-dracula-purple/30 dark:hover:bg-dracula-current/50 dark:hover:text-dracula-foreground'
             }`
           }
         >
@@ -73,7 +74,7 @@ export default function ProtectedLayout() {
                     {item.label}
                   </span>
                   {item.soon ? (
-                    <span className="ml-auto rounded-full bg-soft-gray-100 px-2 py-0.5 text-[11px] font-semibold uppercase text-slate-400">
+                    <span className="ml-auto rounded-full bg-soft-gray-100 px-2 py-0.5 text-[11px] font-semibold uppercase text-slate-400 dark:bg-dracula-current dark:text-dracula-comment">
                       Próximamente
                     </span>
                   ) : null}
@@ -98,20 +99,20 @@ export default function ProtectedLayout() {
   }
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-soft-gray-50 via-celeste-100/30 to-soft-gray-50">
+    <div className="flex min-h-screen bg-gradient-to-br from-soft-gray-50 via-celeste-100/30 to-soft-gray-50 dark:from-dracula-bg dark:via-dracula-current/50 dark:to-dracula-bg">
       <aside
-        className={`hidden flex-col justify-between border-r border-soft-gray-200/70 bg-white/85 py-10 shadow-sm backdrop-blur lg:flex ${
+        className={`hidden flex-col justify-between border-r border-soft-gray-200/70 bg-white/85 py-10 shadow-sm backdrop-blur dark:border-dracula-current dark:bg-dracula-bg/95 lg:flex ${
           desktopCollapsed ? 'w-24 px-4' : 'w-80 px-8 xl:w-[23rem]'
         }`}
       >
         <div className="space-y-8">
           <div>
-            <span className="inline-flex items-center gap-2 rounded-full bg-mint-100 px-3 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-celeste-300">
-              <HardHat className="h-4 w-4 text-mint-300" />
+            <span className="inline-flex items-center gap-2 rounded-full bg-mint-100 px-3 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-celeste-300 dark:bg-dracula-current dark:text-dracula-cyan">
+              <HardHat className="h-4 w-4 text-mint-300 dark:text-dracula-green" />
               {desktopCollapsed ? null : 'Natiro HSE · Epp'}
             </span>
             {desktopCollapsed ? null : (
-              <p className="mt-4 text-sm text-slate-500">Gestión integral de seguridad y equipos de protección.</p>
+              <p className="mt-4 text-sm text-slate-500 dark:text-dracula-comment">Gestión integral de seguridad y equipos de protección.</p>
             )}
           </div>
           <nav className="space-y-2">{renderNavigation()}</nav>
@@ -127,7 +128,7 @@ export default function ProtectedLayout() {
       </aside>
 
       <div className="flex flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-soft-gray-200/70 bg-white/80 px-6 py-4 shadow-sm backdrop-blur">
+        <header className="flex items-center justify-between border-b border-soft-gray-200/70 bg-white/80 px-6 py-4 shadow-sm backdrop-blur dark:border-dracula-current dark:bg-dracula-bg/95">
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -137,15 +138,16 @@ export default function ProtectedLayout() {
             >
               <Menu className="h-5 w-5" />
             </button>
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-celeste-300">
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-celeste-300 dark:text-dracula-cyan">
               Natiro HSE · Epp
             </p>
-            <h1 className="text-lg font-semibold text-slate-700">Gestión de EPP</h1>
+            <h1 className="text-lg font-semibold text-slate-700 dark:text-dracula-foreground">Gestión de EPP</h1>
           </div>
           <div className="flex items-center gap-4">
+            <ThemeToggle />
             <button
               type="button"
-              className="hidden h-10 w-10 items-center justify-center rounded-full border border-soft-gray-200/80 text-slate-600 transition hover:border-celeste-200 hover:text-slate-800 lg:inline-flex"
+              className="hidden h-10 w-10 items-center justify-center rounded-full border border-soft-gray-200/80 text-slate-600 transition hover:border-celeste-200 hover:text-slate-800 dark:border-dracula-current dark:text-dracula-comment dark:hover:border-dracula-purple dark:hover:text-dracula-foreground lg:inline-flex"
               onClick={() => setDesktopCollapsed((value) => !value)}
               aria-label={desktopCollapsed ? 'Expandir panel lateral' : 'Colapsar panel lateral'}
             >

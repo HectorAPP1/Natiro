@@ -125,11 +125,11 @@ export default function QRManager() {
 
   return (
     <div className="space-y-8">
-      <section className="rounded-4xl border border-white/70 bg-white/95 p-8 shadow-[0_30px_60px_-40px_rgba(15,23,42,0.45)] backdrop-blur">
+      <section className="rounded-4xl border border-white/70 bg-white/95 p-8 shadow-[0_30px_60px_-40px_rgba(15,23,42,0.45)] backdrop-blur dark:border-dracula-current dark:bg-dracula-bg/95">
         <div className="mb-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-celeste-300">Gestión QR</p>
-          <h2 className="mt-2 text-2xl font-semibold text-slate-800">Escanear y generar códigos QR</h2>
-          <p className="mt-2 max-w-2xl text-sm text-slate-500">
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-celeste-300 dark:text-dracula-cyan">Gestión QR</p>
+          <h2 className="mt-2 text-2xl font-semibold text-slate-800 dark:text-dracula-foreground">Escanear y generar códigos QR</h2>
+          <p className="mt-2 max-w-2xl text-sm text-slate-500 dark:text-dracula-comment">
             Escanea códigos QR para editar stock rápidamente o genera QR para tus EPP de bodega.
           </p>
         </div>
