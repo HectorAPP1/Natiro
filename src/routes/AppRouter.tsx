@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import ProtectedLayout from '../layouts/ProtectedLayout.tsx'
 import Login from '../pages/Login.tsx'
 import EppDashboard from '../pages/EppDashboard.tsx'
+import Configuracion from '../pages/Configuracion.tsx'
 import ComingSoon from '../pages/ComingSoon.tsx'
 
 export default function AppRouter() {
@@ -34,7 +35,7 @@ export default function AppRouter() {
           />
           <Route
             path="/configuracion"
-            element={<ComingSoon title="Configuración" moduleKey="configuracion" />}
+            element={<Configuracion />}
           />
         </Route>
         <Route path="*" element={<Navigate to="/epp" replace />} />

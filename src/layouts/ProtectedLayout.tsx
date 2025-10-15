@@ -37,7 +37,7 @@ export default function ProtectedLayout() {
     { label: 'Riesgos', to: '/riesgos', icon: AlertTriangle, soon: true },
     { label: 'Protocolos', to: '/protocolos', icon: ShieldCheck, soon: true },
     { label: 'Reportes', to: '/reportes', icon: Layers, soon: true },
-    { label: 'Configuración', to: '/configuracion', icon: Settings, soon: true },
+    { label: 'Configuración', to: '/configuracion', icon: Settings },
   ]
 
   const renderNavigation = (onNavigate?: () => void) =>
