@@ -169,7 +169,7 @@ export default function ProtectedLayout() {
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-soft-gray-50 via-celeste-100/30 to-soft-gray-50 dark:from-dracula-bg dark:via-dracula-current/50 dark:to-dracula-bg">
       <aside
-        className={`hidden flex-col justify-between border-r border-soft-gray-200/70 bg-gradient-to-br from-celeste-50/50 via-white/70 to-mint-50/50 py-10 shadow-sm backdrop-blur-2xl dark:border-dracula-current dark:bg-gradient-to-br dark:from-dracula-current/40 dark:via-dracula-bg/60 dark:to-dracula-current/40 lg:flex ${
+        className={`fixed left-0 top-0 hidden h-screen flex-col justify-between border-r border-soft-gray-200/70 bg-gradient-to-br from-celeste-50/50 via-white/70 to-mint-50/50 py-10 shadow-sm backdrop-blur-2xl dark:border-dracula-current dark:bg-gradient-to-br dark:from-dracula-current/40 dark:via-dracula-bg/60 dark:to-dracula-current/40 lg:flex overflow-y-auto ${
           desktopCollapsed ? 'w-24 px-4' : 'w-80 px-8 xl:w-[23rem]'
         }`}
       >
@@ -233,8 +233,8 @@ export default function ProtectedLayout() {
         )}
       </aside>
 
-      <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-        <header className="flex items-center justify-between border-b border-soft-gray-200/70 bg-gradient-to-r from-celeste-100/40 via-white/80 to-mint-100/40 px-3 sm:px-6 py-3 sm:py-4 shadow-sm backdrop-blur-xl dark:border-dracula-current dark:bg-gradient-to-r dark:from-dracula-current/40 dark:via-dracula-bg/80 dark:to-dracula-current/40">
+      <div className={`flex flex-1 flex-col min-w-0 ${desktopCollapsed ? 'lg:ml-24' : 'lg:ml-80 xl:ml-[23rem]'}`}>
+        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-soft-gray-200/70 bg-gradient-to-r from-celeste-100/40 via-white/80 to-mint-100/40 px-3 sm:px-6 py-3 sm:py-4 shadow-sm backdrop-blur-xl dark:border-dracula-current dark:bg-gradient-to-r dark:from-dracula-current/40 dark:via-dracula-bg/80 dark:to-dracula-current/40">
           <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
             <button
               type="button"
@@ -304,10 +304,25 @@ export default function ProtectedLayout() {
               </button>
             </div>
             <div className="mt-8 space-y-2">{renderNavigation(() => setSidebarOpen(false))}</div>
-            <div className="mt-10 rounded-2xl border border-white/70 bg-white/80 px-4 py-3 text-xs text-slate-500 shadow-sm">
-              <p className="font-semibold text-slate-600">Centro de ayuda</p>
-              <p className="mt-1 leading-relaxed">
-                Capacita a tu equipo en buenas prácticas HSE y mantén tu inventario de EPP actualizado.
+            <div className="mt-10 rounded-2xl border border-white/70 bg-white/80 px-4 py-3 text-xs text-slate-500 shadow-sm backdrop-blur dark:border-dracula-current/50 dark:bg-dracula-current/30">
+              <div className="flex items-center gap-2 mb-2">
+                {(() => {
+                  const Icon = hseContent[currentTipIndex].icon
+                  const color = hseContent[currentTipIndex].color
+                  return <Icon className={`h-4 w-4 ${color} animate-pulse`} key={`icon-mobile-${currentTipIndex}`} />
+                })()}
+                <p 
+                  key={`category-mobile-${currentTipIndex}`}
+                  className="font-semibold text-slate-600 dark:text-dracula-cyan animate-in fade-in duration-300"
+                >
+                  {hseContent[currentTipIndex].category}
+                </p>
+              </div>
+              <p 
+                key={`text-mobile-${currentTipIndex}`}
+                className="leading-relaxed dark:text-dracula-cyan/60 animate-in fade-in slide-in-from-bottom-2 duration-500"
+              >
+                {hseContent[currentTipIndex].text}
               </p>
             </div>
           </div>
