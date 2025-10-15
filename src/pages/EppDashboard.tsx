@@ -1265,241 +1265,251 @@ export default function EppDashboard() {
               <div className="mt-8">
                 {/* Indicador de scroll en móviles */}
                 <div className="mb-2 flex items-center gap-2 text-xs text-slate-500 dark:text-dracula-comment sm:hidden">
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13 5l7 7-7 7M5 5l7 7-7 7"
+                    />
                   </svg>
                   <span>Desliza para ver más información</span>
                 </div>
                 <div className="overflow-x-auto scrollbar-thin rounded-2xl border border-soft-gray-200/70 shadow-sm dark:border-dracula-current">
                   <table className="w-full min-w-[800px] border-collapse bg-white dark:bg-dracula-bg">
-                  <thead>
-                    <tr className="border-b-2 border-soft-gray-200/70 dark:border-dracula-current">
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-dracula-comment">
-                        Código
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-dracula-comment">
-                        Nombre
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-dracula-comment">
-                        Categoría
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-dracula-comment">
-                        Marca
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-dracula-comment">
-                        Stock
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-dracula-comment">
-                        Precio
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-dracula-comment">
-                        Ubicación
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-dracula-comment">
-                        Estado
-                      </th>
-                      <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-dracula-comment">
-                        Acciones
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-soft-gray-200/50 dark:divide-dracula-current">
-                    {paginatedItems.map((item) => {
-                      const totalStock = item.multiSize
-                        ? item.sizeVariants.reduce(
-                            (acc, v) => acc + v.stockActual,
-                            0
-                          )
-                        : item.stockActual ?? 0;
-                      const minStock = item.multiSize
-                        ? Math.min(
-                            ...item.sizeVariants.map((v) => v.stockMinimo)
-                          )
-                        : item.stockMinimo ?? 0;
-                      const criticalStock = item.multiSize
-                        ? Math.min(
-                            ...item.sizeVariants.map((v) => v.stockCritico)
-                          )
-                        : item.stockCritico ?? 0;
+                    <thead>
+                      <tr className="border-b-2 border-soft-gray-200/70 dark:border-dracula-current">
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-dracula-comment">
+                          Código
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-dracula-comment">
+                          Nombre
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-dracula-comment">
+                          Categoría
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-dracula-comment">
+                          Marca
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-dracula-comment">
+                          Stock
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-dracula-comment">
+                          Precio
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-dracula-comment">
+                          Ubicación
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-dracula-comment">
+                          Estado
+                        </th>
+                        <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-dracula-comment">
+                          Acciones
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-soft-gray-200/50 dark:divide-dracula-current">
+                      {paginatedItems.map((item) => {
+                        const totalStock = item.multiSize
+                          ? item.sizeVariants.reduce(
+                              (acc, v) => acc + v.stockActual,
+                              0
+                            )
+                          : item.stockActual ?? 0;
+                        const minStock = item.multiSize
+                          ? Math.min(
+                              ...item.sizeVariants.map((v) => v.stockMinimo)
+                            )
+                          : item.stockMinimo ?? 0;
+                        const criticalStock = item.multiSize
+                          ? Math.min(
+                              ...item.sizeVariants.map((v) => v.stockCritico)
+                            )
+                          : item.stockCritico ?? 0;
 
-                      // Contar tallas en estado crítico
-                      const criticalSizes = item.multiSize
-                        ? item.sizeVariants.filter(
-                            (v) => v.stockActual <= v.stockCritico
-                          )
-                        : [];
+                        // Contar tallas en estado crítico
+                        const criticalSizes = item.multiSize
+                          ? item.sizeVariants.filter(
+                              (v) => v.stockActual <= v.stockCritico
+                            )
+                          : [];
 
-                      const stockStatus =
-                        totalStock <= criticalStock
-                          ? "critical"
-                          : totalStock <= minStock
-                          ? "low"
-                          : "ok";
+                        const stockStatus =
+                          totalStock <= criticalStock
+                            ? "critical"
+                            : totalStock <= minStock
+                            ? "low"
+                            : "ok";
 
-                      return (
-                        <tr
-                          key={item.id}
-                          className="transition hover:bg-soft-gray-50/50 dark:hover:bg-dracula-current/30"
-                        >
-                          <td className="px-4 py-4">
-                            <span className="text-xs font-semibold text-celeste-400 dark:text-dracula-cyan">
-                              {item.eppId}
-                            </span>
-                          </td>
-                          <td className="px-4 py-4">
-                            <div className="flex items-center gap-3">
-                              {item.imageBase64 ? (
-                                <img
-                                  src={item.imageBase64}
-                                  alt={item.name}
-                                  className="h-10 w-10 rounded-lg object-cover"
-                                />
-                              ) : (
-                                <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-dashed border-soft-gray-300 text-xs text-slate-400 dark:border-dracula-comment dark:text-dracula-comment">
-                                  -
-                                </div>
-                              )}
-                              <div>
-                                <p className="font-semibold text-slate-800 dark:text-dracula-foreground">
-                                  {item.name}
-                                </p>
-                                {item.multiSize && (
-                                  <p className="text-xs text-slate-500 dark:text-dracula-comment">
-                                    {item.sizeVariants.length} tallas
-                                    {criticalSizes.length > 0 && (
-                                      <span className="ml-1.5 text-amber-500 dark:text-dracula-orange">
-                                        ({criticalSizes.length} crítica
-                                        {criticalSizes.length > 1 ? "s" : ""})
-                                      </span>
-                                    )}
+                        return (
+                          <tr
+                            key={item.id}
+                            className="transition hover:bg-soft-gray-50/50 dark:hover:bg-dracula-current/30"
+                          >
+                            <td className="px-4 py-4">
+                              <span className="text-xs font-semibold text-celeste-400 dark:text-dracula-cyan">
+                                {item.eppId}
+                              </span>
+                            </td>
+                            <td className="px-4 py-4">
+                              <div className="flex items-center gap-3">
+                                {item.imageBase64 ? (
+                                  <img
+                                    src={item.imageBase64}
+                                    alt={item.name}
+                                    className="h-10 w-10 rounded-lg object-cover"
+                                  />
+                                ) : (
+                                  <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-dashed border-soft-gray-300 text-xs text-slate-400 dark:border-dracula-comment dark:text-dracula-comment">
+                                    -
+                                  </div>
+                                )}
+                                <div>
+                                  <p className="font-semibold text-slate-800 dark:text-dracula-foreground">
+                                    {item.name}
                                   </p>
+                                  {item.multiSize && (
+                                    <p className="text-xs text-slate-500 dark:text-dracula-comment">
+                                      {item.sizeVariants.length} tallas
+                                      {criticalSizes.length > 0 && (
+                                        <span className="ml-1.5 text-amber-500 dark:text-dracula-orange">
+                                          ({criticalSizes.length} crítica
+                                          {criticalSizes.length > 1 ? "s" : ""})
+                                        </span>
+                                      )}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-4">
+                              <span className="text-sm text-slate-600 dark:text-dracula-comment">
+                                {item.category}
+                              </span>
+                            </td>
+                            <td className="px-4 py-4">
+                              <span className="text-sm text-slate-600 dark:text-dracula-comment">
+                                {item.brand || "-"}
+                              </span>
+                            </td>
+                            <td className="px-4 py-4">
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={`text-sm font-semibold ${
+                                    stockStatus === "critical"
+                                      ? "text-rose-500"
+                                      : stockStatus === "low"
+                                      ? "text-amber-500"
+                                      : "text-slate-700 dark:text-dracula-foreground"
+                                  }`}
+                                >
+                                  {totalStock}
+                                </span>
+                                {stockStatus !== "ok" && (
+                                  <span
+                                    className={`inline-flex h-2 w-2 rounded-full ${
+                                      stockStatus === "critical"
+                                        ? "bg-rose-500"
+                                        : "bg-amber-500"
+                                    }`}
+                                    title={
+                                      stockStatus === "critical"
+                                        ? "Stock crítico"
+                                        : "Stock bajo"
+                                    }
+                                  />
                                 )}
                               </div>
-                            </div>
-                          </td>
-                          <td className="px-4 py-4">
-                            <span className="text-sm text-slate-600 dark:text-dracula-comment">
-                              {item.category}
-                            </span>
-                          </td>
-                          <td className="px-4 py-4">
-                            <span className="text-sm text-slate-600 dark:text-dracula-comment">
-                              {item.brand || "-"}
-                            </span>
-                          </td>
-                          <td className="px-4 py-4">
-                            <div className="flex items-center gap-2">
-                              <span
-                                className={`text-sm font-semibold ${
-                                  stockStatus === "critical"
-                                    ? "text-rose-500"
-                                    : stockStatus === "low"
-                                    ? "text-amber-500"
-                                    : "text-slate-700 dark:text-dracula-foreground"
-                                }`}
-                              >
-                                {totalStock}
+                            </td>
+                            <td className="px-4 py-4">
+                              <span className="text-sm font-semibold text-slate-700 dark:text-dracula-foreground">
+                                ${item.price.toLocaleString("es-CL")}
                               </span>
-                              {stockStatus !== "ok" && (
-                                <span
-                                  className={`inline-flex h-2 w-2 rounded-full ${
-                                    stockStatus === "critical"
-                                      ? "bg-rose-500"
-                                      : "bg-amber-500"
-                                  }`}
-                                  title={
-                                    stockStatus === "critical"
-                                      ? "Stock crítico"
-                                      : "Stock bajo"
-                                  }
-                                />
+                            </td>
+                            <td className="px-4 py-4">
+                              {item.location ? (
+                                <span className="inline-flex items-center gap-1.5 text-sm text-slate-600 dark:text-dracula-comment">
+                                  <MapPin className="h-3.5 w-3.5 text-celeste-300 dark:text-dracula-cyan" />
+                                  {item.location}
+                                </span>
+                              ) : (
+                                <span className="text-sm text-slate-400 dark:text-dracula-comment">
+                                  -
+                                </span>
                               )}
-                            </div>
-                          </td>
-                          <td className="px-4 py-4">
-                            <span className="text-sm font-semibold text-slate-700 dark:text-dracula-foreground">
-                              ${item.price.toLocaleString("es-CL")}
-                            </span>
-                          </td>
-                          <td className="px-4 py-4">
-                            {item.location ? (
-                              <span className="inline-flex items-center gap-1.5 text-sm text-slate-600 dark:text-dracula-comment">
-                                <MapPin className="h-3.5 w-3.5 text-celeste-300 dark:text-dracula-cyan" />
-                                {item.location}
-                              </span>
-                            ) : (
-                              <span className="text-sm text-slate-400 dark:text-dracula-comment">
-                                -
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-4 py-4">
-                            {item.discontinued ? (
-                              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200/70 bg-amber-50/80 px-2.5 py-1 text-xs font-semibold text-amber-600 dark:border-dracula-orange/50 dark:bg-dracula-orange/20 dark:text-dracula-orange">
-                                <Archive className="h-3 w-3" />
-                                Discontinuado
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1.5 rounded-full border border-mint-200/70 bg-mint-50/80 px-2.5 py-1 text-xs font-semibold text-mint-600 dark:border-dracula-green/50 dark:bg-dracula-green/20 dark:text-dracula-green">
-                                <CheckCircle2 className="h-3 w-3" />
-                                Vigente
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-4 py-4">
-                            <div className="flex items-center justify-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => handleEdit(item)}
-                                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-celeste-200/70 bg-white/80 text-celeste-400 transition hover:border-celeste-300 hover:bg-celeste-50 dark:border-dracula-cyan/50 dark:bg-dracula-current dark:text-dracula-cyan dark:hover:bg-dracula-cyan/20"
-                                aria-label="Editar EPP"
-                                title="Editar"
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleToggleDiscontinued(item.id)
-                                }
-                                className={`inline-flex h-8 w-8 items-center justify-center rounded-full border transition ${
-                                  item.discontinued
-                                    ? "border-mint-200/70 bg-white/80 text-mint-500 hover:border-mint-300 hover:bg-mint-50 dark:border-dracula-green/50 dark:bg-dracula-current dark:text-dracula-green dark:hover:bg-dracula-green/20"
-                                    : "border-amber-200/70 bg-white/80 text-amber-500 hover:border-amber-300 hover:bg-amber-50 dark:border-dracula-orange/50 dark:bg-dracula-current dark:text-dracula-orange dark:hover:bg-dracula-orange/20"
-                                }`}
-                                aria-label={
-                                  item.discontinued
-                                    ? "Poner en vigencia"
-                                    : "Descontinuar"
-                                }
-                                title={
-                                  item.discontinued
-                                    ? "Poner en vigencia"
-                                    : "Descontinuar"
-                                }
-                              >
-                                {item.discontinued ? (
-                                  <CheckCircle2 className="h-3.5 w-3.5" />
-                                ) : (
-                                  <Archive className="h-3.5 w-3.5" />
-                                )}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDelete(item.id)}
-                                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-rose-200/70 bg-white/80 text-rose-400 transition hover:border-rose-300 hover:bg-rose-50 dark:border-dracula-red/50 dark:bg-dracula-current dark:text-dracula-red dark:hover:bg-dracula-red/20"
-                                aria-label="Eliminar EPP"
-                                title="Eliminar"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                            </td>
+                            <td className="px-4 py-4">
+                              {item.discontinued ? (
+                                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200/70 bg-amber-50/80 px-2.5 py-1 text-xs font-semibold text-amber-600 dark:border-dracula-orange/50 dark:bg-dracula-orange/20 dark:text-dracula-orange">
+                                  <Archive className="h-3 w-3" />
+                                  Discontinuado
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 rounded-full border border-mint-200/70 bg-mint-50/80 px-2.5 py-1 text-xs font-semibold text-mint-600 dark:border-dracula-green/50 dark:bg-dracula-green/20 dark:text-dracula-green">
+                                  <CheckCircle2 className="h-3 w-3" />
+                                  Vigente
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-4 py-4">
+                              <div className="flex items-center justify-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleEdit(item)}
+                                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-celeste-200/70 bg-white/80 text-celeste-400 transition hover:border-celeste-300 hover:bg-celeste-50 dark:border-dracula-cyan/50 dark:bg-dracula-current dark:text-dracula-cyan dark:hover:bg-dracula-cyan/20"
+                                  aria-label="Editar EPP"
+                                  title="Editar"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleToggleDiscontinued(item.id)
+                                  }
+                                  className={`inline-flex h-8 w-8 items-center justify-center rounded-full border transition ${
+                                    item.discontinued
+                                      ? "border-mint-200/70 bg-white/80 text-mint-500 hover:border-mint-300 hover:bg-mint-50 dark:border-dracula-green/50 dark:bg-dracula-current dark:text-dracula-green dark:hover:bg-dracula-green/20"
+                                      : "border-amber-200/70 bg-white/80 text-amber-500 hover:border-amber-300 hover:bg-amber-50 dark:border-dracula-orange/50 dark:bg-dracula-current dark:text-dracula-orange dark:hover:bg-dracula-orange/20"
+                                  }`}
+                                  aria-label={
+                                    item.discontinued
+                                      ? "Poner en vigencia"
+                                      : "Descontinuar"
+                                  }
+                                  title={
+                                    item.discontinued
+                                      ? "Poner en vigencia"
+                                      : "Descontinuar"
+                                  }
+                                >
+                                  {item.discontinued ? (
+                                    <CheckCircle2 className="h-3.5 w-3.5" />
+                                  ) : (
+                                    <Archive className="h-3.5 w-3.5" />
+                                  )}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDelete(item.id)}
+                                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-rose-200/70 bg-white/80 text-rose-400 transition hover:border-rose-300 hover:bg-rose-50 dark:border-dracula-red/50 dark:bg-dracula-current dark:text-dracula-red dark:hover:bg-dracula-red/20"
+                                  aria-label="Eliminar EPP"
+                                  title="Eliminar"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             )}
@@ -2140,7 +2150,7 @@ export default function EppDashboard() {
 
               <div className="space-y-3 sm:space-y-4 lg:space-y-6 overflow-x-hidden">
                 {/* Layout principal: Donas a la izquierda, líneas a la derecha */}
-                <div className="grid gap-3 sm:gap-4 lg:gap-6 lg:grid-cols-[380px_1fr] overflow-x-hidden">
+                <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:gap-6 lg:grid-cols-[380px_1fr]">
                   {/* Columna izquierda - Gráficos de dona */}
                   <div className="space-y-3 sm:space-y-4 lg:space-y-6">
                     {/* Dona 1 - Distribución de valor */}
@@ -2360,86 +2370,91 @@ export default function EppDashboard() {
                       <div className="overflow-x-auto overflow-y-hidden -mx-3 sm:-mx-4 lg:-mx-5 px-3 sm:px-4 lg:px-5 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent dark:scrollbar-thumb-dracula-current">
                         <div className="h-[250px] sm:h-[300px] lg:h-[350px] min-w-[500px]">
                           <ResponsiveContainer width="100%" height="100%">
-                          <ComposedChart
-                            data={costDataByCategory}
-                            margin={{ top: 5, right: 30, left: 20, bottom: 30 }}
-                          >
-                            <CartesianGrid
-                              strokeDasharray="3 3"
-                              stroke="#e5e7eb"
-                              opacity={0.3}
-                            />
-                            <XAxis
-                              dataKey="name"
-                              angle={-45}
-                              textAnchor="end"
-                              interval={0}
-                              tick={{ fontSize: 11, fill: "#94a3b8" }}
-                              tickFormatter={(value) => {
-                                const words = value?.split(" ") || [];
-                                return words[0]?.toLowerCase() ===
-                                  "protección" && words.length > 1
-                                  ? words.slice(1).join(" ")
-                                  : value || "";
+                            <ComposedChart
+                              data={costDataByCategory}
+                              margin={{
+                                top: 5,
+                                right: 30,
+                                left: 20,
+                                bottom: 20,
                               }}
-                            />
-                            <YAxis
-                              tick={{ fontSize: 11, fill: "#94a3b8" }}
-                              tickFormatter={(value) => {
-                                if (value >= 1000000) {
-                                  return `$${(value / 1000000).toLocaleString(
-                                    "es-CL",
-                                    { maximumFractionDigits: 1 }
-                                  )}M`;
-                                }
-                                if (value >= 1000) {
-                                  return `$${(value / 1000).toLocaleString(
-                                    "es-CL"
-                                  )}k`;
-                                }
-                                return `$${value.toLocaleString("es-CL")}`;
-                              }}
-                            />
-                            <Tooltip
-                              formatter={(value: number, name: string) => {
-                                if (name === "Unidades") {
-                                  return [`${value} unidades`, name];
-                                }
-                                return [
-                                  `$${value.toLocaleString("es-CL")}`,
-                                  name,
-                                ];
-                              }}
-                              contentStyle={{
-                                backgroundColor: "rgba(255, 255, 255, 0.98)",
-                                border: "1px solid #e2e8f0",
-                                borderRadius: "12px",
-                                padding: "10px",
-                                fontSize: "13px",
-                              }}
-                            />
-                            <Bar
-                              dataKey="value"
-                              fill="rgba(16, 185, 129, 0.7)"
-                              radius={[8, 8, 0, 0]}
-                              name="Valor"
-                            />
-                            <Line
-                              type="monotone"
-                              dataKey="value"
-                              stroke="rgba(139, 92, 246, 0.9)"
-                              strokeWidth={2.5}
-                              dot={{
-                                fill: "rgba(139, 92, 246, 0.9)",
-                                r: 5,
-                                strokeWidth: 2,
-                                stroke: "#fff",
-                              }}
-                              activeDot={{ r: 7, fill: "#8b5cf6" }}
-                              name="Tendencia"
-                            />
-                          </ComposedChart>
-                        </ResponsiveContainer>
+                            >
+                              <CartesianGrid
+                                strokeDasharray="3 3"
+                                stroke="#e5e7eb"
+                                opacity={0.3}
+                              />
+                              <XAxis
+                                dataKey="name"
+                                angle={-45}
+                                textAnchor="end"
+                                interval={0}
+                                tick={{ fontSize: 11, fill: "#94a3b8" }}
+                                tickFormatter={(value) => {
+                                  const words = value?.split(" ") || [];
+                                  return words[0]?.toLowerCase() ===
+                                    "protección" && words.length > 1
+                                    ? words.slice(1).join(" ")
+                                    : value || "";
+                                }}
+                              />
+                              <YAxis
+                                tick={{ fontSize: 11, fill: "#94a3b8" }}
+                                tickFormatter={(value) => {
+                                  if (value >= 1000000) {
+                                    return `$${(value / 1000000).toLocaleString(
+                                      "es-CL",
+                                      { maximumFractionDigits: 1 }
+                                    )}M`;
+                                  }
+                                  if (value >= 1000) {
+                                    return `$${(value / 1000).toLocaleString(
+                                      "es-CL"
+                                    )}k`;
+                                  }
+                                  return `$${value.toLocaleString("es-CL")}`;
+                                }}
+                              />
+                              <Tooltip
+                                formatter={(value: number, name: string) => {
+                                  if (name === "Unidades") {
+                                    return [`${value} unidades`, name];
+                                  }
+                                  return [
+                                    `$${value.toLocaleString("es-CL")}`,
+                                    name,
+                                  ];
+                                }}
+                                contentStyle={{
+                                  backgroundColor: "rgba(255, 255, 255, 0.98)",
+                                  border: "1px solid #e2e8f0",
+                                  borderRadius: "12px",
+                                  padding: "10px",
+                                  fontSize: "13px",
+                                }}
+                              />
+                              <Bar
+                                dataKey="value"
+                                fill="rgba(16, 185, 129, 0.7)"
+                                radius={[8, 8, 0, 0]}
+                                name="Valor"
+                              />
+                              <Line
+                                type="monotone"
+                                dataKey="value"
+                                stroke="rgba(139, 92, 246, 0.9)"
+                                strokeWidth={2.5}
+                                dot={{
+                                  fill: "rgba(139, 92, 246, 0.9)",
+                                  r: 5,
+                                  strokeWidth: 2,
+                                  stroke: "#fff",
+                                }}
+                                activeDot={{ r: 7, fill: "#8b5cf6" }}
+                                name="Tendencia"
+                              />
+                            </ComposedChart>
+                          </ResponsiveContainer>
                         </div>
                       </div>
                     </div>
