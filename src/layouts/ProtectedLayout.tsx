@@ -234,7 +234,8 @@ export default function ProtectedLayout() {
       </aside>
 
       <div className={`flex flex-1 flex-col ${desktopCollapsed ? 'lg:ml-24' : 'lg:ml-80 xl:ml-[23rem]'}`}>
-        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-soft-gray-200/70 bg-gradient-to-r from-celeste-100/40 via-white/80 to-mint-100/40 px-3 sm:px-6 py-3 sm:py-4 shadow-md backdrop-blur-xl dark:border-dracula-current dark:bg-gradient-to-r dark:from-dracula-current/40 dark:via-dracula-bg/80 dark:to-dracula-current/40">
+        <header className="sticky top-0 z-30 border-b border-soft-gray-200/70 bg-gradient-to-r from-celeste-100/40 via-white/80 to-mint-100/40 shadow-md backdrop-blur-xl dark:border-dracula-current dark:bg-gradient-to-r dark:from-dracula-current/40 dark:via-dracula-bg/80 dark:to-dracula-current/40" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))', paddingBottom: '0.75rem', paddingLeft: 'max(0.75rem, env(safe-area-inset-left))', paddingRight: 'max(0.75rem, env(safe-area-inset-right))' }}>
+          <div className="flex items-center justify-between px-3 sm:px-6">
           <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
             <button
               type="button"
@@ -267,6 +268,7 @@ export default function ProtectedLayout() {
               <span className="sm:hidden">Salir</span>
             </button>
           </div>
+          </div>
         </header>
         <main className="flex-1 overflow-x-hidden overflow-y-auto px-3 sm:px-6 py-6 sm:py-10">
           <Outlet />
@@ -280,23 +282,23 @@ export default function ProtectedLayout() {
             onClick={() => setSidebarOpen(false)}
             aria-hidden="true"
           />
-          <div className="relative flex h-full w-80 max-w-[85vw] flex-col overflow-y-auto border-r border-soft-gray-200/70 bg-white/95 px-5 py-6 shadow-xl backdrop-blur-xl sm:w-96 sm:px-7 sm:py-9">
-            <div className="mb-8 flex items-center justify-between">
+          <div className="relative flex h-full w-80 max-w-[85vw] flex-col overflow-y-auto border-r border-soft-gray-200/70 bg-white/95 px-5 py-8 shadow-xl backdrop-blur-xl sm:w-96 sm:px-7 sm:py-10">
+            <div className="mb-6 flex items-center justify-between">
               <img 
                 src="/IsoLogo Clodi Light.png" 
                 alt="Clodi App" 
-                className="h-14 w-auto"
+                className="h-11 w-auto"
               />
               <button
                 type="button"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-soft-gray-200/80 bg-white text-slate-600 shadow-sm transition hover:border-celeste-200 hover:text-slate-800"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-soft-gray-200/80 bg-white text-slate-600 shadow-sm transition hover:border-celeste-200 hover:text-slate-800"
                 onClick={() => setSidebarOpen(false)}
                 aria-label="Cerrar menú de navegación"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4" />
               </button>
             </div>
-            <nav className="flex-1 space-y-2">{renderNavigation(() => setSidebarOpen(false))}</nav>
+            <nav className="flex-1 space-y-1.5">{renderNavigation(() => setSidebarOpen(false))}</nav>
             <div className="mt-8 rounded-2xl border border-soft-gray-200/70 bg-soft-gray-50/80 px-4 py-3 text-xs text-slate-500 shadow-sm">
               <div className="flex items-center gap-2 mb-2">
                 {(() => {
