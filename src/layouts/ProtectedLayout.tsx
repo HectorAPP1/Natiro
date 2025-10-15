@@ -283,25 +283,29 @@ export default function ProtectedLayout() {
             aria-hidden="true"
           />
           <div className="relative flex h-full w-80 max-w-[85vw] flex-col overflow-y-auto border-r border-soft-gray-200/70 bg-white/95 px-5 py-8 shadow-xl backdrop-blur-xl sm:w-96 sm:px-7 sm:py-10 dark:border-dracula-current dark:bg-dracula-bg/95">
-            <div className="mb-6 flex items-center justify-between">
-              <img 
-                src="/IsoLogo Clodi Light.png" 
-                alt="Clodi App" 
-                className="h-11 w-auto dark:hidden"
-              />
-              <img 
-                src="/IsoLogo Clodi Dark.png" 
-                alt="Clodi App" 
-                className="hidden h-11 w-auto dark:block"
-              />
-              <button
-                type="button"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-soft-gray-200/80 bg-white text-slate-600 shadow-sm transition hover:border-celeste-200 hover:text-slate-800 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-comment dark:hover:border-dracula-purple dark:hover:text-dracula-foreground"
-                onClick={() => setSidebarOpen(false)}
-                aria-label="Cerrar menú de navegación"
-              >
-                <X className="h-4 w-4" />
-              </button>
+            <div className="mb-8">
+              <div className="flex justify-end mb-4">
+                <button
+                  type="button"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-soft-gray-200/80 bg-white text-slate-600 shadow-sm transition hover:border-celeste-200 hover:text-slate-800 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-comment dark:hover:border-dracula-purple dark:hover:text-dracula-foreground"
+                  onClick={() => setSidebarOpen(false)}
+                  aria-label="Cerrar menú de navegación"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="flex justify-center">
+                <img 
+                  src="/IsoLogo Clodi Light.png" 
+                  alt="Clodi App" 
+                  className="h-14 w-auto dark:hidden"
+                />
+                <img 
+                  src="/IsoLogo Clodi Dark.png" 
+                  alt="Clodi App" 
+                  className="hidden h-14 w-auto dark:block"
+                />
+              </div>
             </div>
             <nav className="flex-1 space-y-1.5">{renderNavigation(() => setSidebarOpen(false))}</nav>
             <div className="mt-8 rounded-2xl border border-soft-gray-200/70 bg-soft-gray-50/80 px-4 py-3 text-xs text-slate-500 shadow-sm dark:border-dracula-current/50 dark:bg-dracula-current/30">
