@@ -128,22 +128,22 @@ export default function ProtectedLayout() {
       </aside>
 
       <div className="flex flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-soft-gray-200/70 bg-white/80 px-6 py-4 shadow-sm backdrop-blur dark:border-dracula-current dark:bg-dracula-bg/95">
-          <div className="flex items-center gap-3">
+        <header className="flex items-center justify-between border-b border-soft-gray-200/70 bg-white/80 px-3 sm:px-6 py-3 sm:py-4 shadow-sm backdrop-blur dark:border-dracula-current dark:bg-dracula-bg/95">
+          <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
             <button
               type="button"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-soft-gray-200/80 text-slate-600 transition hover:border-celeste-200 hover:text-slate-800 lg:hidden"
+              className="inline-flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full border border-soft-gray-200/80 text-slate-600 transition hover:border-celeste-200 hover:text-slate-800 lg:hidden flex-shrink-0"
               onClick={() => setSidebarOpen(true)}
               aria-label="Abrir menú de navegación"
             >
               <Menu className="h-5 w-5" />
             </button>
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-celeste-300 dark:text-dracula-cyan">
+            <p className="hidden sm:inline text-xs font-semibold uppercase tracking-[0.3em] text-celeste-300 dark:text-dracula-cyan">
               Natiro HSE · Epp
             </p>
-            <h1 className="text-lg font-semibold text-slate-700 dark:text-dracula-foreground">Gestión de EPP</h1>
+            <h1 className="text-base sm:text-lg font-semibold text-slate-700 dark:text-dracula-foreground truncate">Gestión de EPP</h1>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
             <ThemeToggle />
             <button
               type="button"
@@ -153,30 +153,31 @@ export default function ProtectedLayout() {
             >
               {desktopCollapsed ? <ChevronsRight className="h-5 w-5" /> : <ChevronsLeft className="h-5 w-5" />}
             </button>
-            <div className="hidden items-center gap-3 rounded-full border border-white/70 bg-soft-gray-100/80 px-4 py-2 text-sm text-slate-600 sm:flex">
+            <div className="hidden items-center gap-3 rounded-full border border-white/70 bg-soft-gray-100/80 px-4 py-2 text-sm text-slate-600 md:flex">
               <span className="font-medium">{user?.email}</span>
             </div>
             <button
               onClick={signOutUser}
-              className="rounded-full border border-soft-gray-200/80 px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:border-celeste-200 hover:text-slate-800"
+              className="rounded-full border border-soft-gray-200/80 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-slate-600 transition-colors hover:border-celeste-200 hover:text-slate-800"
             >
-              Cerrar sesión
+              <span className="hidden sm:inline">Cerrar sesión</span>
+              <span className="sm:hidden">Salir</span>
             </button>
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto px-6 py-10">
+        <main className="flex-1 overflow-y-auto px-3 sm:px-6 py-6 sm:py-10">
           <Outlet />
         </main>
       </div>
 
       {sidebarOpen ? (
-        <div className="fixed inset-0 z-40 flex lg:hidden">
+        <div className="fixed inset-0 z-50 flex lg:hidden">
           <div
-            className="absolute inset-0 bg-slate-900/40"
+            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
             onClick={() => setSidebarOpen(false)}
             aria-hidden="true"
           />
-          <div className="relative h-full w-80 max-w-full border-r border-soft-gray-200/70 bg-white/90 px-7 py-9 shadow-xl backdrop-blur sm:w-96">
+          <div className="relative h-full w-80 max-w-[85vw] border-r border-soft-gray-200/70 bg-white/95 px-5 py-6 shadow-xl backdrop-blur dark:border-dracula-current dark:bg-dracula-bg/95 sm:w-96 sm:px-7 sm:py-9">
             <div className="flex items-center justify-between">
               <span className="inline-flex items-center gap-2 rounded-full bg-mint-100 px-3 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-celeste-300">
                 <HardHat className="h-4 w-4 text-mint-300" />

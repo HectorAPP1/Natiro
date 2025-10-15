@@ -38,3 +38,35 @@ body,
 body {
   margin: 0;
 }
+
+/* Custom Scrollbar Styles */
+.scrollbar-thin::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  @apply bg-soft-gray-100 rounded-full;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  @apply bg-celeste-300 rounded-full hover:bg-celeste-400;
+}
+
+.dark .scrollbar-thin::-webkit-scrollbar-track {
+  @apply bg-dracula-current;
+}
+
+.dark .scrollbar-thin::-webkit-scrollbar-thumb {
+  @apply bg-dracula-purple hover:bg-dracula-pink;
+}
+
+/* Firefox scrollbar */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: #8CD8FF #F3F4F6;
+}
+
+.dark .scrollbar-thin {
+  scrollbar-color: #BD93F9 #44475A;
+}

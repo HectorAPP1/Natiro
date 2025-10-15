@@ -709,13 +709,13 @@ export default function EppDashboard() {
 
   return (
     <div className="space-y-8">
-      <section className="rounded-4xl border border-white/70 bg-white/95 p-8 shadow-[0_30px_60px_-40px_rgba(15,23,42,0.45)] backdrop-blur dark:border-dracula-current dark:bg-dracula-bg/95">
+      <section className="rounded-4xl border border-white/70 bg-white/95 p-4 sm:p-6 lg:p-8 shadow-[0_30px_60px_-40px_rgba(15,23,42,0.45)] backdrop-blur dark:border-dracula-current dark:bg-dracula-bg/95">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-celeste-300 dark:text-dracula-cyan">
               Inventario de EPP
             </p>
-            <h2 className="mt-2 text-2xl font-semibold text-slate-800 dark:text-dracula-foreground">
+            <h2 className="mt-2 text-xl sm:text-2xl font-semibold text-slate-800 dark:text-dracula-foreground">
               Controla tu stock y certificaciones
             </h2>
             <p className="mt-2 max-w-2xl text-sm text-slate-500 dark:text-dracula-comment">
@@ -723,31 +723,34 @@ export default function EppDashboard() {
               necesaria para cumplir con los estándares HSE.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <button
               onClick={() => setShowQRManager(true)}
-              className="inline-flex items-center gap-2 rounded-full border border-celeste-200/70 bg-white/80 px-5 py-2.5 text-sm font-semibold text-slate-600 shadow-sm transition hover:border-celeste-300 hover:bg-celeste-50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-cyan dark:hover:border-dracula-purple dark:hover:bg-dracula-bg"
+              className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full border border-celeste-200/70 bg-white/80 px-3 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-slate-600 shadow-sm transition hover:border-celeste-300 hover:bg-celeste-50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-cyan dark:hover:border-dracula-purple dark:hover:bg-dracula-bg"
             >
-              <QrCode className="h-4 w-4" />
-              Gestión QR
+              <QrCode className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Gestión QR</span>
+              <span className="sm:hidden">QR</span>
             </button>
             <button
               onClick={handleExportToExcel}
               disabled={items.length === 0}
-              className="inline-flex items-center gap-2 rounded-full border border-mint-200/70 bg-white/80 px-5 py-2.5 text-sm font-semibold text-slate-600 shadow-sm transition hover:border-mint-300 hover:bg-mint-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-green dark:hover:border-dracula-green dark:hover:bg-dracula-bg"
+              className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full border border-mint-200/70 bg-white/80 px-3 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-slate-600 shadow-sm transition hover:border-mint-300 hover:bg-mint-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-green dark:hover:border-dracula-green dark:hover:bg-dracula-bg"
             >
-              <Download className="h-4 w-4" />
-              Exportar Excel
+              <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Exportar Excel</span>
+              <span className="sm:hidden">Excel</span>
             </button>
             <button
               onClick={() => {
                 resetForm(items.length);
                 setIsModalOpen(true);
               }}
-              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-mint-200/80 via-white to-celeste-200/70 px-6 py-3 text-sm font-semibold text-slate-700 shadow-md transition hover:shadow-lg dark:from-dracula-purple dark:via-dracula-pink dark:to-dracula-cyan dark:text-dracula-bg"
+              className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full bg-gradient-to-r from-mint-200/80 via-white to-celeste-200/70 px-4 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-slate-700 shadow-md transition hover:shadow-lg dark:from-dracula-purple dark:via-dracula-pink dark:to-dracula-cyan dark:text-dracula-bg"
             >
-              <Plus className="h-4 w-4" />
-              Añadir EPP
+              <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Añadir EPP</span>
+              <span className="sm:hidden">Añadir</span>
             </button>
           </div>
         </div>
@@ -767,12 +770,12 @@ export default function EppDashboard() {
                   ?.scrollIntoView({ behavior: "smooth", block: "start" });
               }, 100);
             }}
-            className="rounded-3xl border border-mint-200/70 bg-mint-50/70 p-5 text-left transition hover:border-mint-300 hover:bg-mint-100/70 hover:shadow-lg dark:border-dracula-green/30 dark:bg-dracula-current dark:hover:border-dracula-green/50 dark:hover:bg-dracula-green/10"
+            className="rounded-3xl border border-mint-200/70 bg-mint-50/70 p-4 sm:p-5 text-left transition hover:border-mint-300 hover:bg-mint-100/70 hover:shadow-lg dark:border-dracula-green/30 dark:bg-dracula-current dark:hover:border-dracula-green/50 dark:hover:bg-dracula-green/10"
           >
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-mint-400 dark:text-dracula-green">
               Total de registros
             </p>
-            <p className="mt-2 text-3xl font-semibold text-slate-800 dark:text-dracula-foreground">
+            <p className="mt-2 text-2xl sm:text-3xl font-semibold text-slate-800 dark:text-dracula-foreground">
               {totals.totalItems}
             </p>
             <p className="mt-1 text-xs text-slate-500 dark:text-dracula-comment">
@@ -798,12 +801,12 @@ export default function EppDashboard() {
                   ?.scrollIntoView({ behavior: "smooth", block: "start" });
               }, 100);
             }}
-            className="rounded-3xl border border-celeste-200/70 bg-celeste-50/70 p-5 text-left transition hover:border-celeste-300 hover:bg-celeste-100/70 hover:shadow-lg dark:border-dracula-cyan/30 dark:bg-dracula-current dark:hover:border-dracula-cyan/50 dark:hover:bg-dracula-cyan/10"
+            className="rounded-3xl border border-celeste-200/70 bg-celeste-50/70 p-4 sm:p-5 text-left transition hover:border-celeste-300 hover:bg-celeste-100/70 hover:shadow-lg dark:border-dracula-cyan/30 dark:bg-dracula-current dark:hover:border-dracula-cyan/50 dark:hover:bg-dracula-cyan/10"
           >
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-celeste-400 dark:text-dracula-cyan">
               Unidades disponibles
             </p>
-            <p className="mt-2 text-3xl font-semibold text-slate-800 dark:text-dracula-foreground">
+            <p className="mt-2 text-2xl sm:text-3xl font-semibold text-slate-800 dark:text-dracula-foreground">
               {totals.totalUnits}
             </p>
             <p className="mt-1 text-xs text-slate-500 dark:text-dracula-comment">
@@ -829,12 +832,12 @@ export default function EppDashboard() {
                   ?.scrollIntoView({ behavior: "smooth", block: "start" });
               }, 100);
             }}
-            className="rounded-3xl border border-amber-200/70 bg-amber-50/60 p-5 text-left transition hover:border-amber-300 hover:bg-amber-100/70 hover:shadow-lg dark:border-dracula-orange/30 dark:bg-dracula-current dark:hover:border-dracula-orange/50 dark:hover:bg-dracula-orange/10"
+            className="rounded-3xl border border-amber-200/70 bg-amber-50/60 p-4 sm:p-5 text-left transition hover:border-amber-300 hover:bg-amber-100/70 hover:shadow-lg dark:border-dracula-orange/30 dark:bg-dracula-current dark:hover:border-dracula-orange/50 dark:hover:bg-dracula-orange/10"
           >
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-amber-400 dark:text-dracula-orange">
               En nivel crítico
             </p>
-            <p className="mt-2 text-3xl font-semibold text-slate-800 dark:text-dracula-foreground">
+            <p className="mt-2 text-2xl sm:text-3xl font-semibold text-slate-800 dark:text-dracula-foreground">
               {totals.lowStock}
             </p>
             <p className="mt-1 text-xs text-slate-500 dark:text-dracula-comment">
@@ -847,12 +850,12 @@ export default function EppDashboard() {
           </button>
           <button
             onClick={() => setShowCostModal(true)}
-            className="rounded-3xl border border-purple-200/70 bg-purple-50/60 p-5 text-left transition hover:border-purple-300 hover:bg-purple-100/70 hover:shadow-lg dark:border-dracula-purple/30 dark:bg-dracula-current dark:hover:border-dracula-purple/50 dark:hover:bg-dracula-purple/10"
+            className="rounded-3xl border border-purple-200/70 bg-purple-50/60 p-4 sm:p-5 text-left transition hover:border-purple-300 hover:bg-purple-100/70 hover:shadow-lg dark:border-dracula-purple/30 dark:bg-dracula-current dark:hover:border-dracula-purple/50 dark:hover:bg-dracula-purple/10"
           >
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-purple-400 dark:text-dracula-purple">
               Valor total inventario
             </p>
-            <p className="mt-2 text-3xl font-semibold text-slate-800 dark:text-dracula-foreground">
+            <p className="mt-2 text-xl sm:text-2xl lg:text-3xl font-semibold text-slate-800 dark:text-dracula-foreground">
               ${totals.totalValue.toLocaleString("es-CL")}
             </p>
             <p className="mt-1 text-xs text-slate-500 dark:text-dracula-comment">
@@ -866,8 +869,8 @@ export default function EppDashboard() {
         </div>
       </section>
 
-      <section className="rounded-4xl border border-white/70 bg-white/95 p-6 shadow-[0_24px_50px_-35px_rgba(15,23,42,0.45)] backdrop-blur dark:border-dracula-current dark:bg-dracula-bg/95">
-        <header className="mb-6 space-y-4">
+      <section className="rounded-4xl border border-white/70 bg-white/95 p-4 sm:p-6 lg:p-8 shadow-[0_30px_60px_-40px_rgba(15,23,42,0.45)] backdrop-blur dark:border-dracula-current dark:bg-dracula-bg/95">
+        <header className="mb-4 sm:mb-6 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <h3 className="text-lg font-semibold text-slate-800 dark:text-dracula-foreground">
@@ -906,8 +909,8 @@ export default function EppDashboard() {
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <div className="relative">
+          <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 sm:gap-4">
+            <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-dracula-comment" />
               <input
                 type="text"
@@ -917,7 +920,7 @@ export default function EppDashboard() {
                   setCurrentPage(1);
                 }}
                 placeholder="Buscar por nombre o código..."
-                className="w-full rounded-2xl border border-soft-gray-200/70 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-700 shadow-sm focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground dark:placeholder-dracula-comment dark:focus:border-dracula-purple"
+                className="w-full rounded-2xl border border-soft-gray-200/70 bg-white py-2 sm:py-2.5 pl-10 pr-4 text-sm text-slate-700 shadow-sm focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground dark:placeholder-dracula-comment dark:focus:border-dracula-purple"
               />
             </div>
             <select
@@ -926,7 +929,7 @@ export default function EppDashboard() {
                 setCategoryFilter(e.target.value);
                 setCurrentPage(1);
               }}
-              className="rounded-2xl border border-soft-gray-200/70 bg-white px-4 py-2.5 text-sm text-slate-700 shadow-sm focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground dark:focus:border-dracula-purple"
+              className="rounded-2xl border border-soft-gray-200/70 bg-white px-3 sm:px-4 py-2 sm:py-2.5 text-sm text-slate-700 shadow-sm focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground dark:focus:border-dracula-purple"
             >
               <option value="all">Todas las categorías</option>
               {categories.map((cat) => (
@@ -941,7 +944,7 @@ export default function EppDashboard() {
                 setStatusFilter(e.target.value);
                 setCurrentPage(1);
               }}
-              className="rounded-2xl border border-soft-gray-200/70 bg-white px-4 py-2.5 text-sm text-slate-700 shadow-sm focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground dark:focus:border-dracula-purple"
+              className="rounded-2xl border border-soft-gray-200/70 bg-white px-3 sm:px-4 py-2 sm:py-2.5 text-sm text-slate-700 shadow-sm focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground dark:focus:border-dracula-purple"
             >
               <option value="all">Todos los estados</option>
               <option value="vigente">Vigente</option>
@@ -953,7 +956,7 @@ export default function EppDashboard() {
                 setStockFilter(e.target.value);
                 setCurrentPage(1);
               }}
-              className="rounded-2xl border border-soft-gray-200/70 bg-white px-4 py-2.5 text-sm text-slate-700 shadow-sm focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground dark:focus:border-dracula-purple"
+              className="rounded-2xl border border-soft-gray-200/70 bg-white px-3 sm:px-4 py-2 sm:py-2.5 text-sm text-slate-700 shadow-sm focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground dark:focus:border-dracula-purple"
             >
               <option value="all">Todos los niveles de stock</option>
               <option value="critical">Stock crítico</option>
@@ -1259,8 +1262,11 @@ export default function EppDashboard() {
                 ))}
               </div>
             ) : (
-              <div className="mt-8 overflow-x-auto">
-                <table className="w-full border-collapse">
+              <div className="mt-8 -mx-3 sm:mx-0">
+                <div className="overflow-x-auto px-3 sm:px-0 pb-4 scrollbar-thin">
+                  <div className="inline-block min-w-full align-middle">
+                    <div className="overflow-hidden rounded-2xl border border-soft-gray-200/70 shadow-sm dark:border-dracula-current">
+                      <table className="min-w-full border-collapse bg-white dark:bg-dracula-bg">
                   <thead>
                     <tr className="border-b-2 border-soft-gray-200/70 dark:border-dracula-current">
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-dracula-comment">
@@ -1489,6 +1495,9 @@ export default function EppDashboard() {
                     })}
                   </tbody>
                 </table>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -2102,8 +2111,8 @@ export default function EppDashboard() {
 
       {showCostModal && (
         <div className="fixed inset-0 z-[130] overflow-y-auto bg-slate-900/60 backdrop-blur-sm">
-          <div className="flex min-h-screen items-start justify-center px-4 py-10 sm:px-6 lg:py-16">
-            <div className="relative w-full max-w-6xl rounded-[28px] border border-white/70 bg-white/95 px-6 py-8 shadow-[0_40px_80px_-50px_rgba(15,23,42,0.6)] dark:border-dracula-current dark:bg-dracula-bg/95 sm:px-8 lg:px-10 lg:py-10">
+          <div className="flex min-h-screen items-center sm:items-start justify-center px-2 sm:px-4 py-2 sm:py-10 lg:py-16">
+            <div className="relative w-full max-w-6xl rounded-2xl sm:rounded-[28px] border border-white/70 bg-white/95 px-3 py-4 sm:px-6 sm:py-8 lg:px-10 lg:py-10 shadow-[0_40px_80px_-50px_rgba(15,23,42,0.6)] dark:border-dracula-current dark:bg-dracula-bg/95 max-h-[95vh] overflow-y-auto">
               <button
                 type="button"
                 className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full border border-soft-gray-200/80 text-slate-500 transition hover:border-celeste-200 hover:text-slate-700 dark:border-dracula-current dark:text-dracula-comment dark:hover:border-dracula-purple dark:hover:text-dracula-foreground sm:right-6 sm:top-6 sm:h-10 sm:w-10"
@@ -2113,30 +2122,30 @@ export default function EppDashboard() {
                 <X className="h-5 w-5" />
               </button>
 
-              <div className="mb-6 space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-purple-400 dark:text-dracula-purple">
+              <div className="mb-4 sm:mb-6 space-y-1 sm:space-y-2 pr-8">
+                <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.2em] sm:tracking-[0.3em] text-purple-400 dark:text-dracula-purple">
                   Análisis de costos
                 </p>
-                <h3 className="mt-2 text-2xl font-semibold text-slate-800 dark:text-dracula-foreground">
+                <h3 className="mt-1 sm:mt-2 text-lg sm:text-xl lg:text-2xl font-semibold text-slate-800 dark:text-dracula-foreground">
                   Valor del inventario por categoría
                 </h3>
-                <p className="text-sm text-slate-500 dark:text-dracula-comment">
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-dracula-comment">
                   Visualiza la distribución de costos y unidades de tu
                   inventario EPP
                 </p>
               </div>
 
-              <div className="space-y-6">
+              <div className="space-y-3 sm:space-y-4 lg:space-y-6">
                 {/* Layout principal: Donas a la izquierda, líneas a la derecha */}
-                <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
+                <div className="grid gap-3 sm:gap-4 lg:gap-6 lg:grid-cols-[380px_1fr]">
                   {/* Columna izquierda - Gráficos de dona */}
-                  <div className="space-y-6">
+                  <div className="space-y-3 sm:space-y-4 lg:space-y-6">
                     {/* Dona 1 - Distribución de valor */}
-                    <div className="rounded-3xl border border-soft-gray-200/70 bg-white p-5 dark:border-dracula-current dark:bg-dracula-bg">
-                      <h4 className="mb-3 text-sm font-semibold text-slate-800 dark:text-dracula-foreground">
+                    <div className="rounded-2xl sm:rounded-3xl border border-soft-gray-200/70 bg-white p-3 sm:p-4 lg:p-5 dark:border-dracula-current dark:bg-dracula-bg">
+                      <h4 className="mb-2 sm:mb-3 text-xs sm:text-sm font-semibold text-slate-800 dark:text-dracula-foreground">
                         Distribución de valor
                       </h4>
-                      <ResponsiveContainer width="100%" height={180}>
+                      <ResponsiveContainer width="100%" height={140}>
                         <PieChart>
                           <Pie
                             data={costDataByCategory}
@@ -2144,8 +2153,8 @@ export default function EppDashboard() {
                             cy="50%"
                             labelLine={false}
                             label={false}
-                            outerRadius={70}
-                            innerRadius={45}
+                            outerRadius={60}
+                            innerRadius={40}
                             fill="#8884d8"
                             dataKey="value"
                             onMouseEnter={(_, index) =>
@@ -2192,7 +2201,7 @@ export default function EppDashboard() {
                         </PieChart>
                       </ResponsiveContainer>
                       {/* Leyenda personalizada */}
-                      <div className="mt-4 space-y-1.5">
+                      <div className="mt-2 sm:mt-3 lg:mt-4 space-y-1">
                         {costDataByCategory.map((cat, index) => {
                           const words = cat.name?.split(" ") || [];
                           const label =
@@ -2224,7 +2233,7 @@ export default function EppDashboard() {
                                   ][index % 8],
                                 }}
                               />
-                              <span className="text-xs text-slate-600 dark:text-dracula-comment">
+                              <span className="text-[10px] sm:text-xs text-slate-600 dark:text-dracula-comment">
                                 {label}: {percentage}%
                               </span>
                             </div>
@@ -2234,11 +2243,11 @@ export default function EppDashboard() {
                     </div>
 
                     {/* Dona 2 - Distribución de unidades */}
-                    <div className="rounded-3xl border border-soft-gray-200/70 bg-white p-5 dark:border-dracula-current dark:bg-dracula-bg">
-                      <h4 className="mb-3 text-sm font-semibold text-slate-800 dark:text-dracula-foreground">
+                    <div className="rounded-2xl sm:rounded-3xl border border-soft-gray-200/70 bg-white p-3 sm:p-4 lg:p-5 dark:border-dracula-current dark:bg-dracula-bg">
+                      <h4 className="mb-2 sm:mb-3 text-xs sm:text-sm font-semibold text-slate-800 dark:text-dracula-foreground">
                         Distribución de unidades
                       </h4>
-                      <ResponsiveContainer width="100%" height={180}>
+                      <ResponsiveContainer width="100%" height={140}>
                         <PieChart>
                           <Pie
                             data={costDataByCategory}
@@ -2246,8 +2255,8 @@ export default function EppDashboard() {
                             cy="50%"
                             labelLine={false}
                             label={false}
-                            outerRadius={70}
-                            innerRadius={45}
+                            outerRadius={60}
+                            innerRadius={40}
                             fill="#8884d8"
                             dataKey="units"
                             onMouseEnter={(_, index) =>
@@ -2335,12 +2344,12 @@ export default function EppDashboard() {
                   </div>
 
                   {/* Columna derecha - Gráfico combinado (barras + línea) + Tabla resumen */}
-                  <div className="grid grid-rows-[1fr_auto] gap-6 h-full">
-                    <div className="rounded-3xl border border-soft-gray-200/70 bg-white p-5 dark:border-dracula-current dark:bg-dracula-bg flex flex-col">
-                      <h4 className="mb-3 text-sm font-semibold text-slate-800 dark:text-dracula-foreground">
+                  <div className="grid grid-rows-[auto_auto] lg:grid-rows-[1fr_auto] gap-3 sm:gap-4 lg:gap-6 h-auto lg:h-full lg:min-h-[500px]">
+                    <div className="rounded-2xl sm:rounded-3xl border border-soft-gray-200/70 bg-white p-3 sm:p-4 lg:p-5 dark:border-dracula-current dark:bg-dracula-bg flex flex-col">
+                      <h4 className="mb-2 sm:mb-3 text-xs sm:text-sm font-semibold text-slate-800 dark:text-dracula-foreground">
                         Valor de inventario por categoría
                       </h4>
-                      <div className="flex-1 min-h-0">
+                      <div className="h-[250px] sm:h-[300px] lg:flex-1 lg:min-h-0">
                         <ResponsiveContainer width="100%" height="100%">
                           <ComposedChart
                             data={costDataByCategory}
@@ -2426,8 +2435,8 @@ export default function EppDashboard() {
                     </div>
 
                     {/* Tabla resumen compacta */}
-                    <div className="rounded-3xl border border-soft-gray-200/70 bg-white p-5 dark:border-dracula-current dark:bg-dracula-bg">
-                      <h4 className="mb-3 text-sm font-semibold text-slate-800 dark:text-dracula-foreground">
+                    <div className="rounded-2xl sm:rounded-3xl border border-soft-gray-200/70 bg-white p-3 sm:p-4 lg:p-5 dark:border-dracula-current dark:bg-dracula-bg">
+                      <h4 className="mb-2 sm:mb-3 text-xs sm:text-sm font-semibold text-slate-800 dark:text-dracula-foreground">
                         Resumen por categoría
                       </h4>
                       <div className="overflow-x-auto">
