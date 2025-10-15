@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
-import { Archive, CheckCircle2, ChevronLeft, ChevronRight, Download, FileText, MapPin, Pencil, Plus, QrCode, Search, Trash2, Upload, X } from 'lucide-react'
+import { Archive, CheckCircle2, ChevronLeft, ChevronRight, Download, FileText, Grid3x3, List, MapPin, Pencil, Plus, QrCode, Search, Trash2, Upload, X } from 'lucide-react'
 import { useEppFirestore } from '../hooks/useEppFirestore'
 import * as XLSX from 'xlsx'
 import QRManager from './QRManager'
+import { PieChart, Pie, Cell, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 
 type SizeVariantForm = {
   id: string
@@ -150,8 +151,12 @@ export default function EppDashboard() {
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [stockFilter, setStockFilter] = useState<string>('all')
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 20
+  const [viewMode, setViewMode] = useState<'card' | 'list'>('card')
+  const [showCostModal, setShowCostModal] = useState(false)
+  const [activeCategory, setActiveCategory] = useState<string | null>(null)
 
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
@@ -162,9 +167,41 @@ export default function EppDashboard() {
         (statusFilter === 'vigente' && !item.discontinued) ||
         (statusFilter === 'discontinuado' && item.discontinued)
       
-      return matchesSearch && matchesCategory && matchesStatus
+      // Filtro de stock
+      let matchesStock = true
+      if (stockFilter !== 'all') {
+        if (item.multiSize) {
+          // Para multi-talla: verificar si alguna talla cumple la condición
+          const hasMatchingStock = item.sizeVariants.some((variant) => {
+            if (stockFilter === 'critical') {
+              return variant.stockActual <= variant.stockCritico
+            } else if (stockFilter === 'low') {
+              return variant.stockActual <= variant.stockMinimo && variant.stockActual > variant.stockCritico
+            } else if (stockFilter === 'critical-or-low') {
+              return variant.stockActual <= variant.stockMinimo
+            }
+            return true
+          })
+          matchesStock = hasMatchingStock
+        } else {
+          // Para talla única: verificar condición
+          const stockActual = item.stockActual ?? 0
+          const stockMinimo = item.stockMinimo ?? 0
+          const stockCritico = item.stockCritico ?? 0
+          
+          if (stockFilter === 'critical') {
+            matchesStock = stockActual <= stockCritico
+          } else if (stockFilter === 'low') {
+            matchesStock = stockActual <= stockMinimo && stockActual > stockCritico
+          } else if (stockFilter === 'critical-or-low') {
+            matchesStock = stockActual <= stockMinimo
+          }
+        }
+      }
+      
+      return matchesSearch && matchesCategory && matchesStatus && matchesStock
     })
-  }, [items, searchQuery, categoryFilter, statusFilter])
+  }, [items, searchQuery, categoryFilter, statusFilter, stockFilter])
 
   const paginatedItems = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage
@@ -201,6 +238,34 @@ export default function EppDashboard() {
       lowStock,
       totalValue,
     }
+  }, [items])
+
+  const costDataByCategory = useMemo(() => {
+    const categoryData: Record<string, { value: number; units: number; items: number }> = {}
+    
+    items.forEach((item) => {
+      if (!categoryData[item.category]) {
+        categoryData[item.category] = { value: 0, units: 0, items: 0 }
+      }
+      
+      if (item.multiSize) {
+        const units = item.sizeVariants.reduce((acc, variant) => acc + variant.stockActual, 0)
+        categoryData[item.category].units += units
+        categoryData[item.category].value += units * item.price
+      } else {
+        const units = item.stockActual ?? 0
+        categoryData[item.category].units += units
+        categoryData[item.category].value += units * item.price
+      }
+      categoryData[item.category].items += 1
+    })
+
+    return Object.entries(categoryData).map(([name, data]) => ({
+      name,
+      value: data.value,
+      units: data.units,
+      items: data.items,
+    })).sort((a, b) => b.value - a.value)
   }, [items])
 
   const resetForm = (nextCount?: number) => {
@@ -583,28 +648,89 @@ export default function EppDashboard() {
           </div>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-3xl border border-mint-200/70 bg-mint-50/70 p-5 dark:border-dracula-green/30 dark:bg-dracula-current">
+          <button
+            onClick={() => {
+              setViewMode('list')
+              setSearchQuery('')
+              setCategoryFilter('all')
+              setStatusFilter('all')
+              setStockFilter('all')
+              setCurrentPage(1)
+              // Scroll suave a la sección de listado
+              setTimeout(() => {
+                document.querySelector('section:nth-of-type(2)')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              }, 100)
+            }}
+            className="rounded-3xl border border-mint-200/70 bg-mint-50/70 p-5 text-left transition hover:border-mint-300 hover:bg-mint-100/70 hover:shadow-lg dark:border-dracula-green/30 dark:bg-dracula-current dark:hover:border-dracula-green/50 dark:hover:bg-dracula-green/10"
+          >
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-mint-400 dark:text-dracula-green">Total de registros</p>
             <p className="mt-2 text-3xl font-semibold text-slate-800 dark:text-dracula-foreground">{totals.totalItems}</p>
             <p className="mt-1 text-xs text-slate-500 dark:text-dracula-comment">Equipos registrados en el inventario.</p>
-          </div>
-          <div className="rounded-3xl border border-celeste-200/70 bg-celeste-50/70 p-5 dark:border-dracula-cyan/30 dark:bg-dracula-current">
+            <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-mint-500 dark:text-dracula-green">
+              <List className="h-3.5 w-3.5" />
+              Ver lista completa
+            </p>
+          </button>
+          <button
+            onClick={() => {
+              setViewMode('card')
+              setSearchQuery('')
+              setCategoryFilter('all')
+              setStatusFilter('all')
+              setStockFilter('all')
+              setCurrentPage(1)
+              // Scroll suave a la sección de listado
+              setTimeout(() => {
+                document.querySelector('section:nth-of-type(2)')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              }, 100)
+            }}
+            className="rounded-3xl border border-celeste-200/70 bg-celeste-50/70 p-5 text-left transition hover:border-celeste-300 hover:bg-celeste-100/70 hover:shadow-lg dark:border-dracula-cyan/30 dark:bg-dracula-current dark:hover:border-dracula-cyan/50 dark:hover:bg-dracula-cyan/10"
+          >
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-celeste-400 dark:text-dracula-cyan">Unidades disponibles</p>
             <p className="mt-2 text-3xl font-semibold text-slate-800 dark:text-dracula-foreground">{totals.totalUnits}</p>
             <p className="mt-1 text-xs text-slate-500 dark:text-dracula-comment">Suma de unidades considerando todas las tallas.</p>
-          </div>
-          <div className="rounded-3xl border border-amber-200/70 bg-amber-50/60 p-5 dark:border-dracula-orange/30 dark:bg-dracula-current">
+            <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-celeste-500 dark:text-dracula-cyan">
+              <Grid3x3 className="h-3.5 w-3.5" />
+              Ver en tarjetas
+            </p>
+          </button>
+          <button
+            onClick={() => {
+              setViewMode('list')
+              setCategoryFilter('all')
+              setStatusFilter('all')
+              setStockFilter('critical')
+              setSearchQuery('')
+              setCurrentPage(1)
+              // Scroll suave a la sección de listado
+              setTimeout(() => {
+                document.querySelector('section:nth-of-type(2)')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              }, 100)
+            }}
+            className="rounded-3xl border border-amber-200/70 bg-amber-50/60 p-5 text-left transition hover:border-amber-300 hover:bg-amber-100/70 hover:shadow-lg dark:border-dracula-orange/30 dark:bg-dracula-current dark:hover:border-dracula-orange/50 dark:hover:bg-dracula-orange/10"
+          >
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-amber-400 dark:text-dracula-orange">En nivel crítico</p>
             <p className="mt-2 text-3xl font-semibold text-slate-800 dark:text-dracula-foreground">{totals.lowStock}</p>
             <p className="mt-1 text-xs text-slate-500 dark:text-dracula-comment">EPP con stock igual o por debajo del mínimo.</p>
-          </div>
-          <div className="rounded-3xl border border-purple-200/70 bg-purple-50/60 p-5 dark:border-dracula-purple/30 dark:bg-dracula-current">
+            <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-amber-500 dark:text-dracula-orange">
+              <List className="h-3.5 w-3.5" />
+              Ver EPP críticos
+            </p>
+          </button>
+          <button
+            onClick={() => setShowCostModal(true)}
+            className="rounded-3xl border border-purple-200/70 bg-purple-50/60 p-5 text-left transition hover:border-purple-300 hover:bg-purple-100/70 hover:shadow-lg dark:border-dracula-purple/30 dark:bg-dracula-current dark:hover:border-dracula-purple/50 dark:hover:bg-dracula-purple/10"
+          >
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-purple-400 dark:text-dracula-purple">Valor total inventario</p>
             <p className="mt-2 text-3xl font-semibold text-slate-800 dark:text-dracula-foreground">
               ${totals.totalValue.toLocaleString('es-CL')}
             </p>
             <p className="mt-1 text-xs text-slate-500 dark:text-dracula-comment">Valor total del stock actual en CLP.</p>
-          </div>
+            <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-purple-500 dark:text-dracula-purple">
+              <FileText className="h-3.5 w-3.5" />
+              Ver análisis de costos
+            </p>
+          </button>
         </div>
       </section>
 
@@ -617,9 +743,35 @@ export default function EppDashboard() {
                 Mostrando {paginatedItems.length} de {filteredItems.length} equipos
               </p>
             </div>
+            <div className="flex items-center gap-2 rounded-full border border-soft-gray-200/70 bg-white p-1 shadow-sm dark:border-dracula-current dark:bg-dracula-current">
+              <button
+                onClick={() => setViewMode('card')}
+                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
+                  viewMode === 'card'
+                    ? 'bg-celeste-100 text-celeste-600 dark:bg-dracula-purple/30 dark:text-dracula-purple'
+                    : 'text-slate-500 hover:text-slate-700 dark:text-dracula-comment dark:hover:text-dracula-foreground'
+                }`}
+                aria-label="Vista de tarjetas"
+              >
+                <Grid3x3 className="h-4 w-4" />
+                Tarjetas
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
+                  viewMode === 'list'
+                    ? 'bg-celeste-100 text-celeste-600 dark:bg-dracula-purple/30 dark:text-dracula-purple'
+                    : 'text-slate-500 hover:text-slate-700 dark:text-dracula-comment dark:hover:text-dracula-foreground'
+                }`}
+                aria-label="Vista de lista"
+              >
+                <List className="h-4 w-4" />
+                Lista
+              </button>
+            </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-dracula-comment" />
               <input
@@ -659,6 +811,19 @@ export default function EppDashboard() {
               <option value="all">Todos los estados</option>
               <option value="vigente">Vigente</option>
               <option value="discontinuado">Discontinuado</option>
+            </select>
+            <select
+              value={stockFilter}
+              onChange={(e) => {
+                setStockFilter(e.target.value)
+                setCurrentPage(1)
+              }}
+              className="rounded-2xl border border-soft-gray-200/70 bg-white px-4 py-2.5 text-sm text-slate-700 shadow-sm focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground dark:focus:border-dracula-purple"
+            >
+              <option value="all">Todos los niveles de stock</option>
+              <option value="critical">Stock crítico</option>
+              <option value="low">Stock mínimo (bajo)</option>
+              <option value="critical-or-low">Stock crítico o mínimo</option>
             </select>
           </div>
         </header>
@@ -701,6 +866,7 @@ export default function EppDashboard() {
                 setSearchQuery('')
                 setCategoryFilter('all')
                 setStatusFilter('all')
+                setStockFilter('all')
                 setCurrentPage(1)
               }}
               className="inline-flex items-center gap-2 rounded-full border border-celeste-200/60 bg-white/80 px-5 py-2 text-sm font-semibold text-slate-600 transition hover:border-celeste-200 hover:text-slate-800"
@@ -711,12 +877,13 @@ export default function EppDashboard() {
           </div>
         ) : (
           <>
-            <div className="mt-8 space-y-6">
-              {paginatedItems.map((item) => (
-              <article
-                key={item.id}
-                className="rounded-4xl border border-soft-gray-200/70 bg-white/95 p-6 shadow-[0_18px_45px_-30px_rgba(15,23,42,0.45)] transition hover:shadow-[0_22px_50px_-28px_rgba(15,23,42,0.45)] dark:border-dracula-current dark:bg-dracula-bg/95 lg:p-8"
-              >
+            {viewMode === 'card' ? (
+              <div className="mt-8 space-y-6">
+                {paginatedItems.map((item) => (
+                <article
+                  key={item.id}
+                  className="rounded-4xl border border-soft-gray-200/70 bg-white/95 p-6 shadow-[0_18px_45px_-30px_rgba(15,23,42,0.45)] transition hover:shadow-[0_22px_50px_-28px_rgba(15,23,42,0.45)] dark:border-dracula-current dark:bg-dracula-bg/95 lg:p-8"
+                >
                 <div className="flex flex-col gap-6 lg:flex-row">
                   <div className="flex w-full items-center justify-center rounded-3xl bg-soft-gray-50/70 p-4 dark:bg-dracula-current lg:w-40 lg:flex-shrink-0">
                     {item.imageBase64 ? (
@@ -901,6 +1068,169 @@ export default function EppDashboard() {
               </article>
             ))}
           </div>
+            ) : (
+              <div className="mt-8 overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="border-b-2 border-soft-gray-200/70 dark:border-dracula-current">
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-dracula-comment">Código</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-dracula-comment">Nombre</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-dracula-comment">Categoría</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-dracula-comment">Marca</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-dracula-comment">Stock</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-dracula-comment">Precio</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-dracula-comment">Ubicación</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-dracula-comment">Estado</th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-dracula-comment">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-soft-gray-200/50 dark:divide-dracula-current">
+                    {paginatedItems.map((item) => {
+                      const totalStock = item.multiSize 
+                        ? item.sizeVariants.reduce((acc, v) => acc + v.stockActual, 0)
+                        : item.stockActual ?? 0
+                      const minStock = item.multiSize
+                        ? Math.min(...item.sizeVariants.map(v => v.stockMinimo))
+                        : item.stockMinimo ?? 0
+                      const criticalStock = item.multiSize
+                        ? Math.min(...item.sizeVariants.map(v => v.stockCritico))
+                        : item.stockCritico ?? 0
+                      
+                      // Contar tallas en estado crítico
+                      const criticalSizes = item.multiSize 
+                        ? item.sizeVariants.filter(v => v.stockActual <= v.stockCritico)
+                        : []
+                      
+                      const stockStatus = totalStock <= criticalStock ? 'critical' : totalStock <= minStock ? 'low' : 'ok'
+                      
+                      return (
+                        <tr 
+                          key={item.id}
+                          className="transition hover:bg-soft-gray-50/50 dark:hover:bg-dracula-current/30"
+                        >
+                          <td className="px-4 py-4">
+                            <span className="text-xs font-semibold text-celeste-400 dark:text-dracula-cyan">{item.eppId}</span>
+                          </td>
+                          <td className="px-4 py-4">
+                            <div className="flex items-center gap-3">
+                              {item.imageBase64 ? (
+                                <img
+                                  src={item.imageBase64}
+                                  alt={item.name}
+                                  className="h-10 w-10 rounded-lg object-cover"
+                                />
+                              ) : (
+                                <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-dashed border-soft-gray-300 text-xs text-slate-400 dark:border-dracula-comment dark:text-dracula-comment">
+                                  -
+                                </div>
+                              )}
+                              <div>
+                                <p className="font-semibold text-slate-800 dark:text-dracula-foreground">{item.name}</p>
+                                {item.multiSize && (
+                                  <p className="text-xs text-slate-500 dark:text-dracula-comment">
+                                    {item.sizeVariants.length} tallas
+                                    {criticalSizes.length > 0 && (
+                                      <span className="ml-1.5 text-amber-500 dark:text-dracula-orange">
+                                        ({criticalSizes.length} crítica{criticalSizes.length > 1 ? 's' : ''})
+                                      </span>
+                                    )}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-4">
+                            <span className="text-sm text-slate-600 dark:text-dracula-comment">{item.category}</span>
+                          </td>
+                          <td className="px-4 py-4">
+                            <span className="text-sm text-slate-600 dark:text-dracula-comment">{item.brand || '-'}</span>
+                          </td>
+                          <td className="px-4 py-4">
+                            <div className="flex items-center gap-2">
+                              <span className={`text-sm font-semibold ${
+                                stockStatus === 'critical' ? 'text-rose-500' :
+                                stockStatus === 'low' ? 'text-amber-500' :
+                                'text-slate-700 dark:text-dracula-foreground'
+                              }`}>
+                                {totalStock}
+                              </span>
+                              {stockStatus !== 'ok' && (
+                                <span className={`inline-flex h-2 w-2 rounded-full ${
+                                  stockStatus === 'critical' ? 'bg-rose-500' : 'bg-amber-500'
+                                }`} title={stockStatus === 'critical' ? 'Stock crítico' : 'Stock bajo'} />
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-4">
+                            <span className="text-sm font-semibold text-slate-700 dark:text-dracula-foreground">
+                              ${item.price.toLocaleString('es-CL')}
+                            </span>
+                          </td>
+                          <td className="px-4 py-4">
+                            {item.location ? (
+                              <span className="inline-flex items-center gap-1.5 text-sm text-slate-600 dark:text-dracula-comment">
+                                <MapPin className="h-3.5 w-3.5 text-celeste-300 dark:text-dracula-cyan" />
+                                {item.location}
+                              </span>
+                            ) : (
+                              <span className="text-sm text-slate-400 dark:text-dracula-comment">-</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-4">
+                            {item.discontinued ? (
+                              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200/70 bg-amber-50/80 px-2.5 py-1 text-xs font-semibold text-amber-600 dark:border-dracula-orange/50 dark:bg-dracula-orange/20 dark:text-dracula-orange">
+                                <Archive className="h-3 w-3" />
+                                Discontinuado
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 rounded-full border border-mint-200/70 bg-mint-50/80 px-2.5 py-1 text-xs font-semibold text-mint-600 dark:border-dracula-green/50 dark:bg-dracula-green/20 dark:text-dracula-green">
+                                <CheckCircle2 className="h-3 w-3" />
+                                Vigente
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-4">
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleEdit(item)}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-celeste-200/70 bg-white/80 text-celeste-400 transition hover:border-celeste-300 hover:bg-celeste-50 dark:border-dracula-cyan/50 dark:bg-dracula-current dark:text-dracula-cyan dark:hover:bg-dracula-cyan/20"
+                                aria-label="Editar EPP"
+                                title="Editar"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleToggleDiscontinued(item.id)}
+                                className={`inline-flex h-8 w-8 items-center justify-center rounded-full border transition ${
+                                  item.discontinued
+                                    ? 'border-mint-200/70 bg-white/80 text-mint-500 hover:border-mint-300 hover:bg-mint-50 dark:border-dracula-green/50 dark:bg-dracula-current dark:text-dracula-green dark:hover:bg-dracula-green/20'
+                                    : 'border-amber-200/70 bg-white/80 text-amber-500 hover:border-amber-300 hover:bg-amber-50 dark:border-dracula-orange/50 dark:bg-dracula-current dark:text-dracula-orange dark:hover:bg-dracula-orange/20'
+                                }`}
+                                aria-label={item.discontinued ? 'Poner en vigencia' : 'Descontinuar'}
+                                title={item.discontinued ? 'Poner en vigencia' : 'Descontinuar'}
+                              >
+                                {item.discontinued ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(item.id)}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-rose-200/70 bg-white/80 text-rose-400 transition hover:border-rose-300 hover:bg-rose-50 dark:border-dracula-red/50 dark:bg-dracula-current dark:text-dracula-red dark:hover:bg-dracula-red/20"
+                                aria-label="Eliminar EPP"
+                                title="Eliminar"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
           {totalPages > 1 && (
             <div className="mt-8 flex items-center justify-center gap-2">
@@ -1389,6 +1719,302 @@ export default function EppDashboard() {
           </div>
         </div>
       ) : null}
+
+      {showCostModal && (
+        <div className="fixed inset-0 z-[130] overflow-y-auto bg-slate-900/60 backdrop-blur-sm">
+          <div className="flex min-h-screen items-start justify-center px-4 py-10 sm:px-6 lg:py-16">
+            <div className="relative w-full max-w-6xl rounded-[28px] border border-white/70 bg-white/95 px-6 py-8 shadow-[0_40px_80px_-50px_rgba(15,23,42,0.6)] dark:border-dracula-current dark:bg-dracula-bg/95 sm:px-8 lg:px-10 lg:py-10">
+              <button
+                type="button"
+                className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full border border-soft-gray-200/80 text-slate-500 transition hover:border-celeste-200 hover:text-slate-700 dark:border-dracula-current dark:text-dracula-comment dark:hover:border-dracula-purple dark:hover:text-dracula-foreground sm:right-6 sm:top-6 sm:h-10 sm:w-10"
+                onClick={() => setShowCostModal(false)}
+                aria-label="Cerrar modal"
+              >
+                <X className="h-5 w-5" />
+              </button>
+
+              <div className="mb-6 space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-purple-400 dark:text-dracula-purple">
+                  Análisis de costos
+                </p>
+                <h3 className="mt-2 text-2xl font-semibold text-slate-800 dark:text-dracula-foreground">
+                  Valor del inventario por categoría
+                </h3>
+                <p className="text-sm text-slate-500 dark:text-dracula-comment">
+                  Visualiza la distribución de costos y unidades de tu inventario EPP
+                </p>
+              </div>
+
+              <div className="space-y-6">
+                {/* Layout principal: Donas a la izquierda, líneas a la derecha */}
+                <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
+                  {/* Columna izquierda - Gráficos de dona */}
+                  <div className="space-y-6">
+                    {/* Dona 1 - Distribución de valor */}
+                    <div className="rounded-3xl border border-soft-gray-200/70 bg-white p-5 dark:border-dracula-current dark:bg-dracula-bg">
+                      <h4 className="mb-3 text-sm font-semibold text-slate-800 dark:text-dracula-foreground">
+                        Distribución de valor
+                      </h4>
+                      <ResponsiveContainer width="100%" height={180}>
+                        <PieChart>
+                          <Pie
+                            data={costDataByCategory}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            label={false}
+                            outerRadius={70}
+                            innerRadius={45}
+                            fill="#8884d8"
+                            dataKey="value"
+                            onMouseEnter={(_, index) => setActiveCategory(costDataByCategory[index].name)}
+                            onMouseLeave={() => setActiveCategory(null)}
+                          >
+                            {costDataByCategory.map((entry, index) => (
+                              <Cell 
+                                key={`cell-value-${index}`} 
+                                fill={[
+                                  'rgba(139, 92, 246, 0.85)', 'rgba(167, 139, 250, 0.85)', 
+                                  'rgba(196, 181, 253, 0.85)', 'rgba(221, 214, 254, 0.85)',
+                                  'rgba(6, 182, 212, 0.85)', 'rgba(34, 211, 238, 0.85)', 
+                                  'rgba(103, 232, 249, 0.85)', 'rgba(165, 243, 252, 0.85)'
+                                ][index % 8]}
+                                opacity={activeCategory === null || activeCategory === entry.name ? 1 : 0.3}
+                              />
+                            ))}
+                          </Pie>
+                          <Tooltip 
+                            formatter={(value: number) => `$${value.toLocaleString('es-CL')}`}
+                            contentStyle={{ 
+                              backgroundColor: 'rgba(255, 255, 255, 0.98)', 
+                              border: '1px solid #e2e8f0',
+                              borderRadius: '12px',
+                              padding: '8px',
+                              fontSize: '12px'
+                            }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      {/* Leyenda personalizada */}
+                      <div className="mt-4 space-y-1.5">
+                        {costDataByCategory.map((cat, index) => {
+                          const words = cat.name?.split(' ') || []
+                          const label = words[0]?.toLowerCase() === 'protección' && words.length > 1 
+                            ? words.slice(1).join(' ') 
+                            : cat.name || ''
+                          const percentage = ((cat.value / totals.totalValue) * 100).toFixed(0)
+                          return (
+                            <div key={`legend-value-${index}`} className="flex items-center gap-2">
+                              <div 
+                                className="h-3 w-3 rounded-sm flex-shrink-0"
+                                style={{ 
+                                  backgroundColor: [
+                                    'rgba(139, 92, 246, 0.85)', 'rgba(167, 139, 250, 0.85)', 
+                                    'rgba(196, 181, 253, 0.85)', 'rgba(221, 214, 254, 0.85)',
+                                    'rgba(6, 182, 212, 0.85)', 'rgba(34, 211, 238, 0.85)', 
+                                    'rgba(103, 232, 249, 0.85)', 'rgba(165, 243, 252, 0.85)'
+                                  ][index % 8]
+                                }}
+                              />
+                              <span className="text-xs text-slate-600 dark:text-dracula-comment">
+                                {label}: {percentage}%
+                              </span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Dona 2 - Distribución de unidades */}
+                    <div className="rounded-3xl border border-soft-gray-200/70 bg-white p-5 dark:border-dracula-current dark:bg-dracula-bg">
+                      <h4 className="mb-3 text-sm font-semibold text-slate-800 dark:text-dracula-foreground">
+                        Distribución de unidades
+                      </h4>
+                      <ResponsiveContainer width="100%" height={180}>
+                        <PieChart>
+                          <Pie
+                            data={costDataByCategory}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            label={false}
+                            outerRadius={70}
+                            innerRadius={45}
+                            fill="#8884d8"
+                            dataKey="units"
+                            onMouseEnter={(_, index) => setActiveCategory(costDataByCategory[index].name)}
+                            onMouseLeave={() => setActiveCategory(null)}
+                          >
+                            {costDataByCategory.map((entry, index) => (
+                              <Cell 
+                                key={`cell-units-${index}`} 
+                                fill={[
+                                  'rgba(6, 182, 212, 0.85)', 'rgba(34, 211, 238, 0.85)', 
+                                  'rgba(103, 232, 249, 0.85)', 'rgba(165, 243, 252, 0.85)',
+                                  'rgba(139, 92, 246, 0.85)', 'rgba(167, 139, 250, 0.85)', 
+                                  'rgba(196, 181, 253, 0.85)', 'rgba(221, 214, 254, 0.85)'
+                                ][index % 8]}
+                                opacity={activeCategory === null || activeCategory === entry.name ? 1 : 0.3}
+                              />
+                            ))}
+                          </Pie>
+                          <Tooltip 
+                            formatter={(value: number) => `${value} unidades`}
+                            contentStyle={{ 
+                              backgroundColor: 'rgba(255, 255, 255, 0.98)', 
+                              border: '1px solid #e2e8f0',
+                              borderRadius: '12px',
+                              padding: '8px',
+                              fontSize: '12px'
+                            }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      {/* Leyenda personalizada */}
+                      <div className="mt-4 space-y-1.5">
+                        {costDataByCategory.map((cat, index) => {
+                          const words = cat.name?.split(' ') || []
+                          const label = words[0]?.toLowerCase() === 'protección' && words.length > 1 
+                            ? words.slice(1).join(' ') 
+                            : cat.name || ''
+                          const percentage = ((cat.units / totals.totalUnits) * 100).toFixed(0)
+                          return (
+                            <div key={`legend-units-${index}`} className="flex items-center gap-2">
+                              <div 
+                                className="h-3 w-3 rounded-sm flex-shrink-0"
+                                style={{ 
+                                  backgroundColor: [
+                                    'rgba(6, 182, 212, 0.85)', 'rgba(34, 211, 238, 0.85)', 
+                                    'rgba(103, 232, 249, 0.85)', 'rgba(165, 243, 252, 0.85)',
+                                    'rgba(139, 92, 246, 0.85)', 'rgba(167, 139, 250, 0.85)', 
+                                    'rgba(196, 181, 253, 0.85)', 'rgba(221, 214, 254, 0.85)'
+                                  ][index % 8]
+                                }}
+                              />
+                              <span className="text-xs text-slate-600 dark:text-dracula-comment">
+                                {label}: {percentage}%
+                              </span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Columna derecha - Gráfico combinado (barras + línea) + Tabla resumen */}
+                  <div className="grid grid-rows-[1fr_auto] gap-6 h-full">
+                    <div className="rounded-3xl border border-soft-gray-200/70 bg-white p-5 dark:border-dracula-current dark:bg-dracula-bg flex flex-col">
+                      <h4 className="mb-3 text-sm font-semibold text-slate-800 dark:text-dracula-foreground">
+                        Valor de inventario por categoría
+                      </h4>
+                      <div className="flex-1">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <ComposedChart data={costDataByCategory} margin={{ top: 5, right: 30, left: 20, bottom: 80 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} />
+                            <XAxis 
+                              dataKey="name" 
+                              angle={-45}
+                              textAnchor="end"
+                              height={100}
+                              tick={{ fontSize: 11, fill: '#94a3b8' }}
+                              tickFormatter={(value) => {
+                                const words = value?.split(' ') || []
+                                return words[0]?.toLowerCase() === 'protección' && words.length > 1 
+                                  ? words.slice(1).join(' ') 
+                                  : value || ''
+                              }}
+                            />
+                            <YAxis 
+                              tick={{ fontSize: 11, fill: '#94a3b8' }}
+                              tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                            />
+                            <Tooltip 
+                              formatter={(value: number, name: string) => {
+                                if (name === 'Unidades') {
+                                  return [`${value} unidades`, name]
+                                }
+                                return [`$${value.toLocaleString('es-CL')}`, name]
+                              }}
+                              contentStyle={{ 
+                                backgroundColor: 'rgba(255, 255, 255, 0.98)', 
+                                border: '1px solid #e2e8f0',
+                                borderRadius: '12px',
+                                padding: '10px',
+                                fontSize: '13px'
+                              }}
+                            />
+                            <Bar 
+                              dataKey="value" 
+                              fill="rgba(16, 185, 129, 0.7)"
+                              radius={[8, 8, 0, 0]}
+                              name="Valor"
+                            />
+                            <Line 
+                              type="monotone" 
+                              dataKey="value" 
+                              stroke="rgba(139, 92, 246, 0.9)" 
+                              strokeWidth={2.5}
+                              dot={{ fill: 'rgba(139, 92, 246, 0.9)', r: 5, strokeWidth: 2, stroke: '#fff' }}
+                              activeDot={{ r: 7, fill: '#8b5cf6' }}
+                              name="Tendencia"
+                            />
+                          </ComposedChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+
+                    {/* Tabla resumen compacta */}
+                    <div className="rounded-3xl border border-soft-gray-200/70 bg-white p-5 dark:border-dracula-current dark:bg-dracula-bg">
+                      <h4 className="mb-3 text-sm font-semibold text-slate-800 dark:text-dracula-foreground">
+                        Resumen por categoría
+                      </h4>
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead>
+                            <tr className="border-b border-soft-gray-200 dark:border-dracula-current">
+                              <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-dracula-comment">Categoría</th>
+                              <th className="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-dracula-comment">Items</th>
+                              <th className="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-dracula-comment">Unidades</th>
+                              <th className="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-dracula-comment">Valor Total</th>
+                              <th className="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-dracula-comment">%</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-soft-gray-200/50 dark:divide-dracula-current">
+                            {costDataByCategory.map((cat) => (
+                              <tr key={cat.name} className="transition hover:bg-soft-gray-50 dark:hover:bg-dracula-current/30">
+                                <td className="px-3 py-2 text-xs font-medium text-slate-800 dark:text-dracula-foreground">{cat.name}</td>
+                                <td className="px-3 py-2 text-right text-xs text-slate-600 dark:text-dracula-comment">{cat.items}</td>
+                                <td className="px-3 py-2 text-right text-xs text-slate-600 dark:text-dracula-comment">{cat.units}</td>
+                                <td className="px-3 py-2 text-right text-xs font-semibold text-purple-600 dark:text-dracula-purple">
+                                  ${cat.value.toLocaleString('es-CL')}
+                                </td>
+                                <td className="px-3 py-2 text-right text-xs text-slate-600 dark:text-dracula-comment">
+                                  {((cat.value / totals.totalValue) * 100).toFixed(1)}%
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot className="border-t-2 border-soft-gray-200 dark:border-dracula-current">
+                            <tr className="bg-soft-gray-50 dark:bg-dracula-current">
+                              <td className="px-3 py-2 text-xs font-bold text-slate-800 dark:text-dracula-foreground">TOTAL</td>
+                              <td className="px-3 py-2 text-right text-xs font-bold text-slate-800 dark:text-dracula-foreground">{totals.totalItems}</td>
+                              <td className="px-3 py-2 text-right text-xs font-bold text-slate-800 dark:text-dracula-foreground">{totals.totalUnits}</td>
+                              <td className="px-3 py-2 text-right text-xs font-bold text-purple-600 dark:text-dracula-purple">
+                                ${totals.totalValue.toLocaleString('es-CL')}
+                              </td>
+                              <td className="px-3 py-2 text-right text-xs font-bold text-slate-800 dark:text-dracula-foreground">100%</td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
