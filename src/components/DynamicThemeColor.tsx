@@ -2,13 +2,13 @@ import { useEffect } from 'react'
 
 export default function DynamicThemeColor() {
   useEffect(() => {
-    // Colores del degradado (celeste y mint)
+    // Colores del degradado (celeste y mint) - más suaves para mejor integración
     const colors = [
-      '#22d3ee', // cyan-400
-      '#34d399', // emerald-400
-      '#10b981', // emerald-500
-      '#06b6d4', // cyan-500
-      '#22d3ee', // cyan-400 (volver al inicio)
+      '#e0f2fe', // cyan-100
+      '#d1fae5', // emerald-100
+      '#a7f3d0', // emerald-200
+      '#bae6fd', // cyan-200
+      '#e0f2fe', // cyan-100 (volver al inicio)
     ]
 
     let currentIndex = 0

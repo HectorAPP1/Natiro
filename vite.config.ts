@@ -13,7 +13,7 @@ export default defineConfig({
         name: 'Clodi App - Gestión de EPP',
         short_name: 'Clodi App',
         description: 'Sistema de gestión de Equipos de Protección Personal',
-        theme_color: '#22d3ee',
+        theme_color: '#e0f2fe',
         background_color: '#ffffff',
         display: 'standalone',
         orientation: 'portrait',

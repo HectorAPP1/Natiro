@@ -70,11 +70,11 @@ export default function ProtectedLayout() {
               />
               {desktopCollapsed ? null : (
                 <>
-                  <span className={`flex-1 text-left ${isActive ? 'text-slate-800' : 'text-slate-700'}`}>
+                  <span className={`flex-1 text-left ${isActive ? 'text-slate-800 dark:text-dracula-cyan' : 'text-slate-700 dark:text-dracula-cyan/70'}`}>
                     {item.label}
                   </span>
                   {item.soon ? (
-                    <span className="ml-auto rounded-full bg-soft-gray-100 px-2 py-0.5 text-[11px] font-semibold uppercase text-slate-400 dark:bg-dracula-current dark:text-dracula-comment">
+                    <span className="ml-auto rounded-full bg-soft-gray-100 px-2 py-0.5 text-[11px] font-semibold uppercase text-slate-400 dark:bg-dracula-current dark:text-dracula-cyan/50">
                       Próximamente
                     </span>
                   ) : null}
@@ -132,7 +132,7 @@ export default function ProtectedLayout() {
                   alt="Clodi App" 
                   className="hidden h-16 w-auto dark:block"
                 />
-                <p className="mt-4 text-sm text-slate-500 dark:text-dracula-comment">
+                <p className="mt-4 text-sm text-slate-500 dark:text-dracula-cyan/60">
                   Gestión integral de seguridad, salud ocupacional y medioambiente.
                 </p>
               </>
@@ -141,9 +141,9 @@ export default function ProtectedLayout() {
           <nav className="space-y-2">{renderNavigation()}</nav>
         </div>
         {desktopCollapsed ? null : (
-          <div className="rounded-2xl border border-white/70 bg-white/80 px-4 py-3 text-xs text-slate-500 shadow-sm backdrop-blur">
-            <p className="font-semibold text-slate-600">Centro de ayuda</p>
-            <p className="mt-1 leading-relaxed">
+          <div className="rounded-2xl border border-white/70 bg-white/80 px-4 py-3 text-xs text-slate-500 shadow-sm backdrop-blur dark:border-dracula-current/50 dark:bg-dracula-current/30">
+            <p className="font-semibold text-slate-600 dark:text-dracula-cyan">Centro de ayuda</p>
+            <p className="mt-1 leading-relaxed dark:text-dracula-cyan/60">
               Capacita a tu equipo en buenas prácticas HSE y mantén tu inventario de EPP actualizado.
             </p>
           </div>
