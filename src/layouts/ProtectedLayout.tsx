@@ -451,7 +451,7 @@ export default function ProtectedLayout() {
       </aside>
 
       <div
-        className={`flex flex-1 flex-col ${
+        className={`flex flex-1 flex-col h-screen overflow-y-auto ${
           desktopCollapsed ? "lg:ml-24" : "lg:ml-80 xl:ml-[23rem]"
         }`}
       >
