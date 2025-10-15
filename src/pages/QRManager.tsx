@@ -1,21 +1,47 @@
 import { useEffect, useRef, useState } from 'react'
-import { Camera, Download, Minus, Plus, QrCode, X } from 'lucide-react'
+import { Camera, Download, Minus, Plus, QrCode, X, Layers, Package } from 'lucide-react'
 import { Html5Qrcode } from 'html5-qrcode'
 import QRCodeLib from 'qrcode'
 import { useEppFirestore } from '../hooks/useEppFirestore'
 
 type QRMode = 'scan' | 'generate' | null
+type QRType = 'category' | 'epp'
+type QRData = {
+  type: QRType
+  id: string
+}
 
 export default function QRManager() {
   const { items, updateEpp } = useEppFirestore()
   const [mode, setMode] = useState<QRMode>(null)
   const [scanning, setScanning] = useState(false)
-  const [scannedEppId, setScannedEppId] = useState<string | null>(null)
+  const [scannedData, setScannedData] = useState<QRData | null>(null)
   const [editingStock, setEditingStock] = useState<{ [key: string]: number }>({})
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
+  const [qrType, setQrType] = useState<QRType>('epp')
   const scannerRef = useRef<Html5Qrcode | null>(null)
 
-  const scannedItem = items.find((item) => item.eppId === scannedEppId)
+  // Parsear QR escaneado
+  const parseQRData = (qrText: string): QRData | null => {
+    try {
+      const parsed = JSON.parse(qrText)
+      if (parsed.type && parsed.id) {
+        return parsed as QRData
+      }
+    } catch {
+      // Formato antiguo: solo el ID del EPP
+      return { type: 'epp', id: qrText }
+    }
+    return null
+  }
+
+  const scannedItem = scannedData?.type === 'epp' 
+    ? items.find((item) => item.eppId === scannedData.id)
+    : null
+  
+  const scannedCategoryItems = scannedData?.type === 'category'
+    ? items.filter((item) => item.category === scannedData.id)
+    : []
 
   const categories = Array.from(new Set(items.map((item) => item.category)))
 
@@ -45,9 +71,12 @@ export default function QRManager() {
         },
         (decodedText) => {
           // QR escaneado exitosamente
-          setScannedEppId(decodedText)
-          setScanning(false)
-          html5QrCode.stop()
+          const parsed = parseQRData(decodedText)
+          if (parsed) {
+            setScannedData(parsed)
+            setScanning(false)
+            html5QrCode.stop()
+          }
         },
         () => {
           // Error de escaneo (ignorar)
@@ -75,33 +104,63 @@ export default function QRManager() {
   }
 
   const handleSaveStock = async () => {
-    if (!scannedItem) return
+    if (scannedData?.type === 'epp' && scannedItem) {
+      // Actualizar un solo EPP
+      const updates: any = {}
 
-    const updates: any = {}
+      if (scannedItem.multiSize) {
+        updates.sizeVariants = scannedItem.sizeVariants.map((variant) => ({
+          ...variant,
+          stockActual: Math.max(0, variant.stockActual + (editingStock[variant.id] || 0)),
+        }))
+      } else {
+        updates.stockActual = Math.max(0, (scannedItem.stockActual || 0) + (editingStock['single'] || 0))
+      }
 
-    if (scannedItem.multiSize) {
-      updates.sizeVariants = scannedItem.sizeVariants.map((variant) => ({
-        ...variant,
-        stockActual: Math.max(0, variant.stockActual + (editingStock[variant.id] || 0)),
-      }))
-    } else {
-      updates.stockActual = Math.max(0, (scannedItem.stockActual || 0) + (editingStock['single'] || 0))
-    }
-
-    const result = await updateEpp(scannedItem.id, updates)
-    
-    if (result.success) {
-      alert('Stock actualizado correctamente')
-      setScannedEppId(null)
+      const result = await updateEpp(scannedItem.id, updates)
+      
+      if (result.success) {
+        alert('Stock actualizado correctamente')
+        setScannedData(null)
+        setEditingStock({})
+      } else {
+        alert(result.error || 'Error al actualizar stock')
+      }
+    } else if (scannedData?.type === 'category' && scannedCategoryItems.length > 0) {
+      // Actualizar múltiples EPP de una categoría
+      let successCount = 0
+      
+      for (const item of scannedCategoryItems) {
+        const itemKey = `item-${item.id}`
+        const hasChanges = editingStock[itemKey] !== undefined && editingStock[itemKey] !== 0
+        
+        if (hasChanges) {
+          const updates: any = {}
+          
+          if (item.multiSize) {
+            updates.sizeVariants = item.sizeVariants.map((variant) => ({
+              ...variant,
+              stockActual: Math.max(0, variant.stockActual + (editingStock[`${itemKey}-${variant.id}`] || 0)),
+            }))
+          } else {
+            updates.stockActual = Math.max(0, (item.stockActual || 0) + (editingStock[itemKey] || 0))
+          }
+          
+          const result = await updateEpp(item.id, updates)
+          if (result.success) successCount++
+        }
+      }
+      
+      alert(`Stock actualizado para ${successCount} EPP(s)`)
+      setScannedData(null)
       setEditingStock({})
-    } else {
-      alert(result.error || 'Error al actualizar stock')
     }
   }
 
-  const generateQRCode = async (eppId: string): Promise<string> => {
+  const generateQRCode = async (data: QRData): Promise<string> => {
     try {
-      return await QRCodeLib.toDataURL(eppId, {
+      const qrData = JSON.stringify(data)
+      return await QRCodeLib.toDataURL(qrData, {
         width: 300,
         margin: 2,
       })
@@ -112,14 +171,27 @@ export default function QRManager() {
   }
 
   const downloadAllQRs = async () => {
-    for (const item of filteredItems) {
-      const qrDataUrl = await generateQRCode(item.eppId)
-      const link = document.createElement('a')
-      link.href = qrDataUrl
-      link.download = `QR_${item.eppId}_${item.name}.png`
-      link.click()
-      // Pequeño delay para no saturar el navegador
-      await new Promise((resolve) => setTimeout(resolve, 100))
+    if (qrType === 'epp') {
+      // Descargar QR por cada EPP
+      for (const item of filteredItems) {
+        const qrDataUrl = await generateQRCode({ type: 'epp', id: item.eppId })
+        const link = document.createElement('a')
+        link.href = qrDataUrl
+        link.download = `QR_EPP_${item.eppId}_${item.name}.png`
+        link.click()
+        await new Promise((resolve) => setTimeout(resolve, 100))
+      }
+    } else {
+      // Descargar QR por cada categoría
+      const categoriesToDownload = selectedCategory === 'all' ? categories : [selectedCategory]
+      for (const category of categoriesToDownload) {
+        const qrDataUrl = await generateQRCode({ type: 'category', id: category })
+        const link = document.createElement('a')
+        link.href = qrDataUrl
+        link.download = `QR_CATEGORIA_${category}.png`
+        link.click()
+        await new Promise((resolve) => setTimeout(resolve, 100))
+      }
     }
   }
 
@@ -174,7 +246,7 @@ export default function QRManager() {
                 onClick={() => {
                   stopScanning()
                   setMode(null)
-                  setScannedEppId(null)
+                  setScannedData(null)
                   setEditingStock({})
                 }}
               >
@@ -188,7 +260,7 @@ export default function QRManager() {
                 </p>
               </div>
 
-              {!scannedEppId ? (
+              {!scannedData ? (
                 <div className="space-y-4">
                   <div id="qr-reader" className="overflow-hidden rounded-2xl"></div>
                   {!scanning && (
@@ -209,7 +281,7 @@ export default function QRManager() {
                     </button>
                   )}
                 </div>
-              ) : scannedItem ? (
+              ) : scannedData.type === 'epp' && scannedItem ? (
                 <div className="space-y-6">
                   <div className="rounded-2xl border border-celeste-200/70 bg-celeste-50/40 p-6">
                     <p className="text-xs font-semibold uppercase tracking-[0.3em] text-celeste-400">
@@ -282,7 +354,102 @@ export default function QRManager() {
                   <div className="flex gap-3">
                     <button
                       onClick={() => {
-                        setScannedEppId(null)
+                        setScannedData(null)
+                        setEditingStock({})
+                      }}
+                      className="flex-1 rounded-full border border-soft-gray-300 px-6 py-3 text-sm font-semibold text-slate-600 transition hover:bg-soft-gray-50"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={handleSaveStock}
+                      className="flex-1 rounded-full bg-gradient-to-r from-mint-200/80 via-white to-celeste-200/70 px-6 py-3 text-sm font-semibold text-slate-700 shadow-md transition hover:shadow-lg"
+                    >
+                      Guardar cambios
+                    </button>
+                  </div>
+                </div>
+              ) : scannedData.type === 'category' && scannedCategoryItems.length > 0 ? (
+                <div className="space-y-6">
+                  <div className="rounded-2xl border border-purple-200/70 bg-purple-50/40 p-6">
+                    <p className="text-xs font-semibold uppercase tracking-[0.3em] text-purple-400">
+                      CATEGORÍA
+                    </p>
+                    <h4 className="mt-2 text-xl font-semibold text-slate-800">{scannedData.id}</h4>
+                    <p className="text-sm text-slate-500">{scannedCategoryItems.length} EPP(s) encontrados</p>
+                  </div>
+
+                  <div className="space-y-4 max-h-96 overflow-y-auto">
+                    <h5 className="text-sm font-semibold text-slate-700">Ajustar stock por EPP</h5>
+                    {scannedCategoryItems.map((item) => {
+                      const itemKey = `item-${item.id}`
+                      return (
+                        <div key={item.id} className="rounded-2xl border border-soft-gray-200/70 bg-white p-4 space-y-3">
+                          <div>
+                            <p className="font-semibold text-slate-700">{item.name}</p>
+                            <p className="text-xs text-slate-500">{item.eppId}</p>
+                          </div>
+                          {item.multiSize ? (
+                            <div className="space-y-2">
+                              {item.sizeVariants.map((variant) => (
+                                <div key={variant.id} className="flex items-center justify-between">
+                                  <div>
+                                    <p className="text-sm text-slate-600">{variant.label}</p>
+                                    <p className="text-xs text-slate-500">Stock: {variant.stockActual}</p>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      onClick={() => handleStockChange(`${itemKey}-${variant.id}`, -1)}
+                                      className="flex h-8 w-8 items-center justify-center rounded-full border border-rose-200/70 bg-white text-rose-500 transition hover:bg-rose-50"
+                                    >
+                                      <Minus className="h-3 w-3" />
+                                    </button>
+                                    <span className="w-10 text-center text-sm font-semibold text-slate-800">
+                                      {editingStock[`${itemKey}-${variant.id}`] > 0 ? '+' : ''}
+                                      {editingStock[`${itemKey}-${variant.id}`] || 0}
+                                    </span>
+                                    <button
+                                      onClick={() => handleStockChange(`${itemKey}-${variant.id}`, 1)}
+                                      className="flex h-8 w-8 items-center justify-center rounded-full border border-mint-200/70 bg-white text-mint-500 transition hover:bg-mint-50"
+                                    >
+                                      <Plus className="h-3 w-3" />
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm text-slate-500">Stock actual: {item.stockActual || 0}</p>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => handleStockChange(itemKey, -1)}
+                                  className="flex h-8 w-8 items-center justify-center rounded-full border border-rose-200/70 bg-white text-rose-500 transition hover:bg-rose-50"
+                                >
+                                  <Minus className="h-3 w-3" />
+                                </button>
+                                <span className="w-10 text-center text-sm font-semibold text-slate-800">
+                                  {editingStock[itemKey] > 0 ? '+' : ''}
+                                  {editingStock[itemKey] || 0}
+                                </span>
+                                <button
+                                  onClick={() => handleStockChange(itemKey, 1)}
+                                  className="flex h-8 w-8 items-center justify-center rounded-full border border-mint-200/70 bg-white text-mint-500 transition hover:bg-mint-50"
+                                >
+                                  <Plus className="h-3 w-3" />
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        setScannedData(null)
                         setEditingStock({})
                       }}
                       className="flex-1 rounded-full border border-soft-gray-300 px-6 py-3 text-sm font-semibold text-slate-600 transition hover:bg-soft-gray-50"
@@ -299,10 +466,12 @@ export default function QRManager() {
                 </div>
               ) : (
                 <div className="rounded-2xl border border-rose-200/80 bg-rose-50/80 p-6 text-center">
-                  <p className="text-sm text-rose-600">EPP no encontrado con código: {scannedEppId}</p>
+                  <p className="text-sm text-rose-600">
+                    {scannedData?.type === 'epp' ? 'EPP no encontrado' : 'Categoría sin EPP'}
+                  </p>
                   <button
                     onClick={() => {
-                      setScannedEppId(null)
+                      setScannedData(null)
                       startScanning()
                     }}
                     className="mt-4 text-sm font-semibold text-celeste-500 hover:text-celeste-600"
@@ -336,11 +505,47 @@ export default function QRManager() {
                 </p>
               </div>
 
-              <div className="mb-6 flex items-center justify-between gap-4">
+              {/* Selector de tipo de QR */}
+              <div className="mb-6 grid gap-3 sm:grid-cols-2">
+                <button
+                  onClick={() => setQrType('epp')}
+                  className={`flex items-center gap-3 rounded-2xl border p-4 transition ${
+                    qrType === 'epp'
+                      ? 'border-celeste-300 bg-celeste-50/60 dark:border-dracula-cyan dark:bg-dracula-cyan/10'
+                      : 'border-soft-gray-200/70 bg-white hover:border-celeste-200 dark:border-dracula-current dark:bg-dracula-bg'
+                  }`}
+                >
+                  <Package className={`h-5 w-5 ${qrType === 'epp' ? 'text-celeste-500 dark:text-dracula-cyan' : 'text-slate-400'}`} />
+                  <div className="text-left">
+                    <p className={`text-sm font-semibold ${qrType === 'epp' ? 'text-slate-800 dark:text-dracula-foreground' : 'text-slate-600'}`}>
+                      QR por EPP
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-dracula-comment">Un QR por cada equipo</p>
+                  </div>
+                </button>
+                <button
+                  onClick={() => setQrType('category')}
+                  className={`flex items-center gap-3 rounded-2xl border p-4 transition ${
+                    qrType === 'category'
+                      ? 'border-purple-300 bg-purple-50/60 dark:border-dracula-purple dark:bg-dracula-purple/10'
+                      : 'border-soft-gray-200/70 bg-white hover:border-purple-200 dark:border-dracula-current dark:bg-dracula-bg'
+                  }`}
+                >
+                  <Layers className={`h-5 w-5 ${qrType === 'category' ? 'text-purple-500 dark:text-dracula-purple' : 'text-slate-400'}`} />
+                  <div className="text-left">
+                    <p className={`text-sm font-semibold ${qrType === 'category' ? 'text-slate-800 dark:text-dracula-foreground' : 'text-slate-600'}`}>
+                      QR por Categoría
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-dracula-comment">Un QR por categoría</p>
+                  </div>
+                </button>
+              </div>
+
+              <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
                 <select
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="rounded-2xl border border-soft-gray-200/70 bg-white px-4 py-2.5 text-sm text-slate-700 shadow-sm focus:border-celeste-300 focus:outline-none"
+                  className="rounded-2xl border border-soft-gray-200/70 bg-white px-4 py-2.5 text-sm text-slate-700 shadow-sm focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
                 >
                   <option value="all">Todas las categorías</option>
                   {categories.map((cat) => (
@@ -352,18 +557,24 @@ export default function QRManager() {
 
                 <button
                   onClick={downloadAllQRs}
-                  disabled={filteredItems.length === 0}
+                  disabled={(qrType === 'epp' && filteredItems.length === 0) || (qrType === 'category' && categories.length === 0)}
                   className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-mint-200/80 via-white to-celeste-200/70 px-6 py-3 text-sm font-semibold text-slate-700 shadow-md transition hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Download className="h-4 w-4" />
-                  Descargar todos ({filteredItems.length})
+                  Descargar todos ({qrType === 'epp' ? filteredItems.length : (selectedCategory === 'all' ? categories.length : 1)})
                 </button>
               </div>
 
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {filteredItems.map((item) => (
-                  <QRCard key={item.id} item={item} generateQRCode={generateQRCode} />
-                ))}
+                {qrType === 'epp' ? (
+                  filteredItems.map((item) => (
+                    <QRCardEPP key={item.id} item={item} generateQRCode={generateQRCode} />
+                  ))
+                ) : (
+                  (selectedCategory === 'all' ? categories : [selectedCategory]).map((category) => (
+                    <QRCardCategory key={category} category={category} itemCount={items.filter(i => i.category === category).length} generateQRCode={generateQRCode} />
+                  ))
+                )}
               </div>
             </div>
           </div>
@@ -373,11 +584,12 @@ export default function QRManager() {
   )
 }
 
-function QRCard({ item, generateQRCode }: { item: any; generateQRCode: (id: string) => Promise<string> }) {
+// Componente para QR de EPP individual
+function QRCardEPP({ item, generateQRCode }: { item: any; generateQRCode: (data: QRData) => Promise<string> }) {
   const [qrDataUrl, setQrDataUrl] = useState<string>('')
 
   useEffect(() => {
-    generateQRCode(item.eppId).then(setQrDataUrl)
+    generateQRCode({ type: 'epp', id: item.eppId }).then(setQrDataUrl)
   }, [item.eppId, generateQRCode])
 
   const downloadQR = () => {
@@ -400,6 +612,42 @@ function QRCard({ item, generateQRCode }: { item: any; generateQRCode: (id: stri
       <button
         onClick={downloadQR}
         className="w-full rounded-full border border-celeste-200/70 bg-white px-4 py-2 text-sm font-semibold text-celeste-600 transition hover:bg-celeste-50"
+      >
+        <Download className="mr-2 inline h-3.5 w-3.5" />
+        Descargar
+      </button>
+    </div>
+  )
+}
+
+// Componente para QR de Categoría
+function QRCardCategory({ category, itemCount, generateQRCode }: { category: string; itemCount: number; generateQRCode: (data: QRData) => Promise<string> }) {
+  const [qrDataUrl, setQrDataUrl] = useState<string>('')
+
+  useEffect(() => {
+    generateQRCode({ type: 'category', id: category }).then(setQrDataUrl)
+  }, [category, generateQRCode])
+
+  const downloadQR = () => {
+    const link = document.createElement('a')
+    link.href = qrDataUrl
+    link.download = `QR_CATEGORIA_${category}.png`
+    link.click()
+  }
+
+  return (
+    <div className="rounded-3xl border border-purple-200/70 bg-purple-50/40 p-6 shadow-sm dark:border-dracula-purple/30 dark:bg-dracula-purple/10">
+      <div className="mb-4 flex items-center justify-center rounded-2xl bg-white p-4 dark:bg-dracula-bg">
+        {qrDataUrl && <img src={qrDataUrl} alt={`QR ${category}`} className="h-48 w-48" />}
+      </div>
+      <div className="mb-4 text-center">
+        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-purple-400 dark:text-dracula-purple">CATEGORÍA</p>
+        <h4 className="mt-1 text-sm font-semibold text-slate-800 dark:text-dracula-foreground">{category}</h4>
+        <p className="text-xs text-slate-500 dark:text-dracula-comment">{itemCount} EPP(s)</p>
+      </div>
+      <button
+        onClick={downloadQR}
+        className="w-full rounded-full border border-purple-200/70 bg-white px-4 py-2 text-sm font-semibold text-purple-600 transition hover:bg-purple-50 dark:border-dracula-purple/50 dark:bg-dracula-current dark:text-dracula-purple dark:hover:bg-dracula-purple/20"
       >
         <Download className="mr-2 inline h-3.5 w-3.5" />
         Descargar
