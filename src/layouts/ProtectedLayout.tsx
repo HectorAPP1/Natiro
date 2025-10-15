@@ -101,7 +101,7 @@ export default function ProtectedLayout() {
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-soft-gray-50 via-celeste-100/30 to-soft-gray-50 dark:from-dracula-bg dark:via-dracula-current/50 dark:to-dracula-bg">
       <aside
-        className={`hidden flex-col justify-between border-r border-soft-gray-200/70 bg-white/85 py-10 shadow-sm backdrop-blur dark:border-dracula-current dark:bg-dracula-bg/95 lg:flex ${
+        className={`hidden flex-col justify-between border-r border-soft-gray-200/70 bg-gradient-to-br from-celeste-50/85 via-white/85 to-mint-50/85 py-10 shadow-sm backdrop-blur-xl dark:border-dracula-current dark:bg-gradient-to-br dark:from-dracula-current/95 dark:via-dracula-bg/95 dark:to-dracula-current/95 lg:flex ${
           desktopCollapsed ? 'w-24 px-4' : 'w-80 px-8 xl:w-[23rem]'
         }`}
       >
@@ -110,12 +110,12 @@ export default function ProtectedLayout() {
             {desktopCollapsed ? (
               <div className="flex justify-center">
                 <img 
-                  src="/IsoLogo Clodi Light.png" 
+                  src="/Logo Clodi Light.png" 
                   alt="Clodi App" 
                   className="h-12 w-auto dark:hidden"
                 />
                 <img 
-                  src="/IsoLogo Clodi Dark.png" 
+                  src="/Logo Clodi Dark.png" 
                   alt="Clodi App" 
                   className="hidden h-12 w-auto dark:block"
                 />
@@ -151,7 +151,7 @@ export default function ProtectedLayout() {
       </aside>
 
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-        <header className="flex items-center justify-between border-b border-soft-gray-200/70 bg-white/80 px-3 sm:px-6 py-3 sm:py-4 shadow-sm backdrop-blur dark:border-dracula-current dark:bg-dracula-bg/95">
+        <header className="flex items-center justify-between border-b border-soft-gray-200/70 bg-gradient-to-r from-celeste-100/40 via-white/80 to-mint-100/40 px-3 sm:px-6 py-3 sm:py-4 shadow-sm backdrop-blur-xl dark:border-dracula-current dark:bg-gradient-to-r dark:from-dracula-current/40 dark:via-dracula-bg/80 dark:to-dracula-current/40">
           <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
             <button
               type="button"
@@ -197,7 +197,7 @@ export default function ProtectedLayout() {
             onClick={() => setSidebarOpen(false)}
             aria-hidden="true"
           />
-          <div className="relative h-full w-80 max-w-[85vw] border-r border-soft-gray-200/70 bg-white/95 px-5 py-6 shadow-xl backdrop-blur dark:border-dracula-current dark:bg-dracula-bg/95 sm:w-96 sm:px-7 sm:py-9">
+          <div className="relative h-full w-80 max-w-[85vw] border-r border-soft-gray-200/70 bg-gradient-to-br from-celeste-50/95 via-white/95 to-mint-50/95 px-5 py-6 shadow-xl backdrop-blur-xl dark:border-dracula-current dark:bg-gradient-to-br dark:from-dracula-current/95 dark:via-dracula-bg/95 dark:to-dracula-current/95 sm:w-96 sm:px-7 sm:py-9">
             <div className="flex items-center justify-between">
               <div className="flex flex-1 justify-center">
                 <img 

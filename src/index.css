@@ -27,16 +27,30 @@
 
 :root {
   color-scheme: light dark;
+  /* Variables para safe area (notch) */
+  --sat: env(safe-area-inset-top);
+  --sab: env(safe-area-inset-bottom);
+  --sal: env(safe-area-inset-left);
+  --sar: env(safe-area-inset-right);
 }
 
 html,
 body,
 #root {
   height: 100%;
+  /* Soporte para viewport-fit=cover */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
 body {
   margin: 0;
+  /* Fondo con degradado para status bar translúcido */
+  background: linear-gradient(135deg, #f8fafc 0%, #e0f2fe 50%, #f8fafc 100%);
+}
+
+/* Dark mode background */
+.dark body {
+  background: linear-gradient(135deg, #282a36 0%, #44475a 50%, #282a36 100%);
 }
 
 /* Custom Scrollbar Styles */
