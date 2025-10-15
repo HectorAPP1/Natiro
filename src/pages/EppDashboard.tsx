@@ -2138,9 +2138,9 @@ export default function EppDashboard() {
                 </p>
               </div>
 
-              <div className="space-y-3 sm:space-y-4 lg:space-y-6">
+              <div className="space-y-3 sm:space-y-4 lg:space-y-6 overflow-x-hidden">
                 {/* Layout principal: Donas a la izquierda, líneas a la derecha */}
-                <div className="grid gap-3 sm:gap-4 lg:gap-6 lg:grid-cols-[380px_1fr]">
+                <div className="grid gap-3 sm:gap-4 lg:gap-6 lg:grid-cols-[380px_1fr] overflow-x-hidden">
                   {/* Columna izquierda - Gráficos de dona */}
                   <div className="space-y-3 sm:space-y-4 lg:space-y-6">
                     {/* Dona 1 - Distribución de valor */}
@@ -2348,12 +2348,18 @@ export default function EppDashboard() {
 
                   {/* Columna derecha - Gráfico combinado (barras + línea) + Tabla resumen */}
                   <div className="grid grid-rows-[auto_auto] lg:grid-rows-[1fr_auto] gap-3 sm:gap-4 lg:gap-6 h-auto lg:h-full lg:min-h-[500px]">
-                    <div className="rounded-2xl sm:rounded-3xl border border-soft-gray-200/70 bg-white p-3 sm:p-4 lg:p-5 dark:border-dracula-current dark:bg-dracula-bg flex flex-col">
-                      <h4 className="mb-2 sm:mb-3 text-xs sm:text-sm font-semibold text-slate-800 dark:text-dracula-foreground">
-                        Valor de inventario por categoría
-                      </h4>
-                      <div className="h-[250px] sm:h-[300px] lg:flex-1 lg:min-h-0">
-                        <ResponsiveContainer width="100%" height="100%">
+                    <div className="rounded-2xl sm:rounded-3xl border border-soft-gray-200/70 bg-white p-3 sm:p-4 lg:p-5 dark:border-dracula-current dark:bg-dracula-bg flex flex-col overflow-hidden">
+                      <div className="flex items-center justify-between mb-2 sm:mb-3">
+                        <h4 className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-dracula-foreground">
+                          Valor de inventario por categoría
+                        </h4>
+                        <span className="text-[10px] text-slate-400 dark:text-dracula-comment sm:hidden">
+                          Desliza →
+                        </span>
+                      </div>
+                      <div className="overflow-x-auto overflow-y-hidden -mx-3 sm:-mx-4 lg:-mx-5 px-3 sm:px-4 lg:px-5 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent dark:scrollbar-thumb-dracula-current">
+                        <div className="h-[250px] sm:h-[300px] lg:h-[350px] min-w-[500px]">
+                          <ResponsiveContainer width="100%" height="100%">
                           <ComposedChart
                             data={costDataByCategory}
                             margin={{ top: 5, right: 30, left: 20, bottom: 30 }}
@@ -2434,16 +2440,22 @@ export default function EppDashboard() {
                             />
                           </ComposedChart>
                         </ResponsiveContainer>
+                        </div>
                       </div>
                     </div>
 
                     {/* Tabla resumen compacta */}
-                    <div className="rounded-2xl sm:rounded-3xl border border-soft-gray-200/70 bg-white p-3 sm:p-4 lg:p-5 dark:border-dracula-current dark:bg-dracula-bg">
-                      <h4 className="mb-2 sm:mb-3 text-xs sm:text-sm font-semibold text-slate-800 dark:text-dracula-foreground">
-                        Resumen por categoría
-                      </h4>
-                      <div className="overflow-x-auto">
-                        <table className="w-full">
+                    <div className="rounded-2xl sm:rounded-3xl border border-soft-gray-200/70 bg-white p-3 sm:p-4 lg:p-5 dark:border-dracula-current dark:bg-dracula-bg overflow-hidden">
+                      <div className="flex items-center justify-between mb-2 sm:mb-3">
+                        <h4 className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-dracula-foreground">
+                          Resumen por categoría
+                        </h4>
+                        <span className="text-[10px] text-slate-400 dark:text-dracula-comment sm:hidden">
+                          Desliza →
+                        </span>
+                      </div>
+                      <div className="overflow-x-auto -mx-3 sm:-mx-4 lg:-mx-5 px-3 sm:px-4 lg:px-5 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent dark:scrollbar-thumb-dracula-current">
+                        <table className="w-full min-w-[500px]">
                           <thead>
                             <tr className="border-b border-soft-gray-200 dark:border-dracula-current">
                               <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-dracula-comment">
