@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Navigate, NavLink, Outlet, useLocation } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
 import {
@@ -13,6 +13,12 @@ import {
   ShieldCheck,
   Users,
   X,
+  Lightbulb,
+  Sparkles,
+  Heart,
+  Award,
+  BookOpen,
+  Zap,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import ThemeToggle from '../components/ThemeToggle'
@@ -22,6 +28,70 @@ export default function ProtectedLayout() {
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [desktopCollapsed, setDesktopCollapsed] = useState(false)
+  const [currentTipIndex, setCurrentTipIndex] = useState(0)
+
+  // Categorías y contenido HSE - Mezclados para variedad
+  const hseContent = [
+    // Mezclando todas las categorías con iconos y colores específicos
+    { category: 'Consejo HSE', icon: BookOpen, color: 'text-blue-500 dark:text-blue-400', text: 'Mantén tu inventario actualizado para garantizar la seguridad de tu equipo en todo momento.' },
+    { category: 'Idea HSE', icon: Lightbulb, color: 'text-amber-500 dark:text-amber-400', text: 'ISO 45001: Implementa un sistema de gestión de seguridad y salud ocupacional certificado.' },
+    { category: 'Motivación HSE', icon: Heart, color: 'text-rose-500 dark:text-rose-400', text: '"La seguridad no es un accidente, es una elección inteligente que hacemos cada día."' },
+    { category: 'Líderes HSE', icon: Award, color: 'text-purple-500 dark:text-purple-400', text: 'Frank Bird: Pionero en seguridad industrial, creó la pirámide de Bird que relaciona incidentes menores con accidentes graves. Su legado: prevenir lo pequeño evita lo grande.' },
+    
+    { category: 'Consejo HSE', icon: BookOpen, color: 'text-blue-500 dark:text-blue-400', text: 'Revisa regularmente el stock de EPP críticos para evitar desabastecimiento en operaciones.' },
+    { category: 'Idea HSE', icon: Lightbulb, color: 'text-amber-500 dark:text-amber-400', text: 'Crea un código QR para cada EPP y facilita el seguimiento digital de tu inventario.' },
+    { category: 'Motivación HSE', icon: Heart, color: 'text-rose-500 dark:text-rose-400', text: '"Tu familia te espera en casa. Trabaja seguro, regresa sano." - Cultura HSE' },
+    { category: 'Líderes HSE', icon: Award, color: 'text-purple-500 dark:text-purple-400', text: 'Heinrich: Desarrolló la teoría del dominó de accidentes. Demostró que el 88% de los accidentes son causados por actos inseguros. Su trabajo revolucionó la prevención.' },
+    
+    { category: 'Consejo HSE', icon: BookOpen, color: 'text-blue-500 dark:text-blue-400', text: 'La documentación completa es clave para cumplir con los estándares HSE y auditorías.' },
+    { category: 'Idea HSE', icon: Lightbulb, color: 'text-amber-500 dark:text-amber-400', text: 'Establece un programa de inspecciones mensuales para identificar riesgos antes de que ocurran.' },
+    { category: 'Motivación HSE', icon: Heart, color: 'text-rose-500 dark:text-rose-400', text: '"La excelencia en seguridad no es un acto, sino un hábito que construimos juntos."' },
+    { category: 'Líderes HSE', icon: Award, color: 'text-purple-500 dark:text-purple-400', text: 'W. Edwards Deming: "La calidad y la seguridad no son gastos, son inversiones." Transformó la gestión de calidad y seguridad en las organizaciones modernas.' },
+    
+    { category: 'Consejo HSE', icon: BookOpen, color: 'text-blue-500 dark:text-blue-400', text: 'Inspecciona periódicamente el estado de los EPP para detectar desgaste o daños.' },
+    { category: 'Idea HSE', icon: Lightbulb, color: 'text-amber-500 dark:text-amber-400', text: 'Implementa reuniones de 5 minutos de seguridad antes de cada turno para reforzar cultura HSE.' },
+    { category: 'Motivación HSE', icon: Heart, color: 'text-rose-500 dark:text-rose-400', text: '"Cada día sin accidentes es una victoria del equipo. ¡Celebremos la seguridad!"' },
+    { category: 'Líderes HSE', icon: Award, color: 'text-purple-500 dark:text-purple-400', text: 'James Reason: Creador del modelo del queso suizo para análisis de accidentes. Enseñó que los fallos ocurren cuando múltiples barreras fallan simultáneamente.' },
+    
+    { category: 'Consejo HSE', icon: BookOpen, color: 'text-blue-500 dark:text-blue-400', text: 'Un EPP en buen estado puede salvar vidas. Reemplázalo cuando sea necesario.' },
+    { category: 'Idea HSE', icon: Lightbulb, color: 'text-amber-500 dark:text-amber-400', text: 'Digitaliza tus registros HSE para acceder a información crítica en tiempo real desde cualquier lugar.' },
+    { category: 'Motivación HSE', icon: Heart, color: 'text-rose-500 dark:text-rose-400', text: '"No hay tarea tan urgente que no pueda hacerse de manera segura. Prioriza tu bienestar."' },
+    { category: 'Líderes HSE', icon: Award, color: 'text-purple-500 dark:text-purple-400', text: 'Sidney Dekker: Revolucionó la investigación de accidentes con el enfoque de "Seguridad II". Propone aprender de lo que funciona, no solo de lo que falla.' },
+    
+    { category: 'Consejo HSE', icon: BookOpen, color: 'text-blue-500 dark:text-blue-400', text: 'Registra todas las entregas de EPP para mantener trazabilidad completa y control.' },
+    { category: 'Idea HSE', icon: Lightbulb, color: 'text-amber-500 dark:text-amber-400', text: 'Crea un sistema de recompensas para equipos que mantengan cero accidentes durante el mes.' },
+    { category: 'Motivación HSE', icon: Heart, color: 'text-rose-500 dark:text-rose-400', text: '"Ser líder en HSE significa inspirar con el ejemplo y cuidar de cada miembro del equipo."' },
+    { category: 'Líderes HSE', icon: Award, color: 'text-purple-500 dark:text-purple-400', text: 'Dan Petersen: "La seguridad es responsabilidad de todos, pero comienza con el liderazgo." Enfatizó el rol crucial de la gerencia en la cultura de seguridad.' },
+    
+    { category: 'Consejo HSE', icon: BookOpen, color: 'text-blue-500 dark:text-blue-400', text: 'La prevención es más económica que atender accidentes laborales. Invierte en seguridad.' },
+    { category: 'Idea HSE', icon: Lightbulb, color: 'text-amber-500 dark:text-amber-400', text: 'Establece indicadores KPI de seguridad y compártelos visualmente con todo el equipo.' },
+    { category: 'Motivación HSE', icon: Heart, color: 'text-rose-500 dark:text-rose-400', text: '"La cultura de seguridad comienza contigo. Sé el cambio que quieres ver en tu organización."' },
+    { category: 'Líderes HSE', icon: Award, color: 'text-purple-500 dark:text-purple-400', text: 'Trevor Kletz: Experto en seguridad de procesos, autor de "What Went Wrong?". Enseñó que aprender de los errores del pasado salva vidas en el futuro.' },
+    
+    { category: 'Consejo HSE', icon: BookOpen, color: 'text-blue-500 dark:text-blue-400', text: 'Asegúrate de que cada trabajador tenga el EPP adecuado para su tarea específica.' },
+    { category: 'Idea HSE', icon: Lightbulb, color: 'text-amber-500 dark:text-amber-400', text: 'Implementa la metodología 5S en tu área de trabajo para mantener orden y prevenir accidentes.' },
+    { category: 'Motivación HSE', icon: Heart, color: 'text-rose-500 dark:text-rose-400', text: '"Un ambiente de trabajo seguro es el mejor regalo que puedes dar a tu equipo."' },
+    { category: 'Líderes HSE', icon: Award, color: 'text-purple-500 dark:text-purple-400', text: 'Erik Hollnagel: Padre de la Ingeniería de Resiliencia. Propone que las organizaciones deben adaptarse y aprender continuamente para mantener la seguridad.' },
+    
+    { category: 'Consejo HSE', icon: BookOpen, color: 'text-blue-500 dark:text-blue-400', text: 'Los certificados de calidad garantizan que tus EPP cumplen las normativas vigentes.' },
+    { category: 'Idea HSE', icon: Lightbulb, color: 'text-amber-500 dark:text-amber-400', text: 'Realiza simulacros de emergencia trimestrales para mantener al equipo preparado ante cualquier situación.' },
+    { category: 'Motivación HSE', icon: Heart, color: 'text-rose-500 dark:text-rose-400', text: '"La prevención de hoy es la tranquilidad de mañana. Invierte en seguridad siempre."' },
+    { category: 'Líderes HSE', icon: Award, color: 'text-purple-500 dark:text-purple-400', text: 'Fred Manuele: Pionero en la gestión de riesgos ocupacionales. Desarrolló metodologías para identificar y controlar peligros antes de que causen daño.' },
+    
+    { category: 'Consejo HSE', icon: BookOpen, color: 'text-blue-500 dark:text-blue-400', text: 'Capacita a tu equipo en el uso correcto de equipos de protección personal regularmente.' },
+    { category: 'Idea HSE', icon: Lightbulb, color: 'text-amber-500 dark:text-amber-400', text: 'Usa tecnología móvil para reportes de incidentes en tiempo real y respuesta inmediata.' },
+    { category: 'Motivación HSE', icon: Heart, color: 'text-rose-500 dark:text-rose-400', text: '"Juntos construimos una cultura donde la seguridad es lo primero, siempre y en todo momento."' },
+    { category: 'Líderes HSE', icon: Award, color: 'text-purple-500 dark:text-purple-400', text: 'Andrew Hopkins: Investigador de desastres industriales. Sus análisis de Deepwater Horizon y otros accidentes enseñan lecciones vitales sobre cultura de seguridad.' },
+  ]
+
+  // Cambiar contenido cada 20 segundos
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTipIndex((prev) => (prev + 1) % hseContent.length)
+    }, 20000) // 20 segundos
+
+    return () => clearInterval(interval)
+  }, [hseContent.length])
 
   type NavigationItem = {
     label: string
@@ -101,7 +171,7 @@ export default function ProtectedLayout() {
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-soft-gray-50 via-celeste-100/30 to-soft-gray-50 dark:from-dracula-bg dark:via-dracula-current/50 dark:to-dracula-bg">
       <aside
-        className={`hidden flex-col justify-between border-r border-soft-gray-200/70 bg-gradient-to-br from-celeste-50/85 via-white/85 to-mint-50/85 py-10 shadow-sm backdrop-blur-xl dark:border-dracula-current dark:bg-gradient-to-br dark:from-dracula-current/95 dark:via-dracula-bg/95 dark:to-dracula-current/95 lg:flex ${
+        className={`hidden flex-col justify-between border-r border-soft-gray-200/70 bg-gradient-to-br from-celeste-50/50 via-white/70 to-mint-50/50 py-10 shadow-sm backdrop-blur-2xl dark:border-dracula-current dark:bg-gradient-to-br dark:from-dracula-current/40 dark:via-dracula-bg/60 dark:to-dracula-current/40 lg:flex ${
           desktopCollapsed ? 'w-24 px-4' : 'w-80 px-8 xl:w-[23rem]'
         }`}
       >
@@ -142,9 +212,24 @@ export default function ProtectedLayout() {
         </div>
         {desktopCollapsed ? null : (
           <div className="rounded-2xl border border-white/70 bg-white/80 px-4 py-3 text-xs text-slate-500 shadow-sm backdrop-blur dark:border-dracula-current/50 dark:bg-dracula-current/30">
-            <p className="font-semibold text-slate-600 dark:text-dracula-cyan">Centro de ayuda</p>
-            <p className="mt-1 leading-relaxed dark:text-dracula-cyan/60">
-              Capacita a tu equipo en buenas prácticas HSE y mantén tu inventario de EPP actualizado.
+            <div className="flex items-center gap-2 mb-2">
+              {(() => {
+                const Icon = hseContent[currentTipIndex].icon
+                const color = hseContent[currentTipIndex].color
+                return <Icon className={`h-4 w-4 ${color} animate-pulse`} key={`icon-${currentTipIndex}`} />
+              })()}
+              <p 
+                key={`category-${currentTipIndex}`}
+                className="font-semibold text-slate-600 dark:text-dracula-cyan animate-in fade-in duration-300"
+              >
+                {hseContent[currentTipIndex].category}
+              </p>
+            </div>
+            <p 
+              key={`text-${currentTipIndex}`}
+              className="leading-relaxed dark:text-dracula-cyan/60 animate-in fade-in slide-in-from-bottom-2 duration-500"
+            >
+              {hseContent[currentTipIndex].text}
             </p>
           </div>
         )}
@@ -197,7 +282,7 @@ export default function ProtectedLayout() {
             onClick={() => setSidebarOpen(false)}
             aria-hidden="true"
           />
-          <div className="relative h-full w-80 max-w-[85vw] border-r border-soft-gray-200/70 bg-gradient-to-br from-celeste-50/95 via-white/95 to-mint-50/95 px-5 py-6 shadow-xl backdrop-blur-xl dark:border-dracula-current dark:bg-gradient-to-br dark:from-dracula-current/95 dark:via-dracula-bg/95 dark:to-dracula-current/95 sm:w-96 sm:px-7 sm:py-9">
+          <div className="relative h-full w-80 max-w-[85vw] border-r border-soft-gray-200/70 bg-gradient-to-br from-celeste-50/40 via-white/60 to-mint-50/40 px-5 py-6 shadow-xl backdrop-blur-2xl dark:border-dracula-current dark:bg-gradient-to-br dark:from-dracula-current/30 dark:via-dracula-bg/50 dark:to-dracula-current/30 sm:w-96 sm:px-7 sm:py-9">
             <div className="flex items-center justify-between">
               <div className="flex flex-1 justify-center">
                 <img 
