@@ -10,8 +10,8 @@ export default defineConfig({
       registerType: 'prompt',
       includeAssets: ['icon-192x192.png', 'icon-512x512.png', 'apple-touch-icon.png', 'splash-screen.png'],
       manifest: {
-        name: 'Natiro - Gestión de EPP',
-        short_name: 'Natiro',
+        name: 'Clodi App - Gestión de EPP',
+        short_name: 'Clodi App',
         description: 'Sistema de gestión de Equipos de Protección Personal',
         theme_color: '#8b5cf6',
         background_color: '#ffffff',

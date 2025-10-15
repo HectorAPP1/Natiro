@@ -29,7 +29,7 @@ export default function NotificationPermission() {
     const granted = await requestPermission()
     if (granted) {
       // Enviar notificación de bienvenida
-      sendNotification('¡Notificaciones activadas!', {
+      sendNotification('¡Bienvenido a Clodi App!', {
         body: 'Ahora recibirás notificaciones importantes sobre tu inventario de EPP',
         tag: 'welcome',
       })

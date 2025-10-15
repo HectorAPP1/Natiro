@@ -107,12 +107,35 @@ export default function ProtectedLayout() {
       >
         <div className="space-y-8">
           <div>
-            <span className="inline-flex items-center gap-2 rounded-full bg-mint-100 px-3 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-celeste-300 dark:bg-dracula-current dark:text-dracula-cyan">
-              <HardHat className="h-4 w-4 text-mint-300 dark:text-dracula-green" />
-              {desktopCollapsed ? null : 'Natiro HSE · Epp'}
-            </span>
-            {desktopCollapsed ? null : (
-              <p className="mt-4 text-sm text-slate-500 dark:text-dracula-comment">Gestión integral de seguridad y equipos de protección.</p>
+            {desktopCollapsed ? (
+              <div className="flex justify-center">
+                <img 
+                  src="/IsoLogo Clodi Light.png" 
+                  alt="Clodi App" 
+                  className="h-12 w-auto dark:hidden"
+                />
+                <img 
+                  src="/IsoLogo Clodi Dark.png" 
+                  alt="Clodi App" 
+                  className="hidden h-12 w-auto dark:block"
+                />
+              </div>
+            ) : (
+              <>
+                <img 
+                  src="/IsoLogo Clodi Light.png" 
+                  alt="Clodi App" 
+                  className="h-16 w-auto dark:hidden"
+                />
+                <img 
+                  src="/IsoLogo Clodi Dark.png" 
+                  alt="Clodi App" 
+                  className="hidden h-16 w-auto dark:block"
+                />
+                <p className="mt-4 text-sm text-slate-500 dark:text-dracula-comment">
+                  Gestión integral de seguridad y equipos de protección.
+                </p>
+              </>
             )}
           </div>
           <nav className="space-y-2">{renderNavigation()}</nav>
@@ -179,10 +202,18 @@ export default function ProtectedLayout() {
           />
           <div className="relative h-full w-80 max-w-[85vw] border-r border-soft-gray-200/70 bg-white/95 px-5 py-6 shadow-xl backdrop-blur dark:border-dracula-current dark:bg-dracula-bg/95 sm:w-96 sm:px-7 sm:py-9">
             <div className="flex items-center justify-between">
-              <span className="inline-flex items-center gap-2 rounded-full bg-mint-100 px-3 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-celeste-300">
-                <HardHat className="h-4 w-4 text-mint-300" />
-                Natiro HSE · Epp
-              </span>
+              <div className="flex-1">
+                <img 
+                  src="/IsoLogo Clodi Light.png" 
+                  alt="Clodi App" 
+                  className="h-12 w-auto dark:hidden"
+                />
+                <img 
+                  src="/IsoLogo Clodi Dark.png" 
+                  alt="Clodi App" 
+                  className="hidden h-12 w-auto dark:block"
+                />
+              </div>
               <button
                 type="button"
                 className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-soft-gray-200/80 text-slate-600 transition hover:border-celeste-200 hover:text-slate-800"
