@@ -14,11 +14,9 @@ import {
   Users,
   X,
   Lightbulb,
-  Sparkles,
   Heart,
   Award,
   BookOpen,
-  Zap,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import ThemeToggle from '../components/ThemeToggle'
