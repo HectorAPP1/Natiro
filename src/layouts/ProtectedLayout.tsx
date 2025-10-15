@@ -282,16 +282,21 @@ export default function ProtectedLayout() {
             onClick={() => setSidebarOpen(false)}
             aria-hidden="true"
           />
-          <div className="relative flex h-full w-80 max-w-[85vw] flex-col overflow-y-auto border-r border-soft-gray-200/70 bg-white/95 px-5 py-8 shadow-xl backdrop-blur-xl sm:w-96 sm:px-7 sm:py-10">
+          <div className="relative flex h-full w-80 max-w-[85vw] flex-col overflow-y-auto border-r border-soft-gray-200/70 bg-white/95 px-5 py-8 shadow-xl backdrop-blur-xl sm:w-96 sm:px-7 sm:py-10 dark:border-dracula-current dark:bg-dracula-bg/95">
             <div className="mb-6 flex items-center justify-between">
               <img 
                 src="/IsoLogo Clodi Light.png" 
                 alt="Clodi App" 
-                className="h-11 w-auto"
+                className="h-11 w-auto dark:hidden"
+              />
+              <img 
+                src="/IsoLogo Clodi Dark.png" 
+                alt="Clodi App" 
+                className="hidden h-11 w-auto dark:block"
               />
               <button
                 type="button"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-soft-gray-200/80 bg-white text-slate-600 shadow-sm transition hover:border-celeste-200 hover:text-slate-800"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-soft-gray-200/80 bg-white text-slate-600 shadow-sm transition hover:border-celeste-200 hover:text-slate-800 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-comment dark:hover:border-dracula-purple dark:hover:text-dracula-foreground"
                 onClick={() => setSidebarOpen(false)}
                 aria-label="Cerrar menú de navegación"
               >
@@ -299,7 +304,7 @@ export default function ProtectedLayout() {
               </button>
             </div>
             <nav className="flex-1 space-y-1.5">{renderNavigation(() => setSidebarOpen(false))}</nav>
-            <div className="mt-8 rounded-2xl border border-soft-gray-200/70 bg-soft-gray-50/80 px-4 py-3 text-xs text-slate-500 shadow-sm">
+            <div className="mt-8 rounded-2xl border border-soft-gray-200/70 bg-soft-gray-50/80 px-4 py-3 text-xs text-slate-500 shadow-sm dark:border-dracula-current/50 dark:bg-dracula-current/30">
               <div className="flex items-center gap-2 mb-2">
                 {(() => {
                   const Icon = hseContent[currentTipIndex].icon
