@@ -3,7 +3,7 @@ import { Archive, CheckCircle2, ChevronLeft, ChevronRight, Download, FileText, G
 import { useEppFirestore } from '../hooks/useEppFirestore'
 import * as XLSX from 'xlsx'
 import QRManager from './QRManager'
-import { PieChart, Pie, Cell, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { PieChart, Pie, Cell, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 type SizeVariantForm = {
   id: string
