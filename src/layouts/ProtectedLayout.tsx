@@ -64,8 +64,8 @@ export default function ProtectedLayout() {
               <Icon
                 className={`h-6 w-6 flex-shrink-0 transition-colors duration-200 ${
                   isActive
-                    ? 'text-celeste-400'
-                    : 'text-slate-600 group-hover:text-celeste-300'
+                    ? 'text-celeste-400 dark:text-dracula-cyan'
+                    : 'text-celeste-300/70 group-hover:text-celeste-400 dark:text-dracula-cyan/50 dark:group-hover:text-dracula-cyan'
                 }`}
               />
               {desktopCollapsed ? null : (
@@ -106,7 +106,7 @@ export default function ProtectedLayout() {
         }`}
       >
         <div className="space-y-8">
-          <div>
+          <div className="flex flex-col items-center text-center">
             {desktopCollapsed ? (
               <div className="flex justify-center">
                 <img 
@@ -133,7 +133,7 @@ export default function ProtectedLayout() {
                   className="hidden h-16 w-auto dark:block"
                 />
                 <p className="mt-4 text-sm text-slate-500 dark:text-dracula-comment">
-                  Gestión integral de seguridad y equipos de protección.
+                  Gestión integral de seguridad, salud ocupacional y medioambiente.
                 </p>
               </>
             )}
@@ -161,9 +161,6 @@ export default function ProtectedLayout() {
             >
               <Menu className="h-5 w-5" />
             </button>
-            <p className="hidden sm:inline text-xs font-semibold uppercase tracking-[0.3em] text-celeste-300 dark:text-dracula-cyan">
-              Natiro HSE · Epp
-            </p>
             <h1 className="text-base sm:text-lg font-semibold text-slate-700 dark:text-dracula-foreground truncate">Gestión de EPP</h1>
           </div>
           <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
@@ -202,7 +199,7 @@ export default function ProtectedLayout() {
           />
           <div className="relative h-full w-80 max-w-[85vw] border-r border-soft-gray-200/70 bg-white/95 px-5 py-6 shadow-xl backdrop-blur dark:border-dracula-current dark:bg-dracula-bg/95 sm:w-96 sm:px-7 sm:py-9">
             <div className="flex items-center justify-between">
-              <div className="flex-1">
+              <div className="flex flex-1 justify-center">
                 <img 
                   src="/IsoLogo Clodi Light.png" 
                   alt="Clodi App" 
