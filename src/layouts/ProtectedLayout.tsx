@@ -82,7 +82,7 @@ export default function ProtectedLayout() {
     { category: 'Líderes HSE', icon: Award, color: 'text-purple-500 dark:text-purple-400', text: 'Andrew Hopkins: Investigador de desastres industriales. Sus análisis de Deepwater Horizon y otros accidentes enseñan lecciones vitales sobre cultura de seguridad.' },
   ]
 
-  // Cambiar contenido cada 20 segundos
+  // Cambiar contenido cada 20 segundos - Centro de Ayuda Inteligente HSE
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentTipIndex((prev) => (prev + 1) % hseContent.length)
