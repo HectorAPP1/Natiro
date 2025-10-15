@@ -127,7 +127,7 @@ export default function ProtectedLayout() {
         )}
       </aside>
 
-      <div className="flex flex-1 flex-col">
+      <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
         <header className="flex items-center justify-between border-b border-soft-gray-200/70 bg-white/80 px-3 sm:px-6 py-3 sm:py-4 shadow-sm backdrop-blur dark:border-dracula-current dark:bg-dracula-bg/95">
           <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
             <button
@@ -165,7 +165,7 @@ export default function ProtectedLayout() {
             </button>
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto px-3 sm:px-6 py-6 sm:py-10">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto px-3 sm:px-6 py-6 sm:py-10">
           <Outlet />
         </main>
       </div>

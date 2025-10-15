@@ -708,7 +708,7 @@ export default function EppDashboard() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 overflow-x-hidden">
       <section className="rounded-4xl border border-white/70 bg-white/95 p-4 sm:p-6 lg:p-8 shadow-[0_30px_60px_-40px_rgba(15,23,42,0.45)] backdrop-blur dark:border-dracula-current dark:bg-dracula-bg/95">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -1263,8 +1263,15 @@ export default function EppDashboard() {
               </div>
             ) : (
               <div className="mt-8">
+                {/* Indicador de scroll en móviles */}
+                <div className="mb-2 flex items-center gap-2 text-xs text-slate-500 dark:text-dracula-comment sm:hidden">
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                  </svg>
+                  <span>Desliza para ver más información</span>
+                </div>
                 <div className="overflow-x-auto scrollbar-thin rounded-2xl border border-soft-gray-200/70 shadow-sm dark:border-dracula-current">
-                  <table className="w-full border-collapse bg-white dark:bg-dracula-bg">
+                  <table className="w-full min-w-[800px] border-collapse bg-white dark:bg-dracula-bg">
                   <thead>
                     <tr className="border-b-2 border-soft-gray-200/70 dark:border-dracula-current">
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-dracula-comment">
