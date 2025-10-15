@@ -233,8 +233,8 @@ export default function ProtectedLayout() {
         )}
       </aside>
 
-      <div className={`flex flex-1 flex-col min-w-0 ${desktopCollapsed ? 'lg:ml-24' : 'lg:ml-80 xl:ml-[23rem]'}`}>
-        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-soft-gray-200/70 bg-gradient-to-r from-celeste-100/40 via-white/80 to-mint-100/40 px-3 sm:px-6 py-3 sm:py-4 shadow-sm backdrop-blur-xl dark:border-dracula-current dark:bg-gradient-to-r dark:from-dracula-current/40 dark:via-dracula-bg/80 dark:to-dracula-current/40">
+      <div className={`flex flex-1 flex-col ${desktopCollapsed ? 'lg:ml-24' : 'lg:ml-80 xl:ml-[23rem]'}`}>
+        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-soft-gray-200/70 bg-gradient-to-r from-celeste-100/40 via-white/80 to-mint-100/40 px-3 sm:px-6 py-3 sm:py-4 shadow-md backdrop-blur-xl dark:border-dracula-current dark:bg-gradient-to-r dark:from-dracula-current/40 dark:via-dracula-bg/80 dark:to-dracula-current/40">
           <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
             <button
               type="button"
@@ -280,31 +280,24 @@ export default function ProtectedLayout() {
             onClick={() => setSidebarOpen(false)}
             aria-hidden="true"
           />
-          <div className="relative h-full w-80 max-w-[85vw] border-r border-soft-gray-200/70 bg-gradient-to-br from-celeste-50/40 via-white/60 to-mint-50/40 px-5 py-6 shadow-xl backdrop-blur-2xl dark:border-dracula-current dark:bg-gradient-to-br dark:from-dracula-current/30 dark:via-dracula-bg/50 dark:to-dracula-current/30 sm:w-96 sm:px-7 sm:py-9">
-            <div className="flex items-center justify-between">
-              <div className="flex flex-1 justify-center">
-                <img 
-                  src="/IsoLogo Clodi Light.png" 
-                  alt="Clodi App" 
-                  className="h-12 w-auto dark:hidden"
-                />
-                <img 
-                  src="/IsoLogo Clodi Dark.png" 
-                  alt="Clodi App" 
-                  className="hidden h-12 w-auto dark:block"
-                />
-              </div>
+          <div className="relative flex h-full w-80 max-w-[85vw] flex-col overflow-y-auto border-r border-soft-gray-200/70 bg-white/95 px-5 py-6 shadow-xl backdrop-blur-xl sm:w-96 sm:px-7 sm:py-9">
+            <div className="mb-8 flex items-center justify-between">
+              <img 
+                src="/IsoLogo Clodi Light.png" 
+                alt="Clodi App" 
+                className="h-14 w-auto"
+              />
               <button
                 type="button"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-soft-gray-200/80 text-slate-600 transition hover:border-celeste-200 hover:text-slate-800"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-soft-gray-200/80 bg-white text-slate-600 shadow-sm transition hover:border-celeste-200 hover:text-slate-800"
                 onClick={() => setSidebarOpen(false)}
                 aria-label="Cerrar menú de navegación"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="mt-8 space-y-2">{renderNavigation(() => setSidebarOpen(false))}</div>
-            <div className="mt-10 rounded-2xl border border-white/70 bg-white/80 px-4 py-3 text-xs text-slate-500 shadow-sm backdrop-blur dark:border-dracula-current/50 dark:bg-dracula-current/30">
+            <nav className="flex-1 space-y-2">{renderNavigation(() => setSidebarOpen(false))}</nav>
+            <div className="mt-8 rounded-2xl border border-soft-gray-200/70 bg-soft-gray-50/80 px-4 py-3 text-xs text-slate-500 shadow-sm">
               <div className="flex items-center gap-2 mb-2">
                 {(() => {
                   const Icon = hseContent[currentTipIndex].icon
