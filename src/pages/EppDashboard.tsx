@@ -2113,9 +2113,9 @@ export default function EppDashboard() {
       ) : null}
 
       {showCostModal && (
-        <div className="fixed inset-0 z-[130] bg-slate-900/60 backdrop-blur-sm flex items-start justify-center overflow-y-auto">
-          <div className="w-full max-w-6xl mx-2 sm:mx-4 my-4 sm:my-10 lg:my-16">
-            <div className="relative rounded-2xl sm:rounded-[28px] border border-white/70 bg-white/95 px-3 py-4 sm:px-6 sm:py-8 lg:px-10 lg:py-10 shadow-[0_40px_80px_-50px_rgba(15,23,42,0.6)] dark:border-dracula-current dark:bg-dracula-bg/95">
+        <div className="fixed inset-0 z-[130] bg-slate-900/60 backdrop-blur-sm flex items-start justify-center overflow-y-auto p-2 sm:p-4">
+          <div className="w-full max-w-6xl my-4 sm:my-10 lg:my-16">
+            <div className="relative rounded-2xl sm:rounded-[28px] border border-white/70 bg-white/95 px-3 py-4 sm:px-6 sm:py-8 lg:px-10 lg:py-10 shadow-[0_40px_80px_-50px_rgba(15,23,42,0.6)] dark:border-dracula-current dark:bg-dracula-bg/95 overflow-hidden">
               <button
                 type="button"
                 className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full border border-soft-gray-200/80 text-slate-500 transition hover:border-celeste-200 hover:text-slate-700 dark:border-dracula-current dark:text-dracula-comment dark:hover:border-dracula-purple dark:hover:text-dracula-foreground sm:right-6 sm:top-6 sm:h-10 sm:w-10"
