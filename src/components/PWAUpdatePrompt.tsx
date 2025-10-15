@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import { RefreshCw, X } from 'lucide-react'
 
+// Versión actual de la app
+const APP_VERSION = '1.0.1'
+
 export default function PWAUpdatePrompt() {
   const [showPrompt, setShowPrompt] = useState(false)
 
@@ -25,8 +28,59 @@ export default function PWAUpdatePrompt() {
   useEffect(() => {
     if (needRefresh) {
       setShowPrompt(true)
+      // Enviar notificación push nativa
+      sendUpdateNotification()
     }
   }, [needRefresh])
+
+  const sendUpdateNotification = async () => {
+    // Verificar si las notificaciones están soportadas y permitidas
+    if ('Notification' in window && Notification.permission === 'granted') {
+      try {
+        // Si hay service worker, usar showNotification
+        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+          const registration = await navigator.serviceWorker.ready
+          await registration.showNotification('¡Nueva actualización disponible!', {
+            body: `Clodi App v${APP_VERSION} está lista. Toca aquí para actualizar y disfrutar de las mejoras.`,
+            icon: '/icon-192x192.png',
+            badge: '/icon-192x192.png',
+            tag: 'app-update',
+            requireInteraction: true,
+            data: {
+              url: window.location.href,
+              action: 'update'
+            },
+            actions: [
+              {
+                action: 'update',
+                title: 'Actualizar ahora'
+              },
+              {
+                action: 'later',
+                title: 'Más tarde'
+              }
+            ]
+          } as NotificationOptions & { vibrate?: number[] })
+        } else {
+          // Fallback a Notification API directa
+          const notification = new Notification('¡Nueva actualización disponible!', {
+            body: `Clodi App v${APP_VERSION} está lista. Toca aquí para actualizar y disfrutar de las mejoras.`,
+            icon: '/icon-192x192.png',
+            tag: 'app-update',
+            requireInteraction: true
+          } as NotificationOptions)
+
+          notification.onclick = () => {
+            window.focus()
+            notification.close()
+            setShowPrompt(true)
+          }
+        }
+      } catch (error) {
+        console.error('Error al enviar notificación de actualización:', error)
+      }
+    }
+  }
 
   const close = () => {
     setOfflineReady(false)
@@ -56,16 +110,16 @@ export default function PWAUpdatePrompt() {
                   ¡App lista para usar offline!
                 </h4>
                 <p className="mt-1 text-xs text-slate-500 dark:text-dracula-comment">
-                  Ahora puedes usar Natiro sin conexión a internet
+                  Ahora puedes usar Clodi App sin conexión a internet
                 </p>
               </>
             ) : (
               <>
                 <h4 className="text-sm font-semibold text-slate-800 dark:text-dracula-foreground">
-                  Nueva versión disponible
+                  Nueva versión v{APP_VERSION} disponible
                 </h4>
                 <p className="mt-1 text-xs text-slate-500 dark:text-dracula-comment">
-                  Hay una actualización lista para instalar
+                  Actualiza ahora para disfrutar de las mejoras
                 </p>
               </>
             )}
