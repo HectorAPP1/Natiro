@@ -1262,11 +1262,9 @@ export default function EppDashboard() {
                 ))}
               </div>
             ) : (
-              <div className="mt-8 -mx-3 sm:mx-0">
-                <div className="overflow-x-auto px-3 sm:px-0 pb-4 scrollbar-thin">
-                  <div className="inline-block min-w-full align-middle">
-                    <div className="overflow-hidden rounded-2xl border border-soft-gray-200/70 shadow-sm dark:border-dracula-current">
-                      <table className="min-w-full border-collapse bg-white dark:bg-dracula-bg">
+              <div className="mt-8">
+                <div className="overflow-x-auto scrollbar-thin rounded-2xl border border-soft-gray-200/70 shadow-sm dark:border-dracula-current">
+                  <table className="w-full border-collapse bg-white dark:bg-dracula-bg">
                   <thead>
                     <tr className="border-b-2 border-soft-gray-200/70 dark:border-dracula-current">
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-dracula-comment">
@@ -1495,8 +1493,6 @@ export default function EppDashboard() {
                     })}
                   </tbody>
                 </table>
-                    </div>
-                  </div>
                 </div>
               </div>
             )}
@@ -2110,9 +2106,9 @@ export default function EppDashboard() {
       ) : null}
 
       {showCostModal && (
-        <div className="fixed inset-0 z-[130] overflow-y-auto bg-slate-900/60 backdrop-blur-sm">
-          <div className="flex min-h-screen items-center sm:items-start justify-center px-2 sm:px-4 py-2 sm:py-10 lg:py-16">
-            <div className="relative w-full max-w-6xl rounded-2xl sm:rounded-[28px] border border-white/70 bg-white/95 px-3 py-4 sm:px-6 sm:py-8 lg:px-10 lg:py-10 shadow-[0_40px_80px_-50px_rgba(15,23,42,0.6)] dark:border-dracula-current dark:bg-dracula-bg/95 max-h-[95vh] overflow-y-auto">
+        <div className="fixed inset-0 z-[130] bg-slate-900/60 backdrop-blur-sm flex items-start justify-center overflow-y-auto">
+          <div className="w-full max-w-6xl mx-2 sm:mx-4 my-4 sm:my-10 lg:my-16">
+            <div className="relative rounded-2xl sm:rounded-[28px] border border-white/70 bg-white/95 px-3 py-4 sm:px-6 sm:py-8 lg:px-10 lg:py-10 shadow-[0_40px_80px_-50px_rgba(15,23,42,0.6)] dark:border-dracula-current dark:bg-dracula-bg/95">
               <button
                 type="button"
                 className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full border border-soft-gray-200/80 text-slate-500 transition hover:border-celeste-200 hover:text-slate-700 dark:border-dracula-current dark:text-dracula-comment dark:hover:border-dracula-purple dark:hover:text-dracula-foreground sm:right-6 sm:top-6 sm:h-10 sm:w-10"
