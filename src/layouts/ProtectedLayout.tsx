@@ -456,7 +456,7 @@ export default function ProtectedLayout() {
         }`}
       >
         <header
-          className="fixed lg:sticky top-0 left-0 right-0 z-30 border-b border-soft-gray-200/70 bg-gradient-to-r from-celeste-100/40 via-white/80 to-mint-100/40 shadow-md backdrop-blur-xl dark:border-dracula-current dark:bg-gradient-to-r dark:from-dracula-current/40 dark:via-dracula-bg/80 dark:to-dracula-current/40 lg:left-auto pb-2 py-3 lg:py-6 flex items-center"
+          className="fixed lg:sticky top-0 left-0 right-0 z-30 border-b border-soft-gray-200/70 bg-gradient-to-r from-celeste-100/40 via-white/80 to-mint-100/40 shadow-md backdrop-blur-xl dark:border-dracula-current dark:bg-gradient-to-r dark:from-dracula-current/40 dark:via-dracula-bg/80 dark:to-dracula-current/40 lg:left-auto pt-12 pb-3 lg:py-6 flex items-center"
         >
           <div
             className="flex items-center justify-between px-4 sm:px-6 w-full"
