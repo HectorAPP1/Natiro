@@ -501,7 +501,7 @@ export default function ProtectedLayout() {
             </div>
           </div>
         </header>
-        <main className="flex-1 px-3 sm:px-6 pb-6 sm:pb-10" style={{ paddingTop: 'calc(3.5rem + env(safe-area-inset-top))' }}>
+        <main className="flex-1 px-3 sm:px-6 pb-6 sm:pb-10 pt-3" style={{ marginTop: 'calc(3rem + env(safe-area-inset-top))' }}>
           <Outlet />
         </main>
       </div>
