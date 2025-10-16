@@ -451,12 +451,12 @@ export default function ProtectedLayout() {
       </aside>
 
       <div
-        className={`flex flex-1 flex-col h-screen overflow-y-auto ${
+        className={`flex flex-1 flex-col ${
           desktopCollapsed ? "lg:ml-24" : "lg:ml-80 xl:ml-[23rem]"
         }`}
       >
-        <header className="sticky top-0 z-30 border-b border-soft-gray-200/70 bg-gradient-to-r from-celeste-100/40 via-white/80 to-mint-100/40 shadow-md backdrop-blur-xl dark:border-dracula-current dark:bg-gradient-to-r dark:from-dracula-current/40 dark:via-dracula-bg/80 dark:to-dracula-current/40" style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))', paddingBottom: '0.5rem' }}>
-          <div className="flex items-center justify-between px-3 sm:px-6" style={{ paddingLeft: 'max(0.75rem, env(safe-area-inset-left))', paddingRight: 'max(0.75rem, env(safe-area-inset-right))' }}>
+        <header className="fixed top-0 left-0 right-0 z-30 border-b border-soft-gray-200/70 bg-gradient-to-r from-celeste-100/40 via-white/80 to-mint-100/40 shadow-md backdrop-blur-xl dark:border-dracula-current dark:bg-gradient-to-r dark:from-dracula-current/40 dark:via-dracula-bg/80 dark:to-dracula-current/40 lg:left-auto" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: '0.5rem' }}>
+          <div className="flex items-center justify-between px-3 sm:px-6" style={{ paddingLeft: 'env(safe-area-inset-left)', paddingRight: 'env(safe-area-inset-right)' }}>
             <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
               <button
                 type="button"
@@ -501,7 +501,7 @@ export default function ProtectedLayout() {
             </div>
           </div>
         </header>
-        <main className="flex-1 px-3 sm:px-6 py-6 sm:py-10">
+        <main className="flex-1 px-3 sm:px-6 py-6 sm:py-10" style={{ paddingTop: 'calc(4rem + env(safe-area-inset-top))' }}>
           <Outlet />
         </main>
       </div>
