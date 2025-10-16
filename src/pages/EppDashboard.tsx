@@ -709,7 +709,7 @@ export default function EppDashboard() {
 
   return (
     <div className="space-y-8 overflow-x-hidden">
-      <section className="rounded-4xl border border-white/70 bg-white/95 p-4 sm:p-6 lg:p-8 shadow-[0_30px_60px_-40px_rgba(15,23,42,0.45)] backdrop-blur dark:border-dracula-current dark:bg-dracula-bg/95">
+      <section className="rounded-4xl border border-white/70 bg-white/95 p-4 sm:p-6 lg:p-8 shadow-[0_30px_60px_-40px_rgba(15,23,42,0.45)] backdrop-blur dark:border-dracula-current dark:bg-dracula-bg/95 overflow-hidden">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-celeste-300 dark:text-dracula-cyan">
@@ -770,7 +770,7 @@ export default function EppDashboard() {
                   ?.scrollIntoView({ behavior: "smooth", block: "start" });
               }, 100);
             }}
-            className="rounded-3xl border border-mint-200/70 bg-mint-50/70 p-4 sm:p-5 text-left transition hover:border-mint-300 hover:bg-mint-100/70 hover:shadow-lg dark:border-dracula-green/30 dark:bg-dracula-current dark:hover:border-dracula-green/50 dark:hover:bg-dracula-green/10 min-h-[160px] flex flex-col justify-between"
+            className="rounded-3xl border border-mint-200/70 bg-mint-50/70 p-4 sm:p-5 text-left transition hover:border-mint-300 hover:bg-mint-100/70 hover:shadow-lg dark:border-dracula-green/30 dark:bg-dracula-current dark:hover:border-dracula-green/50 dark:hover:bg-dracula-green/10"
           >
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-mint-400 dark:text-dracula-green">
               Total de registros
@@ -801,7 +801,7 @@ export default function EppDashboard() {
                   ?.scrollIntoView({ behavior: "smooth", block: "start" });
               }, 100);
             }}
-            className="rounded-3xl border border-celeste-200/70 bg-celeste-50/70 p-4 sm:p-5 text-left transition hover:border-celeste-300 hover:bg-celeste-100/70 hover:shadow-lg dark:border-dracula-cyan/30 dark:bg-dracula-current dark:hover:border-dracula-cyan/50 dark:hover:bg-dracula-cyan/10 min-h-[160px] flex flex-col justify-between"
+            className="rounded-3xl border border-celeste-200/70 bg-celeste-50/70 p-4 sm:p-5 text-left transition hover:border-celeste-300 hover:bg-celeste-100/70 hover:shadow-lg dark:border-dracula-cyan/30 dark:bg-dracula-current dark:hover:border-dracula-cyan/50 dark:hover:bg-dracula-cyan/10"
           >
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-celeste-400 dark:text-dracula-cyan">
               Unidades disponibles
@@ -832,7 +832,7 @@ export default function EppDashboard() {
                   ?.scrollIntoView({ behavior: "smooth", block: "start" });
               }, 100);
             }}
-            className="rounded-3xl border border-amber-200/70 bg-amber-50/60 p-4 sm:p-5 text-left transition hover:border-amber-300 hover:bg-amber-100/70 hover:shadow-lg dark:border-dracula-orange/30 dark:bg-dracula-current dark:hover:border-dracula-orange/50 dark:hover:bg-dracula-orange/10 min-h-[160px] flex flex-col justify-between"
+            className="rounded-3xl border border-amber-200/70 bg-amber-50/60 p-4 sm:p-5 text-left transition hover:border-amber-300 hover:bg-amber-100/70 hover:shadow-lg dark:border-dracula-orange/30 dark:bg-dracula-current dark:hover:border-dracula-orange/50 dark:hover:bg-dracula-orange/10"
           >
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-amber-400 dark:text-dracula-orange">
               En nivel crítico
@@ -850,7 +850,7 @@ export default function EppDashboard() {
           </button>
           <button
             onClick={() => setShowCostModal(true)}
-            className="rounded-3xl border border-purple-200/70 bg-purple-50/60 p-4 sm:p-5 text-left transition hover:border-purple-300 hover:bg-purple-100/70 hover:shadow-lg dark:border-dracula-purple/30 dark:bg-dracula-current dark:hover:border-dracula-purple/50 dark:hover:bg-dracula-purple/10 min-h-[160px] flex flex-col justify-between"
+            className="rounded-3xl border border-purple-200/70 bg-purple-50/60 p-4 sm:p-5 text-left transition hover:border-purple-300 hover:bg-purple-100/70 hover:shadow-lg dark:border-dracula-purple/30 dark:bg-dracula-current dark:hover:border-dracula-purple/50 dark:hover:bg-dracula-purple/10"
           >
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-purple-400 dark:text-dracula-purple">
               Valor total inventario
@@ -869,7 +869,7 @@ export default function EppDashboard() {
         </div>
       </section>
 
-      <section className="rounded-4xl border border-white/70 bg-white/95 p-4 sm:p-6 lg:p-8 shadow-[0_30px_60px_-40px_rgba(15,23,42,0.45)] backdrop-blur dark:border-dracula-current dark:bg-dracula-bg/95">
+      <section className="rounded-4xl border border-white/70 bg-white/95 p-4 sm:p-6 lg:p-8 shadow-[0_30px_60px_-40px_rgba(15,23,42,0.45)] backdrop-blur dark:border-dracula-current dark:bg-dracula-bg/95 overflow-hidden">
         <header className="mb-4 sm:mb-6 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
@@ -1262,7 +1262,7 @@ export default function EppDashboard() {
                 ))}
               </div>
             ) : (
-              <div className="mt-8">
+              <div className="mt-8 overflow-hidden">
                 {/* Indicador de scroll en móviles */}
                 <div className="mb-2 flex items-center gap-2 text-xs text-slate-500 dark:text-dracula-comment sm:hidden">
                   <svg
@@ -1280,7 +1280,7 @@ export default function EppDashboard() {
                   </svg>
                   <span>Desliza para ver más información</span>
                 </div>
-                <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent hover:scrollbar-thumb-slate-400 dark:scrollbar-thumb-dracula-current dark:hover:scrollbar-thumb-dracula-purple rounded-2xl border border-soft-gray-200/70 shadow-sm dark:border-dracula-current -mx-3 px-3 sm:mx-0 sm:px-0">
+                <div className="w-full overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100 hover:scrollbar-thumb-slate-400 dark:scrollbar-thumb-dracula-current dark:scrollbar-track-dracula-bg dark:hover:scrollbar-thumb-dracula-purple rounded-2xl border border-soft-gray-200/70 shadow-sm dark:border-dracula-current">
                   <table className="w-full min-w-[800px] border-collapse bg-white dark:bg-dracula-bg">
                     <thead>
                       <tr className="border-b-2 border-soft-gray-200/70 dark:border-dracula-current">
