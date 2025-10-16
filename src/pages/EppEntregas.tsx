@@ -630,17 +630,19 @@ export default function EppEntregas() {
           </div>
         )}
 
-        <div className="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-soft-gray-200/70 bg-soft-gray-50/80 px-4 py-4 text-sm text-slate-600 dark:border-dracula-current dark:bg-dracula-current/30 dark:text-dracula-comment">
-          <Layers className="h-5 w-5 text-celeste-400" />
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-celeste-400">
-              Resumen filtrado
-            </p>
-            <p className="text-base font-semibold text-slate-800 dark:text-dracula-foreground">
-              {filteredEntregas.length} entregas · {currency.format(totalFiltrado)}
-            </p>
+        <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-soft-gray-200/70 bg-soft-gray-50/80 px-4 py-4 text-sm text-slate-600 dark:border-dracula-current dark:bg-dracula-current/30 dark:text-dracula-comment sm:flex-row sm:flex-wrap sm:items-center">
+          <div className="flex items-start gap-3">
+            <Layers className="h-5 w-5 flex-shrink-0 text-celeste-400" />
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-celeste-400">
+                Resumen filtrado
+              </p>
+              <p className="text-base font-semibold text-slate-800 dark:text-dracula-foreground">
+                {filteredEntregas.length} entregas · {currency.format(totalFiltrado)}
+              </p>
+            </div>
           </div>
-          <div className="ml-auto flex items-center gap-2 rounded-full border border-soft-gray-200/70 bg-white p-1 shadow-sm dark:border-dracula-current dark:bg-dracula-current">
+          <div className="flex items-center gap-2 rounded-full border border-soft-gray-200/70 bg-white p-1 shadow-sm dark:border-dracula-current dark:bg-dracula-current sm:ml-auto">
             {viewMode === "card" ? (
               <span className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold text-slate-500 dark:text-dracula-comment">
                 <Grid3x3 className="h-4 w-4" />
@@ -679,7 +681,7 @@ export default function EppEntregas() {
                 {filteredEntregas.map((entrega) => (
                   <article
                     key={entrega.id}
-                    className="w-full rounded-3xl border border-soft-gray-200/70 bg-white/95 p-4 shadow-sm transition hover:shadow-md dark:border-dracula-current dark:bg-dracula-current/40"
+                    className="w-full min-w-0 rounded-3xl border border-soft-gray-200/70 bg-white/95 p-4 shadow-sm transition hover:shadow-md dark:border-dracula-current dark:bg-dracula-current/40"
                   >
                     <header className="flex flex-wrap items-center justify-between gap-3">
                       <div>
