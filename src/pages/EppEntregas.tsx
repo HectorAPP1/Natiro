@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
+import * as XLSX from "xlsx";
 import {
   Calendar,
+  Download,
   Layers,
+  MoveHorizontal,
   Pencil,
   Plus,
   Search,
@@ -24,6 +27,7 @@ type DraftItem = {
   eppId: string;
   variantId?: string | null;
   cantidad: number;
+  initialCantidad: number;
 };
 
 type FormState = {
@@ -142,6 +146,90 @@ export default function EppEntregas() {
     [filteredEntregas]
   );
 
+  const isDateRangeValid = useMemo(() => {
+    if (!fromDate || !toDate) return false;
+    const from = new Date(fromDate);
+    const to = new Date(toDate);
+    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return false;
+    return from <= to;
+  }, [fromDate, toDate]);
+
+  const handleExportToExcel = () => {
+    if (!isDateRangeValid) {
+      alert("Debes seleccionar un rango de fechas válido para exportar.");
+      return;
+    }
+
+    const dataToExport = filteredEntregas.filter((entrega) => {
+      if (!(entrega.fechaEntrega instanceof Date)) return false;
+      const fecha = entrega.fechaEntrega.setHours(0, 0, 0, 0);
+      const from = new Date(fromDate).setHours(0, 0, 0, 0);
+      const to = new Date(toDate).setHours(0, 0, 0, 0);
+      return fecha >= from && fecha <= to;
+    });
+
+    if (dataToExport.length === 0) {
+      alert("No hay entregas en el rango de fechas seleccionado.");
+      return;
+    }
+
+    const rows = dataToExport.map((entrega) => {
+      const itemsDetalle = entrega.items
+        .map(
+          (item) =>
+            `${item.cantidad} x ${item.eppName}${item.talla ? ` (Talla: ${item.talla})` : ""} · ${currency.format(
+              item.subtotal
+            )}`
+        )
+        .join(" | ");
+
+      return {
+        Fecha: entrega.fechaEntrega.toISOString().split("T")[0],
+        Trabajador: entrega.trabajadorNombre,
+        RUT: entrega.trabajadorRut,
+        Área: entrega.areaTrabajo,
+        "Sub-área": entrega.subAreaTrabajo || "—",
+        Detalle: itemsDetalle,
+        "Total Entrega": entrega.totalEntrega,
+        "Autorizado por": entrega.autorizadoPorNombre,
+        "Correo autorizador": entrega.autorizadoPorEmail || "—",
+      };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    worksheet["!cols"] = [
+      { wch: 12 },
+      { wch: 28 },
+      { wch: 14 },
+      { wch: 16 },
+      { wch: 18 },
+      { wch: 60 },
+      { wch: 16 },
+      { wch: 26 },
+      { wch: 30 },
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Entregas");
+
+    const fileName = `Entregas_${fromDate}_a_${toDate}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+  };
+
+  const getAvailableStockForDraft = (draft: DraftItem): number | null => {
+    const epp = getEppById(draft.eppId);
+    if (!epp) return null;
+
+    if (epp.multiSize) {
+      const variant = epp.sizeVariants.find((option) => option.id === draft.variantId);
+      if (!variant) return null;
+      return Math.max(0, Number(variant.stockActual ?? 0)) + draft.initialCantidad;
+    }
+
+    const baseStock = Math.max(0, Number(epp.stockActual ?? 0));
+    return baseStock + draft.initialCantidad;
+  };
+
   const computeDraftSubtotal = (draft: DraftItem) => {
     const epp = getEppById(draft.eppId);
     if (!epp) return 0;
@@ -165,6 +253,7 @@ export default function EppEntregas() {
             eppId: "",
             variantId: null,
             cantidad: 1,
+            initialCantidad: 0,
           },
         ],
       };
@@ -187,6 +276,7 @@ export default function EppEntregas() {
           eppId: item.eppId,
           variantId: item.variantId ?? null,
           cantidad: item.cantidad,
+          initialCantidad: item.cantidad,
         })),
       });
     } else {
@@ -217,9 +307,45 @@ export default function EppEntregas() {
         const next = { ...item, ...updates };
         if (updates.eppId !== undefined) {
           next.variantId = null;
-          next.cantidad = 1;
+          next.initialCantidad = 0;
+          if (!updates.eppId) {
+            next.cantidad = 0;
+          } else {
+            const epp = getEppById(updates.eppId);
+            if (epp?.multiSize) {
+              next.cantidad = 0;
+            } else {
+              const max = getAvailableStockForDraft(next);
+              const base = max !== null && max < 1 ? max : 1;
+              next.cantidad = max !== null ? Math.min(base, max) : base;
+            }
+          }
         }
         if (updates.variantId === "") next.variantId = null;
+        if (updates.variantId !== undefined) {
+          if (updates.variantId !== item.variantId) {
+            next.initialCantidad = 0;
+          }
+          if (!updates.variantId) {
+            next.cantidad = 0;
+          } else {
+            const max = getAvailableStockForDraft({ ...next, variantId: updates.variantId });
+            if (max !== null) {
+              if (max <= 0) {
+                next.cantidad = 0;
+              } else {
+                const safeValue = next.cantidad > 0 ? next.cantidad : 1;
+                next.cantidad = Math.min(safeValue, max);
+              }
+            }
+          }
+        }
+        if (updates.cantidad !== undefined) {
+          const parsed = Math.max(0, Number(updates.cantidad) || 0);
+          const max = getAvailableStockForDraft(next);
+          const limited = max !== null ? Math.min(parsed, max) : parsed;
+          next.cantidad = limited;
+        }
         return next;
       }),
     }));
@@ -242,6 +368,7 @@ export default function EppEntregas() {
           eppId: "",
           variantId: null,
           cantidad: 1,
+          initialCantidad: 0,
         },
       ],
     }));
@@ -380,15 +507,16 @@ export default function EppEntregas() {
           <button
             onClick={() => handleOpenModal()}
             disabled={isLoading || !user}
-            className="inline-flex items-center gap-2 rounded-full border border-celeste-200/70 bg-white/80 px-5 py-2.5 text-sm font-semibold text-slate-600 shadow-sm transition hover:border-celeste-300 hover:bg-celeste-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-cyan dark:hover:border-dracula-purple dark:hover:bg-dracula-bg"
+            className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full bg-gradient-to-r from-mint-200/80 via-white to-celeste-200/70 px-4 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-slate-700 shadow-md transition hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60 dark:from-dracula-purple dark:via-dracula-pink dark:to-dracula-cyan dark:text-dracula-bg"
           >
-            <Plus className="h-4 w-4" />
-            Nueva Entrega
+            <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">Nueva Entrega</span>
+            <span className="sm:hidden">Nueva</span>
           </button>
         </div>
 
-        <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-4">
-          <div className="relative flex-1 lg:col-span-2">
+        <div className="mb-6 space-y-3 lg:space-y-0 lg:flex lg:flex-wrap lg:items-center lg:justify-between gap-4">
+          <div className="relative w-full lg:flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-dracula-comment" />
             <input
               type="text"
@@ -398,58 +526,69 @@ export default function EppEntregas() {
               className="w-full rounded-2xl border border-soft-gray-200/70 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-700 shadow-sm focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground dark:placeholder-dracula-comment"
             />
           </div>
-
-          <div className="flex items-center gap-2 rounded-2xl border border-soft-gray-200/70 bg-white px-4 py-2 text-sm shadow-sm dark:border-dracula-current dark:bg-dracula-current">
-            <User className="h-4 w-4 text-slate-400 dark:text-dracula-comment" />
-            <select
-              value={trabajadorFilter}
-              onChange={(event) => setTrabajadorFilter(event.target.value)}
-              className="flex-1 bg-transparent focus:outline-none dark:text-dracula-foreground"
-            >
-              <option value="all">Todos los trabajadores</option>
-              {trabajadorOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex items-center gap-2 rounded-2xl border border-soft-gray-200/70 bg-white px-4 py-2 text-sm shadow-sm dark:border-dracula-current dark:bg-dracula-current">
-            <Layers className="h-4 w-4 text-slate-400 dark:text-dracula-comment" />
-            <select
-              value={areaFilter}
-              onChange={(event) => setAreaFilter(event.target.value)}
-              className="flex-1 bg-transparent focus:outline-none dark:text-dracula-foreground"
-            >
-              <option value="all">Todas las áreas</option>
-              {areaOptions.map((area) => (
-                <option key={area} value={area}>
-                  {area}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 rounded-2xl border border-soft-gray-200/70 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400 shadow-sm dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-comment">
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
-              <input
-                type="date"
-                value={fromDate}
-                onChange={(event) => setFromDate(event.target.value)}
-                className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-2 py-1 text-[11px] font-normal text-slate-600 focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
-              />
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap lg:w-auto lg:justify-end">
+            <div className="flex items-center gap-2 rounded-2xl border border-soft-gray-200/70 bg-white px-4 py-2 text-sm shadow-sm dark:border-dracula-current dark:bg-dracula-current w-full sm:w-auto">
+              <User className="h-4 w-4 text-slate-400 dark:text-dracula-comment" />
+              <select
+                value={trabajadorFilter}
+                onChange={(event) => setTrabajadorFilter(event.target.value)}
+                className="flex-1 bg-transparent focus:outline-none dark:text-dracula-foreground"
+              >
+                <option value="all">Todos los trabajadores</option>
+                {trabajadorOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </div>
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
-              <input
-                type="date"
-                value={toDate}
-                onChange={(event) => setToDate(event.target.value)}
-                className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-2 py-1 text-[11px] font-normal text-slate-600 focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
-              />
+
+            <div className="flex items-center gap-2 rounded-2xl border border-soft-gray-200/70 bg-white px-4 py-2 text-sm shadow-sm dark:border-dracula-current dark:bg-dracula-current w-full sm:w-auto">
+              <Layers className="h-4 w-4 text-slate-400 dark:text-dracula-comment" />
+              <select
+                value={areaFilter}
+                onChange={(event) => setAreaFilter(event.target.value)}
+                className="flex-1 bg-transparent focus:outline-none dark:text-dracula-foreground"
+              >
+                <option value="all">Todas las áreas</option>
+                {areaOptions.map((area) => (
+                  <option key={area} value={area}>
+                    {area}
+                  </option>
+                ))}
+              </select>
             </div>
+
+            <div className="grid w-full grid-cols-2 gap-2 rounded-2xl border border-soft-gray-200/70 bg-soft-gray-50/80 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400 shadow-sm dark:border-dracula-current dark:bg-dracula-current/30 dark:text-dracula-comment sm:w-auto">
+              <label className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                <input
+                  type="date"
+                  value={fromDate}
+                  onChange={(event) => setFromDate(event.target.value)}
+                  className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-2 py-1 text-[11px] font-normal text-slate-600 focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
+                />
+              </label>
+              <label className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                <input
+                  type="date"
+                  value={toDate}
+                  onChange={(event) => setToDate(event.target.value)}
+                  className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-2 py-1 text-[11px] font-normal text-slate-600 focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
+                />
+              </label>
+            </div>
+
+            <button
+              onClick={handleExportToExcel}
+              disabled={!isDateRangeValid || filteredEntregas.length === 0}
+              className="inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-mint-200/70 bg-white/80 px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-mint-300 hover:bg-mint-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-green dark:hover:border-dracula-green dark:hover:bg-dracula-bg sm:w-auto sm:gap-2 sm:px-5 sm:py-2.5 sm:text-sm"
+            >
+              <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Exportar Excel</span>
+              <span className="sm:hidden">Excel</span>
+            </button>
           </div>
         </div>
 
@@ -490,7 +629,11 @@ export default function EppEntregas() {
           </div>
         ) : (
           <div className="space-y-3">
-            <div className="w-full overflow-x-auto rounded-3xl border border-soft-gray-200/70 shadow-sm dark:border-dracula-current">
+            <div className="flex items-center justify-center gap-2 rounded-full bg-soft-gray-100/70 px-3 py-1 text-xs font-semibold text-celeste-500 dark:bg-dracula-current/40 dark:text-dracula-cyan md:hidden">
+              <MoveHorizontal className="h-3.5 w-3.5" />
+              Desliza para ver más columnas
+            </div>
+            <div className="w-full overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100 hover:scrollbar-thumb-slate-400 dark:scrollbar-thumb-dracula-current dark:scrollbar-track-dracula-bg dark:hover:scrollbar-thumb-dracula-purple rounded-2xl border border-soft-gray-200/70 shadow-sm dark:border-dracula-current">
               <table className="w-full min-w-[1080px] divide-y divide-soft-gray-200/70 bg-white text-sm dark:divide-dracula-current dark:bg-dracula-bg">
                 <thead className="bg-soft-gray-50/80 text-xs font-semibold uppercase tracking-[0.25em] text-slate-500 dark:bg-dracula-current/40 dark:text-dracula-comment">
                   <tr>
@@ -621,7 +764,7 @@ export default function EppEntregas() {
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div>
                     <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-foreground">
-                      Trabajador *
+                      👷 Trabajador *
                     </label>
                     <select
                       required
@@ -644,7 +787,7 @@ export default function EppEntregas() {
                   </div>
                   <div>
                     <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-foreground">
-                      Fecha de entrega *
+                      📅 Fecha de entrega *
                     </label>
                     <input
                       type="date"
@@ -675,7 +818,7 @@ export default function EppEntregas() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h4 className="text-sm font-semibold text-slate-700 dark:text-dracula-foreground">
-                      Detalle de EPP entregados
+                      📦 Detalle de EPP entregados
                     </h4>
                     <button
                       type="button"
@@ -695,6 +838,9 @@ export default function EppEntregas() {
                             label: `${variant.label} · Stock ${variant.stockActual}`,
                           }))
                         : [];
+                      const maxCantidad = getAvailableStockForDraft(item);
+                      const cantidadDisabled =
+                        !item.eppId || (epp?.multiSize && !item.variantId) || maxCantidad === 0;
 
                       return (
                         <div
@@ -759,15 +905,22 @@ export default function EppEntregas() {
                             </label>
                             <input
                               type="number"
-                              min={1}
+                              min={cantidadDisabled ? 0 : 1}
+                              max={maxCantidad ?? undefined}
                               value={item.cantidad}
                               onChange={(event) =>
                                 handleItemChange(item.tempId, {
                                   cantidad: Number(event.target.value),
                                 })
                               }
-                              className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-3 py-2 text-sm focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-bg dark:text-dracula-foreground"
+                              disabled={cantidadDisabled}
+                              className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-3 py-2 text-sm focus:border-celeste-300 focus:outline-none disabled:cursor-not-allowed disabled:bg-soft-gray-100 dark:border-dracula-current dark:bg-dracula-bg dark:text-dracula-foreground dark:disabled:bg-dracula-current/40"
                             />
+                            {maxCantidad !== null && (
+                              <p className="mt-1 text-[11px] text-slate-400 dark:text-dracula-comment">
+                                Stock disponible: {maxCantidad}
+                              </p>
+                            )}
                           </div>
 
                           <div className="flex items-center justify-between gap-3 md:flex-col md:items-end">
@@ -790,24 +943,24 @@ export default function EppEntregas() {
                 </div>
 
                 <div className="flex items-center justify-between rounded-2xl border border-soft-gray-200/70 bg-soft-gray-50/80 px-4 py-3 text-sm text-slate-600 dark:border-dracula-current dark:bg-dracula-current/30 dark:text-dracula-comment">
-                  <span>Total estimado</span>
+                  <span>💰 Total estimado</span>
                   <span className="text-base font-semibold text-slate-800 dark:text-dracula-foreground">
                     {currency.format(formTotal)}
                   </span>
                 </div>
 
-                <div className="flex justify-end gap-3">
+                <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
                   <button
                     type="button"
                     onClick={handleCloseModal}
-                    className="rounded-full border border-soft-gray-200/80 px-6 py-2 text-sm font-semibold text-slate-600 transition hover:border-celeste-200 hover:text-slate-800 dark:border-dracula-current dark:text-dracula-comment dark:hover:border-dracula-purple dark:hover:text-dracula-foreground"
+                    className="inline-flex items-center justify-center rounded-full border border-soft-gray-300 px-6 py-2 text-sm font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
                     disabled={saving}
-                    className="inline-flex items-center gap-2 rounded-full border border-mint-200/70 bg-mint-100/80 px-6 py-2 text-sm font-semibold text-mint-700 transition hover:border-mint-300 hover:bg-mint-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-dracula-green/40 dark:bg-dracula-green/20 dark:text-dracula-green"
+                    className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-mint-200/90 via-white to-celeste-200 px-6 py-2 text-sm font-semibold text-slate-700 shadow-md transition hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {saving
                       ? "Guardando..."
