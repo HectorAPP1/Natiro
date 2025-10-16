@@ -455,22 +455,20 @@ export default function ProtectedLayout() {
           desktopCollapsed ? "lg:ml-24" : "lg:ml-80 xl:ml-[23rem]"
         }`}
       >
-        {/* Barra de estado superior para zona segura (notch) */}
-        <div 
-          className="sticky top-0 z-40 bg-gradient-to-r from-celeste-200/60 via-celeste-100/50 to-mint-200/60 dark:bg-gradient-to-r dark:from-dracula-purple/40 dark:via-dracula-current/60 dark:to-dracula-purple/40"
-          style={{
-            paddingTop: 'env(safe-area-inset-top)',
-            minHeight: 'env(safe-area-inset-top)',
-          }}
-        />
-        
-        <header
-          className="sticky top-0 z-30 border-b border-soft-gray-200/70 bg-gradient-to-r from-celeste-100/40 via-white/80 to-mint-100/40 shadow-md backdrop-blur-xl dark:border-dracula-current dark:bg-gradient-to-r dark:from-dracula-current/40 dark:via-dracula-bg/80 dark:to-dracula-current/40"
-          style={{
-            top: 'env(safe-area-inset-top)',
-          }}
-        >
-          <div className="flex items-center justify-between px-3 sm:px-6 py-2 sm:py-3 w-full">
+        {/* Contenedor sticky que incluye barra de estado + header */}
+        <div className="sticky top-0 z-30">
+          {/* Barra de estado superior para zona segura (notch) */}
+          <div 
+            className="bg-gradient-to-r from-celeste-200/60 via-celeste-100/50 to-mint-200/60 dark:bg-gradient-to-r dark:from-dracula-purple/40 dark:via-dracula-current/60 dark:to-dracula-purple/40"
+            style={{
+              paddingTop: 'env(safe-area-inset-top)',
+              minHeight: 'env(safe-area-inset-top)',
+            }}
+          />
+          
+          {/* Header principal */}
+          <header className="border-b border-soft-gray-200/70 bg-gradient-to-r from-celeste-100/40 via-white/80 to-mint-100/40 shadow-md backdrop-blur-xl dark:border-dracula-current dark:bg-gradient-to-r dark:from-dracula-current/40 dark:via-dracula-bg/80 dark:to-dracula-current/40">
+            <div className="flex items-center justify-between px-3 sm:px-6 py-2 sm:py-3 w-full">
             <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
               <button
                 type="button"
@@ -514,7 +512,9 @@ export default function ProtectedLayout() {
               </button>
             </div>
           </div>
-        </header>
+          </header>
+        </div>
+        
         <main className="flex-1 px-3 sm:px-6 py-6 sm:py-10">
           <Outlet />
         </main>
