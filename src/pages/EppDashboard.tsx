@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Archive,
   CheckCircle2,
@@ -33,6 +33,13 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+
+const DESKTOP_MEDIA_QUERY = "(min-width: 1024px)";
+
+const getInitialInventoryViewMode = () =>
+  typeof window !== "undefined" && window.matchMedia(DESKTOP_MEDIA_QUERY).matches
+    ? "list"
+    : "card";
 
 type SizeVariantForm = {
   id: string;
@@ -202,7 +209,28 @@ export default function EppDashboard() {
   const [stockFilter, setStockFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
-  const [viewMode, setViewMode] = useState<"card" | "list">("card");
+  const [viewMode, setViewMode] = useState<"card" | "list">(getInitialInventoryViewMode);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mediaQuery = window.matchMedia(DESKTOP_MEDIA_QUERY);
+
+    const update = (matches: boolean) => {
+      setViewMode(matches ? "list" : "card");
+    };
+
+    update(mediaQuery.matches);
+
+    const handleChange = (event: MediaQueryListEvent) => update(event.matches);
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", handleChange);
+      return () => mediaQuery.removeEventListener("change", handleChange);
+    }
+
+    mediaQuery.addListener(handleChange);
+    return () => mediaQuery.removeListener(handleChange);
+  }, []);
   const [showCostModal, setShowCostModal] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
@@ -882,30 +910,14 @@ export default function EppDashboard() {
               </p>
             </div>
             <div className="flex items-center gap-2 rounded-full border border-soft-gray-200/70 bg-white p-1 shadow-sm dark:border-dracula-current dark:bg-dracula-current">
-              <button
-                onClick={() => setViewMode("card")}
-                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
-                  viewMode === "card"
-                    ? "bg-celeste-100 text-celeste-600 dark:bg-dracula-purple/30 dark:text-dracula-purple"
-                    : "text-slate-500 hover:text-slate-700 dark:text-dracula-comment dark:hover:text-dracula-foreground"
-                }`}
-                aria-label="Vista de tarjetas"
-              >
+              <span className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-slate-500 dark:text-dracula-comment lg:hidden">
                 <Grid3x3 className="h-4 w-4" />
                 Tarjetas
-              </button>
-              <button
-                onClick={() => setViewMode("list")}
-                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
-                  viewMode === "list"
-                    ? "bg-celeste-100 text-celeste-600 dark:bg-dracula-purple/30 dark:text-dracula-purple"
-                    : "text-slate-500 hover:text-slate-700 dark:text-dracula-comment dark:hover:text-dracula-foreground"
-                }`}
-                aria-label="Vista de lista"
-              >
+              </span>
+              <span className="hidden lg:inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-slate-500 dark:text-dracula-comment">
                 <List className="h-4 w-4" />
                 Lista
-              </button>
+              </span>
             </div>
           </div>
 

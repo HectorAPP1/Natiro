@@ -12,6 +12,8 @@ import {
   Truck,
   User,
   X,
+  Grid3x3,
+  List,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useTrabajadoresFirestore } from "../hooks/useTrabajadoresFirestore";
@@ -56,6 +58,13 @@ const formatDate = (value: Date | string | undefined) => {
 };
 
 const randomId = () => Math.random().toString(36).slice(2, 9);
+
+const DELIVERIES_DESKTOP_MEDIA_QUERY = "(min-width: 1024px)";
+
+const getInitialDeliveriesViewMode = () =>
+  typeof window !== "undefined" && window.matchMedia(DELIVERIES_DESKTOP_MEDIA_QUERY).matches
+    ? "list"
+    : "card";
 
 export default function EppEntregas() {
   const { user, loading: authLoading } = useAuth();
@@ -145,6 +154,29 @@ export default function EppEntregas() {
     () => filteredEntregas.reduce((sum, entrega) => sum + entrega.totalEntrega, 0),
     [filteredEntregas]
   );
+
+  const [viewMode, setViewMode] = useState<"card" | "list">(getInitialDeliveriesViewMode);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mediaQuery = window.matchMedia(DELIVERIES_DESKTOP_MEDIA_QUERY);
+
+    const update = (matches: boolean) => {
+      setViewMode(matches ? "list" : "card");
+    };
+
+    update(mediaQuery.matches);
+
+    const handleChange = (event: MediaQueryListEvent) => update(event.matches);
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", handleChange);
+      return () => mediaQuery.removeEventListener("change", handleChange);
+    }
+
+    mediaQuery.addListener(handleChange);
+    return () => mediaQuery.removeListener(handleChange);
+  }, []);
 
   const isDateRangeValid = useMemo(() => {
     if (!fromDate || !toDate) return false;
@@ -608,6 +640,19 @@ export default function EppEntregas() {
               {filteredEntregas.length} entregas · {currency.format(totalFiltrado)}
             </p>
           </div>
+          <div className="ml-auto flex items-center gap-2 rounded-full border border-soft-gray-200/70 bg-white p-1 shadow-sm dark:border-dracula-current dark:bg-dracula-current">
+            {viewMode === "card" ? (
+              <span className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold text-slate-500 dark:text-dracula-comment">
+                <Grid3x3 className="h-4 w-4" />
+                Tarjetas
+              </span>
+            ) : (
+              <span className="hidden lg:inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold text-slate-500 dark:text-dracula-comment">
+                <List className="h-4 w-4" />
+                Tabla
+              </span>
+            )}
+          </div>
         </div>
 
         {isLoading ? (
@@ -629,60 +674,66 @@ export default function EppEntregas() {
           </div>
         ) : (
           <div className="space-y-3">
-            <div className="flex items-center justify-center gap-2 rounded-full bg-soft-gray-100/70 px-3 py-1 text-xs font-semibold text-celeste-500 dark:bg-dracula-current/40 dark:text-dracula-cyan md:hidden">
-              <MoveHorizontal className="h-3.5 w-3.5" />
-              Desliza para ver más columnas
-            </div>
-            <div className="w-full overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100 hover:scrollbar-thumb-slate-400 dark:scrollbar-thumb-dracula-current dark:scrollbar-track-dracula-bg dark:hover:scrollbar-thumb-dracula-purple rounded-2xl border border-soft-gray-200/70 shadow-sm dark:border-dracula-current">
-              <table className="w-full min-w-[1080px] divide-y divide-soft-gray-200/70 bg-white text-sm dark:divide-dracula-current dark:bg-dracula-bg">
-                <thead className="bg-soft-gray-50/80 text-xs font-semibold uppercase tracking-[0.25em] text-slate-500 dark:bg-dracula-current/40 dark:text-dracula-comment">
-                  <tr>
-                    <th className="px-4 py-3 text-left">Fecha</th>
-                    <th className="px-4 py-3 text-left">Trabajador</th>
-                    <th className="px-4 py-3 text-left">Área / Sub-área</th>
-                    <th className="px-4 py-3 text-left">Detalle</th>
-                    <th className="px-4 py-3 text-right">Total</th>
-                    <th className="px-4 py-3 text-left">Autorizado por</th>
-                    <th className="px-4 py-3 text-right">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-soft-gray-200/60 dark:divide-dracula-current/50">
-                  {filteredEntregas.map((entrega) => (
-                    <tr
-                      key={entrega.id}
-                      className="bg-white/95 transition hover:bg-celeste-50/40 dark:bg-dracula-current/30 dark:hover:bg-dracula-current/50"
-                    >
-                      <td className="px-4 py-4 text-slate-600 dark:text-dracula-comment">
-                        {formatDate(entrega.fechaEntrega)}
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="font-semibold text-slate-800 dark:text-dracula-foreground">
+            {viewMode === "card" ? (
+              <div className="space-y-3">
+                {filteredEntregas.map((entrega) => (
+                  <article
+                    key={entrega.id}
+                    className="rounded-3xl border border-soft-gray-200/70 bg-white/95 p-4 shadow-sm transition hover:shadow-md dark:border-dracula-current dark:bg-dracula-current/40"
+                  >
+                    <header className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-celeste-300 dark:text-dracula-cyan">
+                          {formatDate(entrega.fechaEntrega)}
+                        </p>
+                        <h4 className="text-base font-semibold text-slate-800 dark:text-dracula-foreground">
                           {entrega.trabajadorNombre}
-                        </div>
-                        <div className="text-xs text-slate-500 dark:text-dracula-comment">
+                        </h4>
+                        <p className="text-xs text-slate-500 dark:text-dracula-comment">
                           {entrega.trabajadorRut}
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 text-slate-600 dark:text-dracula-comment">
-                        <div>{entrega.areaTrabajo || "—"}</div>
-                        <div className="text-xs text-slate-400 dark:text-dracula-comment/70">
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs uppercase tracking-[0.3em] text-slate-400 dark:text-dracula-comment">Total</p>
+                        <p className="text-lg font-semibold text-slate-800 dark:text-dracula-foreground">
+                          {currency.format(entrega.totalEntrega)}
+                        </p>
+                      </div>
+                    </header>
+                    <dl className="mt-3 grid grid-cols-2 gap-3 text-xs text-slate-500 dark:text-dracula-comment">
+                      <div>
+                        <dt className="font-semibold uppercase tracking-[0.25em] text-slate-400 dark:text-dracula-comment/80">
+                          Área
+                        </dt>
+                        <dd className="text-sm text-slate-700 dark:text-dracula-foreground">
+                          {entrega.areaTrabajo || "—"}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="font-semibold uppercase tracking-[0.25em] text-slate-400 dark:text-dracula-comment/80">
+                          Sub-área
+                        </dt>
+                        <dd className="text-sm text-slate-700 dark:text-dracula-foreground">
                           {entrega.subAreaTrabajo || "Sin sub-área"}
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 text-slate-600 dark:text-dracula-comment">
-                        <ul className="space-y-1">
+                        </dd>
+                      </div>
+                      <div className="col-span-2">
+                        <dt className="font-semibold uppercase tracking-[0.25em] text-slate-400 dark:text-dracula-comment/80">
+                          EPP entregados
+                        </dt>
+                        <ul className="mt-2 space-y-1">
                           {entrega.items.map((item) => (
                             <li
                               key={`${entrega.id}-${item.eppId}-${item.variantId ?? "default"}`}
-                              className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-soft-gray-100/60 px-3 py-2 text-xs dark:bg-dracula-current/40"
+                              className="flex items-center justify-between gap-2 rounded-xl bg-soft-gray-100/70 px-3 py-2 text-xs dark:bg-dracula-current/40"
                             >
                               <div>
-                                <div className="font-semibold text-slate-700 dark:text-dracula-foreground">
+                                <p className="font-semibold text-slate-700 dark:text-dracula-foreground">
                                   {item.cantidad}× {item.eppName}
-                                </div>
-                                <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-dracula-comment/70">
+                                </p>
+                                <p className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-dracula-comment/70">
                                   {item.talla || "Única"}
-                                </div>
+                                </p>
                               </div>
                               <span className="font-semibold text-slate-700 dark:text-dracula-foreground">
                                 {currency.format(item.subtotal)}
@@ -690,41 +741,140 @@ export default function EppEntregas() {
                             </li>
                           ))}
                         </ul>
-                      </td>
-                      <td className="px-4 py-4 text-right font-semibold text-slate-800 dark:text-dracula-foreground">
-                        {currency.format(entrega.totalEntrega)}
-                      </td>
-                      <td className="px-4 py-4 text-slate-600 dark:text-dracula-comment">
-                        <div>{entrega.autorizadoPorNombre}</div>
+                      </div>
+                    </dl>
+                    <footer className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500 dark:text-dracula-comment">
+                      <div>
+                        <p className="font-semibold uppercase tracking-[0.25em] text-slate-400 dark:text-dracula-comment/80">
+                          Autorizado por
+                        </p>
+                        <p className="text-sm font-semibold text-slate-700 dark:text-dracula-foreground">
+                          {entrega.autorizadoPorNombre}
+                        </p>
                         {entrega.autorizadoPorEmail && (
-                          <div className="text-xs text-slate-400 dark:text-dracula-comment/70">
-                            {entrega.autorizadoPorEmail}
-                          </div>
+                          <p>{entrega.autorizadoPorEmail}</p>
                         )}
-                      </td>
-                      <td className="px-4 py-4 text-right">
-                        <div className="inline-flex gap-2">
-                          <button
-                            onClick={() => handleOpenModal(entrega)}
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-celeste-200/70 text-celeste-500 transition hover:border-celeste-300 hover:bg-celeste-50 dark:border-dracula-purple/40 dark:text-dracula-cyan dark:hover:border-dracula-purple dark:hover:bg-dracula-cyan/10"
-                            aria-label="Editar entrega"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(entrega.id)}
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-rose-200/70 text-rose-500 transition hover:border-rose-300 hover:bg-rose-50 dark:border-dracula-red/40 dark:text-dracula-red dark:hover:border-dracula-red dark:hover:bg-dracula-red/10"
-                            aria-label="Eliminar entrega"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                      </div>
+                      <div className="inline-flex gap-2">
+                        <button
+                          onClick={() => handleOpenModal(entrega)}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-celeste-200/70 text-celeste-500 transition hover:border-celeste-300 hover:bg-celeste-50 dark:border-dracula-purple/40 dark:text-dracula-cyan dark:hover:border-dracula-purple dark:hover:bg-dracula-cyan/10"
+                          aria-label="Editar entrega"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(entrega.id)}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-rose-200/70 text-rose-500 transition hover:border-rose-300 hover:bg-rose-50 dark:border-dracula-red/40 dark:text-dracula-red dark:hover:border-dracula-red dark:hover:bg-dracula-red/10"
+                          aria-label="Eliminar entrega"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </footer>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-center gap-2 rounded-full bg-soft-gray-100/70 px-3 py-1 text-xs font-semibold text-celeste-500 dark:bg-dracula-current/40 dark:text-dracula-cyan md:hidden">
+                  <MoveHorizontal className="h-3.5 w-3.5" />
+                  Desliza para ver más columnas
+                </div>
+                <div className="w-full overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100 hover:scrollbar-thumb-slate-400 dark:scrollbar-thumb-dracula-current dark:scrollbar-track-dracula-bg dark:hover:scrollbar-thumb-dracula-purple rounded-2xl border border-soft-gray-200/70 shadow-sm dark:border-dracula-current">
+                  <table className="w-full min-w-[1080px] divide-y divide-soft-gray-200/70 bg-white text-sm dark:divide-dracula-current dark:bg-dracula-bg">
+                    <thead className="bg-soft-gray-50/80 text-xs font-semibold uppercase tracking-[0.25em] text-slate-500 dark:bg-dracula-current/40 dark:text-dracula-comment">
+                      <tr>
+                        <th className="px-4 py-3 text-left">Fecha</th>
+                        <th className="px-4 py-3 text-left">Trabajador</th>
+                        <th className="px-4 py-3 text-left">Área / Sub-área</th>
+                        <th className="px-4 py-3 text-left">Detalle</th>
+                        <th className="px-4 py-3 text-right">Total</th>
+                        <th className="px-4 py-3 text-left">Autorizado por</th>
+                        <th className="px-4 py-3 text-right">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-soft-gray-200/60 dark:divide-dracula-current/50">
+                      {filteredEntregas.map((entrega) => (
+                        <tr
+                          key={entrega.id}
+                          className="bg-white/95 transition hover:bg-celeste-50/40 dark:bg-dracula-current/30 dark:hover:bg-dracula-current/50"
+                        >
+                          <td className="px-4 py-4 text-slate-600 dark:text-dracula-comment">
+                            {formatDate(entrega.fechaEntrega)}
+                          </td>
+                          <td className="px-4 py-4">
+                            <div className="font-semibold text-slate-800 dark:text-dracula-foreground">
+                              {entrega.trabajadorNombre}
+                            </div>
+                            <div className="text-xs text-slate-500 dark:text-dracula-comment">
+                              {entrega.trabajadorRut}
+                            </div>
+                          </td>
+                          <td className="px-4 py-4 text-slate-600 dark:text-dracula-comment">
+                            <div>{entrega.areaTrabajo || "—"}</div>
+                            <div className="text-xs text-slate-400 dark:text-dracula-comment/70">
+                              {entrega.subAreaTrabajo || "Sin sub-área"}
+                            </div>
+                          </td>
+                          <td className="px-4 py-4 text-slate-600 dark:text-dracula-comment">
+                            <ul className="space-y-1">
+                              {entrega.items.map((item) => (
+                                <li
+                                  key={`${entrega.id}-${item.eppId}-${item.variantId ?? "default"}`}
+                                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-soft-gray-100/60 px-3 py-2 text-xs dark:bg-dracula-current/40"
+                                >
+                                  <div>
+                                    <div className="font-semibold text-slate-700 dark:text-dracula-foreground">
+                                      {item.cantidad}× {item.eppName}
+                                    </div>
+                                    <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-dracula-comment/70">
+                                      {item.talla || "Única"}
+                                    </div>
+                                  </div>
+                                  <span className="font-semibold text-slate-700 dark:text-dracula-foreground">
+                                    {currency.format(item.subtotal)}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          </td>
+                          <td className="px-4 py-4 text-right font-semibold text-slate-800 dark:text-dracula-foreground">
+                            {currency.format(entrega.totalEntrega)}
+                          </td>
+                          <td className="px-4 py-4 text-slate-600 dark:text-dracula-comment">
+                            <div>{entrega.autorizadoPorNombre}</div>
+                            {entrega.autorizadoPorEmail && (
+                              <div className="text-xs text-slate-400 dark:text-dracula-comment/70">
+                                {entrega.autorizadoPorEmail}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-4 py-4 text-right">
+                            <div className="inline-flex gap-2">
+                              <button
+                                onClick={() => handleOpenModal(entrega)}
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-celeste-200/70 text-celeste-500 transition hover:border-celeste-300 hover:bg-celeste-50 dark:border-dracula-purple/40 dark:text-dracula-cyan dark:hover;border-dracula-purple dark:hover:bg-dracula-cyan/10"
+                                aria-label="Editar entrega"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(entrega.id)}
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-rose-200/70 text-rose-500 transition hover:border-rose-300 hover:bg-rose-50 dark:border-dracula-red/40 dark:text-dracula-red dark:hover:border-dracula-red dark:hover:bg-dracula-red/10"
+                                aria-label="Eliminar entrega"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
           </div>
         )}
       </section>
