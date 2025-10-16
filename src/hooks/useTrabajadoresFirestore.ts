@@ -46,6 +46,7 @@ export type Trabajador = {
   mutualSeguridad: "" | "ACHS" | "Mutual" | "ISL" | "otra";
   poseeLicencia: boolean;
   clasesLicencia: string[];
+  vigente: boolean;
 
   // Metadata
   createdAt: Timestamp;
@@ -94,6 +95,7 @@ export function useTrabajadoresFirestore() {
             clasesLicencia: Array.isArray(data.clasesLicencia)
               ? data.clasesLicencia.map(String)
               : [],
+            vigente: typeof data.vigente === "boolean" ? data.vigente : true,
             id: doc.id,
           } as Trabajador);
         });
@@ -128,6 +130,7 @@ export function useTrabajadoresFirestore() {
         clasesLicencia: trabajadorData.poseeLicencia
           ? trabajadorData.clasesLicencia ?? []
           : [],
+        vigente: trabajadorData.vigente ?? true,
         createdAt: now,
         updatedAt: now,
       };
@@ -157,6 +160,9 @@ export function useTrabajadoresFirestore() {
         clasesLicencia: trabajadorData.poseeLicencia
           ? trabajadorData.clasesLicencia ?? []
           : [],
+        vigente:
+          trabajadorData.vigente ??
+          (typeof trabajadorData.vigente === "boolean" ? trabajadorData.vigente : true),
         updatedAt: Timestamp.now(),
       };
 

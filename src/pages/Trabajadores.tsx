@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Users,
   Plus,
@@ -14,7 +14,11 @@ import {
   MapPin,
   Grid3x3,
   List,
+  ShieldCheck,
+  ShieldOff,
+  Download,
 } from "lucide-react";
+import * as XLSX from "xlsx";
 import { useTrabajadoresFirestore, type TrabajadorFormData } from "../hooks/useTrabajadoresFirestore";
 
 const AREAS_TRABAJO = [
@@ -102,6 +106,7 @@ const initialFormState = (): TrabajadorFormData => ({
   mutualSeguridad: "",
   poseeLicencia: false,
   clasesLicencia: [],
+  vigente: true,
 });
 
 export default function Trabajadores() {
@@ -116,12 +121,42 @@ export default function Trabajadores() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [areaFilter, setAreaFilter] = useState("all");
+  const [subAreaFilter, setSubAreaFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("vigente");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formState, setFormState] = useState<TrabajadorFormData>(initialFormState());
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"card" | "list">("card");
+  const [viewMode, setViewMode] = useState<"card" | "list">(() =>
+    typeof window !== "undefined" && window.innerWidth >= 1024 ? "list" : "card"
+  );
+  const [isDesktop, setIsDesktop] = useState<boolean>(() =>
+    typeof window !== "undefined" ? window.innerWidth >= 1024 : true
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleResize = () => {
+      const matches = window.innerWidth >= 1024;
+      setIsDesktop(matches);
+      setViewMode(matches ? "list" : "card");
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const subAreaOptions = useMemo(() => {
+    const options = new Set<string>();
+    trabajadores.forEach((trabajador) => {
+      if (trabajador.subAreaTrabajo && trabajador.subAreaTrabajo.trim().length > 0) {
+        options.add(trabajador.subAreaTrabajo.trim());
+      }
+    });
+    return Array.from(options).sort((a, b) => a.localeCompare(b));
+  }, [trabajadores]);
 
   const filteredTrabajadores = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -144,9 +179,17 @@ export default function Trabajadores() {
       const matchesArea =
         areaFilter === "all" || trabajador.areaTrabajo === areaFilter;
 
-      return matchesSearch && matchesArea;
+      const matchesSubArea =
+        subAreaFilter === "all" || trabajador.subAreaTrabajo === subAreaFilter;
+
+      const matchesStatus =
+        statusFilter === "all" ||
+        (statusFilter === "vigente" && trabajador.vigente) ||
+        (statusFilter === "no_vigente" && !trabajador.vigente);
+
+      return matchesSearch && matchesArea && matchesSubArea && matchesStatus;
     });
-  }, [trabajadores, searchQuery, areaFilter]);
+  }, [trabajadores, searchQuery, areaFilter, subAreaFilter, statusFilter]);
 
   const handleOpenModal = (trabajadorId?: string) => {
     if (trabajadorId) {
@@ -162,6 +205,7 @@ export default function Trabajadores() {
           clasesLicencia: formData.clasesLicencia ?? [],
           telefono: formData.telefono ?? "",
           correoElectronico: formData.correoElectronico ?? "",
+          vigente: typeof formData.vigente === "boolean" ? formData.vigente : true,
         });
       }
     } else {
@@ -202,6 +246,7 @@ export default function Trabajadores() {
         clasesLicencia: formState.poseeLicencia ? formState.clasesLicencia : [],
         telefono: formState.telefono ?? "",
         correoElectronico: formState.correoElectronico ?? "",
+        vigente: formState.vigente ?? true,
       };
 
       if (editingId) {
@@ -227,14 +272,89 @@ export default function Trabajadores() {
     }
   };
 
+  const handleToggleVigente = async (trabajadorId: string, vigenteActual: boolean) => {
+    try {
+      await updateTrabajador(trabajadorId, { vigente: !vigenteActual });
+    } catch (err) {
+      alert("Error al actualizar vigencia");
+    }
+  };
+
+  const handleExportToExcel = () => {
+    if (filteredTrabajadores.length === 0) return;
+
+    const exportData = filteredTrabajadores.map((trabajador) => ({
+      Nombre: trabajador.nombre,
+      RUT: trabajador.rut,
+      "Fecha de Nacimiento": trabajador.fechaNacimiento,
+      Sexo: trabajador.sexo,
+      Cargo: trabajador.cargo,
+      "Área": trabajador.areaTrabajo,
+      "Sub-área": trabajador.subAreaTrabajo || "—",
+      Jefatura: trabajador.nombreJefatura || "—",
+      "Fecha Ingreso": trabajador.fechaIngreso,
+      "Tipo Contrato":
+        trabajador.tipoContrato === "indefinido"
+          ? "Indefinido"
+          : trabajador.tipoContrato === "plazo_fijo"
+          ? "Plazo Fijo"
+          : "Faena",
+      "Teléfono": trabajador.telefono || "—",
+      "Correo": trabajador.correoElectronico || "—",
+      "Contacto Emergencia": trabajador.nombreContactoEmergencia || "—",
+      "Teléfono Emergencia": trabajador.numeroEmergencia || "—",
+      "Mutual": trabajador.mutualSeguridad || "—",
+      "Licencias": trabajador.poseeLicencia && trabajador.clasesLicencia.length > 0
+        ? trabajador.clasesLicencia.sort().join(", ")
+        : "—",
+      Vigente: trabajador.vigente ? "Sí" : "No",
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    worksheet["!cols"] = [
+      { wch: 25 },
+      { wch: 16 },
+      { wch: 14 },
+      { wch: 10 },
+      { wch: 24 },
+      { wch: 18 },
+      { wch: 20 },
+      { wch: 20 },
+      { wch: 14 },
+      { wch: 28 },
+      { wch: 26 },
+      { wch: 26 },
+      { wch: 18 },
+      { wch: 22 },
+      { wch: 18 },
+      { wch: 10 },
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Trabajadores");
+
+    const statusLabel =
+      statusFilter === "vigente"
+        ? "vigentes"
+        : statusFilter === "no_vigente"
+        ? "no_vigentes"
+        : "todos";
+
+    const fileName = `Trabajadores_${statusLabel}_${new Date()
+      .toISOString()
+      .split("T")[0]}.xlsx`;
+
+    XLSX.writeFile(workbook, fileName);
+  };
+
   const getAvatarIcon = (sexo: string) => {
     if (sexo === "femenino") {
-      return "👷‍♀️";
+      return "👷🏻‍♀️";
     }
     if (sexo === "masculino") {
-      return "👷";
+      return "👷🏻‍♂️";
     }
-    return "👷";
+    return "👷🏻‍♂️";
   };
 
   if (firestoreLoading) {
@@ -276,6 +396,15 @@ export default function Trabajadores() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+            <button
+              onClick={handleExportToExcel}
+              disabled={filteredTrabajadores.length === 0}
+              className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full border border-mint-200/70 bg-white/80 px-3 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-slate-600 shadow-sm transition hover:border-mint-300 hover:bg-mint-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-green dark:hover:border-dracula-green dark:hover:bg-dracula-bg"
+            >
+              <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Exportar Excel</span>
+              <span className="sm:hidden">Excel</span>
+            </button>
             <div className="flex items-center gap-2 rounded-full border border-soft-gray-200/70 bg-white p-1 shadow-sm dark:border-dracula-current dark:bg-dracula-current">
               <button
                 type="button"
@@ -289,18 +418,20 @@ export default function Trabajadores() {
                 <Grid3x3 className="h-4 w-4" />
                 Tarjetas
               </button>
-              <button
-                type="button"
-                onClick={() => setViewMode("list")}
-                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
-                  viewMode === "list"
-                    ? "bg-celeste-100 text-celeste-600 dark:bg-dracula-purple/30 dark:text-dracula-purple"
-                    : "text-slate-500 hover:text-slate-700 dark:text-dracula-comment dark:hover:text-dracula-foreground"
-                }`}
-              >
-                <List className="h-4 w-4" />
-                Lista
-              </button>
+              {isDesktop && (
+                <button
+                  type="button"
+                  onClick={() => setViewMode("list")}
+                  className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
+                    viewMode === "list"
+                      ? "bg-celeste-100 text-celeste-600 dark:bg-dracula-purple/30 dark:text-dracula-purple"
+                      : "text-slate-500 hover:text-slate-700 dark:text-dracula-comment dark:hover:text-dracula-foreground"
+                  }`}
+                >
+                  <List className="h-4 w-4" />
+                  Lista
+                </button>
+              )}
             </div>
             <button
               onClick={() => handleOpenModal()}
@@ -325,18 +456,47 @@ export default function Trabajadores() {
               className="w-full rounded-2xl border border-soft-gray-200/70 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-700 shadow-sm focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground dark:placeholder-dracula-comment"
             />
           </div>
-          <select
-            value={areaFilter}
-            onChange={(e) => setAreaFilter(e.target.value)}
-            className="rounded-2xl border border-soft-gray-200/70 bg-white px-4 py-2.5 text-sm text-slate-700 shadow-sm focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
-          >
-            <option value="all">Todas las áreas</option>
-            {AREAS_TRABAJO.map((area) => (
-              <option key={area} value={area}>
-                {area}
-              </option>
-            ))}
-          </select>
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+            <select
+              value={areaFilter}
+              onChange={(e) => {
+                setAreaFilter(e.target.value);
+                setSubAreaFilter("all");
+              }}
+              className="rounded-2xl border border-soft-gray-200/70 bg-white px-4 py-2.5 text-sm text-slate-700 shadow-sm focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
+            >
+              <option value="all">Todas las áreas</option>
+              {AREAS_TRABAJO.map((area) => (
+                <option key={area} value={area}>
+                  {area}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={subAreaFilter}
+              onChange={(e) => setSubAreaFilter(e.target.value)}
+              className="rounded-2xl border border-soft-gray-200/70 bg-white px-4 py-2.5 text-sm text-slate-700 shadow-sm focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground disabled:opacity-60"
+              disabled={subAreaOptions.length === 0}
+            >
+              <option value="all">Todas las sub-áreas</option>
+              {subAreaOptions.map((subArea) => (
+                <option key={subArea} value={subArea}>
+                  {subArea}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="rounded-2xl border border-soft-gray-200/70 bg-white px-4 py-2.5 text-sm text-slate-700 shadow-sm focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
+            >
+              <option value="vigente">Vigentes</option>
+              <option value="no_vigente">No vigentes</option>
+              <option value="all">Todos</option>
+            </select>
+          </div>
         </div>
 
         {/* Lista de trabajadores */}
@@ -426,49 +586,75 @@ export default function Trabajadores() {
                   )}
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-soft-gray-200/70 dark:border-dracula-current">
-                  <div className="flex items-center justify-between text-xs">
+                <div className="mt-4 pt-4 border-t border-soft-gray-200/70 text-xs dark:border-dracula-current">
+                  <div className="flex items-center justify-between">
                     <span className="text-slate-500 dark:text-dracula-comment">
                       Ingreso: {new Date(trabajador.fechaIngreso).toLocaleDateString()}
                     </span>
-                    <span
-                      className={`rounded-full px-2 py-1 font-medium ${
-                        trabajador.tipoContrato === "indefinido"
-                          ? "bg-mint-100 text-mint-700 dark:bg-dracula-green/20 dark:text-dracula-green"
-                          : "bg-amber-100 text-amber-700 dark:bg-dracula-orange/20 dark:text-dracula-orange"
-                      }`}
-                    >
-                      {trabajador.tipoContrato === "indefinido"
-                        ? "Indefinido"
-                        : trabajador.tipoContrato === "plazo_fijo"
-                        ? "Plazo Fijo"
-                        : "Faena"}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                          trabajador.vigente
+                            ? "bg-mint-100 text-mint-700 dark:bg-dracula-green/20 dark:text-dracula-green"
+                            : "bg-amber-100 text-amber-700 dark:bg-dracula-orange/20 dark:text-dracula-orange"
+                        }`}
+                      >
+                        {trabajador.vigente ? "Vigente" : "No vigente"}
+                      </span>
+                      <span
+                        className={`rounded-full px-2 py-1 font-medium ${
+                          trabajador.tipoContrato === "indefinido"
+                            ? "bg-mint-100 text-mint-700 dark:bg-dracula-green/20 dark:text-dracula-green"
+                            : "bg-amber-100 text-amber-700 dark:bg-dracula-orange/20 dark:text-dracula-orange"
+                        }`}
+                      >
+                        {trabajador.tipoContrato === "indefinido"
+                          ? "Indefinido"
+                          : trabajador.tipoContrato === "plazo_fijo"
+                          ? "Plazo Fijo"
+                          : "Faena"}
+                      </span>
+                    </div>
                   </div>
+                </div>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    onClick={() => handleToggleVigente(trabajador.id, trabajador.vigente)}
+                    className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition ${
+                      trabajador.vigente
+                        ? "border-amber-200/70 bg-white text-amber-500 hover:border-amber-300 hover:bg-amber-50 dark:border-dracula-orange/40 dark:bg-dracula-current dark:text-dracula-orange dark:hover:border-dracula-orange dark:hover:bg-dracula-orange/10"
+                        : "border-mint-200/70 bg-white text-mint-500 hover:border-mint-300 hover:bg-mint-50 dark:border-dracula-green/40 dark:bg-dracula-current dark:text-dracula-green dark:hover:border-dracula-green dark:hover:bg-dracula-green/10"
+                    }`}
+                    aria-label={trabajador.vigente ? "Marcar como no vigente" : "Marcar como vigente"}
+                  >
+                    {trabajador.vigente ? (
+                      <ShieldOff className="h-4 w-4" />
+                    ) : (
+                      <ShieldCheck className="h-4 w-4" />
+                    )}
+                  </button>
+                  <button
+                    onClick={() => handleOpenModal(trabajador.id)}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-celeste-200/70 bg-white text-celeste-500 transition hover:border-celeste-300 hover:bg-celeste-50 dark:border-dracula-purple/40 dark:bg-dracula-current dark:text-dracula-cyan dark:hover:border-dracula-purple dark:hover:bg-dracula-cyan/10"
+                    aria-label="Editar trabajador"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(trabajador.id)}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-rose-200/70 bg-white text-rose-500 transition hover:border-rose-300 hover:bg-rose-50 dark:border-dracula-red/40 dark:bg-dracula-current dark:text-dracula-red dark:hover:border-dracula-red dark:hover:bg-dracula-red/10"
+                    aria-label="Eliminar trabajador"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
             ))}
           </div>
         ) : (
           <div className="space-y-3">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em] text-slate-400 dark:text-dracula-comment">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-3.5 w-3.5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="m15 6-6 12" />
-                <path d="m9 6 6 12" />
-              </svg>
-              <span>Desliza para ver más información</span>
-            </div>
-            <div className="overflow-x-auto overflow-y-hidden -mx-3 sm:-mx-4 lg:-mx-5 px-3 sm:px-4 lg:px-5 rounded-3xl border border-soft-gray-200/70 bg-white shadow-sm scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent dark:border-dracula-current dark:bg-dracula-current/40 dark:scrollbar-thumb-dracula-current">
-              <table className="w-full min-w-[960px] divide-y divide-soft-gray-200/70 dark:divide-dracula-current">
+            <div className="w-full overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100 hover:scrollbar-thumb-slate-400 dark:scrollbar-thumb-dracula-current dark:scrollbar-track-dracula-bg dark:hover:scrollbar-thumb-dracula-purple rounded-2xl border border-soft-gray-200/70 shadow-sm dark:border-dracula-current">
+              <table className="w-full min-w-[960px] divide-y divide-soft-gray-200/70 bg-white dark:bg-dracula-bg dark:divide-dracula-current">
                 <thead className="bg-soft-gray-50/60 text-slate-600 dark:bg-dracula-current/40 dark:text-dracula-comment">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em]">Nombre</th>
@@ -480,6 +666,7 @@ export default function Trabajadores() {
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.3em]">Ingreso</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.3em]">Contrato</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.3em]">Licencias</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.3em]">Estado</th>
                     <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-[0.3em]">Acciones</th>
                   </tr>
                 </thead>
@@ -494,9 +681,6 @@ export default function Trabajadores() {
                           <div>
                             <p className="font-semibold text-slate-800 dark:text-dracula-foreground">
                               {trabajador.nombre}
-                            </p>
-                            <p className="text-xs text-slate-500 dark:text-dracula-comment">
-                              Contacto emergencia: {trabajador.nombreContactoEmergencia || "—"}
                             </p>
                           </div>
                         </div>
@@ -529,8 +713,34 @@ export default function Trabajadores() {
                           ? trabajador.clasesLicencia.sort().join(", ")
                           : "—"}
                       </td>
+                      <td className="px-4 py-4">
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+                            trabajador.vigente
+                              ? "bg-mint-100 text-mint-700 dark:bg-dracula-green/20 dark:text-dracula-green"
+                              : "bg-amber-100 text-amber-700 dark:bg-dracula-orange/20 dark:text-dracula-orange"
+                          }`}
+                        >
+                          {trabajador.vigente ? "Vigente" : "No vigente"}
+                        </span>
+                      </td>
                       <td className="px-4 py-4 text-right">
                         <div className="inline-flex gap-2">
+                          <button
+                            onClick={() => handleToggleVigente(trabajador.id, trabajador.vigente)}
+                            className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition ${
+                              trabajador.vigente
+                                ? "border-amber-200/70 bg-white text-amber-500 hover:border-amber-300 hover:bg-amber-50 dark:border-dracula-orange/40 dark:bg-dracula-current dark:text-dracula-orange dark:hover:border-dracula-orange dark:hover:bg-dracula-orange/10"
+                                : "border-mint-200/70 bg-white text-mint-500 hover:border-mint-300 hover:bg-mint-50 dark:border-dracula-green/40 dark:bg-dracula-current dark:text-dracula-green dark:hover:border-dracula-green dark:hover:bg-dracula-green/10"
+                            }`}
+                            aria-label={trabajador.vigente ? "Marcar como no vigente" : "Marcar como vigente"}
+                          >
+                            {trabajador.vigente ? (
+                              <ShieldOff className="h-4 w-4" />
+                            ) : (
+                              <ShieldCheck className="h-4 w-4" />
+                            )}
+                          </button>
                           <button
                             onClick={() => handleOpenModal(trabajador.id)}
                             className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-celeste-200/70 bg-white text-celeste-500 transition hover:border-celeste-300 hover:bg-celeste-50 dark:border-dracula-purple/40 dark:bg-dracula-current dark:text-dracula-cyan dark:hover:border-dracula-purple dark:hover:bg-dracula-cyan/10"
