@@ -17,6 +17,9 @@ import {
   Heart,
   Award,
   BookOpen,
+  Truck,
+  Package,
+  ChevronDown,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import ThemeToggle from "../components/ThemeToggle";
@@ -27,6 +30,7 @@ export default function ProtectedLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const [currentTipIndex, setCurrentTipIndex] = useState(0);
+  const [eppMenuOpen, setEppMenuOpen] = useState(false);
 
   // Categorías y contenido HSE - Mezclados para variedad
   const hseContent = [
@@ -294,12 +298,20 @@ export default function ProtectedLayout() {
   type NavigationItem = {
     label: string;
     icon: LucideIcon;
-    to: string;
+    to?: string;
     soon?: boolean;
+    subItems?: { label: string; to: string; icon: LucideIcon }[];
   };
 
   const navigation: NavigationItem[] = [
-    { label: "Epp", to: "/epp", icon: HardHat },
+    { 
+      label: "EPP", 
+      icon: HardHat,
+      subItems: [
+        { label: "Inventario", to: "/epp", icon: Package },
+        { label: "Entregas", to: "/epp/entregas", icon: Truck },
+      ]
+    },
     {
       label: "Inspecciones",
       to: "/inspecciones",
@@ -316,11 +328,76 @@ export default function ProtectedLayout() {
   const renderNavigation = (onNavigate?: () => void) =>
     navigation.map((item) => {
       const Icon = item.icon;
+      const hasSubItems = item.subItems && item.subItems.length > 0;
+      const isAnySubItemActive = hasSubItems && item.subItems!.some(sub => location.pathname === sub.to);
 
+      // Si tiene sub-items, renderizar menú desplegable
+      if (hasSubItems) {
+        return (
+          <div key={item.label} className="space-y-1">
+            <button
+              onClick={() => setEppMenuOpen(!eppMenuOpen)}
+              className={`group flex w-full items-center rounded-2xl border py-3 text-sm font-semibold transition-all ${
+                desktopCollapsed ? "justify-center px-3" : "gap-4 px-6"
+              } ${
+                isAnySubItemActive
+                  ? "border-mint-200/80 bg-white text-slate-800 shadow-sm dark:border-dracula-purple/50 dark:bg-dracula-current dark:text-dracula-foreground"
+                  : "border-transparent text-slate-600 hover:border-celeste-200/60 hover:bg-white/80 hover:text-slate-700 dark:text-dracula-comment dark:hover:border-dracula-purple/30 dark:hover:bg-dracula-current/50 dark:hover:text-dracula-foreground"
+              }`}
+            >
+              <Icon
+                className={`h-6 w-6 flex-shrink-0 transition-colors duration-200 ${
+                  isAnySubItemActive
+                    ? "text-celeste-400 dark:text-dracula-cyan"
+                    : "text-celeste-300/70 group-hover:text-celeste-400 dark:text-dracula-cyan/50 dark:group-hover:text-dracula-cyan"
+                }`}
+              />
+              {!desktopCollapsed && (
+                <>
+                  <span className="flex-1 text-left">{item.label}</span>
+                  <ChevronDown
+                    className={`h-4 w-4 transition-transform ${
+                      eppMenuOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </>
+              )}
+            </button>
+
+            {/* Sub-items */}
+            {eppMenuOpen && !desktopCollapsed && (
+              <div className="ml-6 space-y-1">
+                {item.subItems!.map((subItem) => {
+                  const SubIcon = subItem.icon;
+                  return (
+                    <NavLink
+                      key={subItem.label}
+                      to={subItem.to}
+                      onClick={onNavigate}
+                      className={({ isActive }) =>
+                        `group flex items-center gap-3 rounded-xl border py-2 px-4 text-sm font-medium transition-all ${
+                          isActive
+                            ? "border-celeste-200/80 bg-celeste-50/50 text-slate-800 dark:border-dracula-cyan/50 dark:bg-dracula-cyan/10 dark:text-dracula-cyan"
+                            : "border-transparent text-slate-500 hover:border-celeste-100/60 hover:bg-white/60 hover:text-slate-700 dark:text-dracula-comment/70 dark:hover:border-dracula-cyan/20 dark:hover:bg-dracula-current/30 dark:hover:text-dracula-cyan/80"
+                        }`
+                      }
+                    >
+                      <SubIcon className="h-4 w-4 flex-shrink-0" />
+                      <span>{subItem.label}</span>
+                    </NavLink>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      // Items normales sin sub-items
       return (
         <NavLink
           key={item.label}
-          to={item.to}
+          to={item.to!}
           onClick={onNavigate}
           className={({ isActive }) =>
             `group flex items-center rounded-2xl border py-3 text-sm font-semibold transition-all ${
@@ -451,19 +528,18 @@ export default function ProtectedLayout() {
       </aside>
 
       <div
-        className={`flex flex-1 flex-col h-screen overflow-y-auto ${
+        className={`flex flex-1 flex-col ${
           desktopCollapsed ? "lg:ml-24" : "lg:ml-80 xl:ml-[23rem]"
         }`}
       >
-        {/* Header con zona segura integrada */}
-        <header 
-          className="sticky top-0 z-30 border-b border-soft-gray-200/70 bg-gradient-to-r from-celeste-100/40 via-white/80 to-mint-100/40 shadow-md backdrop-blur-xl dark:border-dracula-current dark:bg-gradient-to-r dark:from-dracula-current/40 dark:via-dracula-bg/80 dark:to-dracula-current/40"
-          style={{
-            paddingTop: 'max(0.5rem, env(safe-area-inset-top))',
-            paddingBottom: '0.5rem',
-          }}
-        >
-          <div className="flex items-center justify-between px-3 sm:px-6 w-full">
+        <header className="fixed lg:sticky top-0 left-0 right-0 z-30 border-b border-soft-gray-200/70 bg-gradient-to-r from-celeste-100/40 via-white/80 to-mint-100/40 shadow-md backdrop-blur-xl dark:border-dracula-current dark:bg-gradient-to-r dark:from-dracula-current/40 dark:via-dracula-bg/80 dark:to-dracula-current/40 lg:left-auto pt-12 pb-3 lg:py-6 flex items-center">
+          <div
+            className="flex items-center justify-between px-4 sm:px-6 w-full"
+            style={{
+              paddingLeft: "max(1rem, env(safe-area-inset-left))",
+              paddingRight: "max(1rem, env(safe-area-inset-right))",
+            }}
+          >
             <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
               <button
                 type="button"
@@ -508,8 +584,7 @@ export default function ProtectedLayout() {
             </div>
           </div>
         </header>
-        
-        <main className="flex-1 px-3 sm:px-6 py-6 sm:py-10">
+        <main className="flex-1 px-3 sm:px-6 pb-6 sm:pb-10 pt-3 lg:pt-6 lg:pb-10">
           <Outlet />
         </main>
       </div>
