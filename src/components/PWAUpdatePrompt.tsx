@@ -3,7 +3,7 @@ import { useRegisterSW } from 'virtual:pwa-register/react'
 import { RefreshCw, X } from 'lucide-react'
 
 // Versión actual de la app
-const APP_VERSION = '1.0.1'
+const APP_VERSION = '1.0.2'
 
 export default function PWAUpdatePrompt() {
   const [showPrompt, setShowPrompt] = useState(false)

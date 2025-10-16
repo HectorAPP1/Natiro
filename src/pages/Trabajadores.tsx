@@ -9,11 +9,12 @@ import {
   X,
   Pencil,
   Trash2,
-  UserCircle2,
-  AlertCircle,
   Phone,
+  AlertCircle,
   Mail,
   MapPin,
+  Grid3x3,
+  List,
 } from "lucide-react";
 import { useTrabajadoresFirestore, type TrabajadorFormData } from "../hooks/useTrabajadoresFirestore";
 
@@ -25,7 +26,7 @@ const AREAS_TRABAJO = [
   "Operaciones",
   "Calidad",
   "Seguridad",
-  "Recursos Humanos",
+  "Capital Humano",
   "Finanzas",
   "Ventas",
   "Compras",
@@ -33,6 +34,43 @@ const AREAS_TRABAJO = [
   "Transporte",
   "Servicios Generales",
 ];
+
+const LICENCIAS_CHILE = [
+  "A1",
+  "A2",
+  "A3",
+  "A4",
+  "A5",
+  "B",
+  "C",
+  "D",
+  "E",
+  "F",
+];
+
+const formatRut = (input: string): string => {
+  const cleaned = input.replace(/[^0-9kK]/g, "").toUpperCase();
+  if (cleaned.length <= 1) {
+    return cleaned;
+  }
+
+  const cuerpo = cleaned.slice(0, -1);
+  const dv = cleaned.slice(-1);
+  const cuerpoFormateado = cuerpo
+    .split("")
+    .reverse()
+    .reduce<string[]>((acc, digit, index) => {
+      if (index !== 0 && index % 3 === 0) {
+        acc.push(".");
+      }
+      acc.push(digit);
+      return acc;
+    }, [])
+    .reverse()
+    .join("");
+
+  return `${cuerpoFormateado}-${dv}`;
+};
 
 const initialFormState = (): TrabajadorFormData => ({
   nombre: "",
@@ -46,10 +84,12 @@ const initialFormState = (): TrabajadorFormData => ({
   fechaIngreso: "",
   tipoContrato: "indefinido",
   fechaVencimientoContrato: "",
+  telefono: "",
+  correoElectronico: "",
   numeroEmergencia: "",
   nombreContactoEmergencia: "",
-  enfermedadCronica: "no",
-  alergias: "no",
+  enfermedadCronica: "",
+  alergias: "",
   alergiaCritica: false,
   tallaCamisa: "",
   tallaPantalon: "",
@@ -59,8 +99,10 @@ const initialFormState = (): TrabajadorFormData => ({
   fechaInduccionHSE: "",
   fechaUltimoExamen: "",
   fechaProximoExamen: "",
-  restriccionesMedicas: "no",
-  mutualSeguridad: "ACHS",
+  restriccionesMedicas: "",
+  mutualSeguridad: "",
+  poseeLicencia: false,
+  clasesLicencia: [],
 });
 
 export default function Trabajadores() {
@@ -80,15 +122,29 @@ export default function Trabajadores() {
   const [formState, setFormState] = useState<TrabajadorFormData>(initialFormState());
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"card" | "list">("card");
 
   const filteredTrabajadores = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
     return trabajadores.filter((trabajador) => {
+      const telefono = trabajador.telefono?.toLowerCase() ?? "";
+      const correo = trabajador.correoElectronico?.toLowerCase() ?? "";
+      const clases = Array.isArray(trabajador.clasesLicencia)
+        ? trabajador.clasesLicencia.join(" ").toLowerCase()
+        : "";
+
       const matchesSearch =
-        trabajador.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        trabajador.rut.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        trabajador.cargo.toLowerCase().includes(searchQuery.toLowerCase());
+        normalizedQuery.length === 0 ||
+        trabajador.nombre.toLowerCase().includes(normalizedQuery) ||
+        trabajador.rut.toLowerCase().includes(normalizedQuery) ||
+        trabajador.cargo.toLowerCase().includes(normalizedQuery) ||
+        telefono.includes(normalizedQuery) ||
+        correo.includes(normalizedQuery) ||
+        clases.includes(normalizedQuery);
+
       const matchesArea =
         areaFilter === "all" || trabajador.areaTrabajo === areaFilter;
+
       return matchesSearch && matchesArea;
     });
   }, [trabajadores, searchQuery, areaFilter]);
@@ -99,7 +155,15 @@ export default function Trabajadores() {
       if (trabajador) {
         setEditingId(trabajadorId);
         const { id, createdAt, updatedAt, ...formData } = trabajador;
-        setFormState(formData);
+        setFormState({
+          ...initialFormState(),
+          ...formData,
+          poseeLicencia:
+            formData.poseeLicencia ?? (formData.clasesLicencia?.length ?? 0) > 0,
+          clasesLicencia: formData.clasesLicencia ?? [],
+          telefono: formData.telefono ?? "",
+          correoElectronico: formData.correoElectronico ?? "",
+        });
       }
     } else {
       setEditingId(null);
@@ -107,6 +171,18 @@ export default function Trabajadores() {
     }
     setIsModalOpen(true);
     setFormError(null);
+  };
+
+  const toggleLicenciaClase = (clase: string) => {
+    setFormState((prev) => {
+      const alreadySelected = prev.clasesLicencia.includes(clase);
+      return {
+        ...prev,
+        clasesLicencia: alreadySelected
+          ? prev.clasesLicencia.filter((item) => item !== clase)
+          : [...prev.clasesLicencia, clase],
+      };
+    });
   };
 
   const handleCloseModal = () => {
@@ -122,10 +198,17 @@ export default function Trabajadores() {
     setFormError(null);
 
     try {
+      const payload: TrabajadorFormData = {
+        ...formState,
+        clasesLicencia: formState.poseeLicencia ? formState.clasesLicencia : [],
+        telefono: formState.telefono ?? "",
+        correoElectronico: formState.correoElectronico ?? "",
+      };
+
       if (editingId) {
-        await updateTrabajador(editingId, formState);
+        await updateTrabajador(editingId, payload);
       } else {
-        await addTrabajador(formState);
+        await addTrabajador(payload);
       }
       handleCloseModal();
     } catch (err) {
@@ -146,7 +229,13 @@ export default function Trabajadores() {
   };
 
   const getAvatarIcon = (sexo: string) => {
-    return sexo === "femenino" ? "👩" : sexo === "masculino" ? "👨" : "🧑";
+    if (sexo === "femenino") {
+      return "👷‍♀️";
+    }
+    if (sexo === "masculino") {
+      return "👷";
+    }
+    return "👷";
   };
 
   if (firestoreLoading) {
@@ -178,7 +267,7 @@ export default function Trabajadores() {
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-celeste-300 dark:text-dracula-cyan">
-              Gestión de Personal
+              Gestión de Personas
             </p>
             <h2 className="mt-2 text-xl sm:text-2xl font-semibold text-slate-800 dark:text-dracula-foreground">
               Trabajadores
@@ -187,13 +276,42 @@ export default function Trabajadores() {
               Administra la información de los trabajadores, sus cargos, áreas y el historial de EPP asignados.
             </p>
           </div>
-          <button
-            onClick={() => handleOpenModal()}
-            className="inline-flex items-center gap-2 rounded-full border border-celeste-200/70 bg-white/80 px-5 py-2.5 text-sm font-semibold text-slate-600 shadow-sm transition hover:border-celeste-300 hover:bg-celeste-50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-cyan dark:hover:border-dracula-purple dark:hover:bg-dracula-bg"
-          >
-            <Plus className="h-4 w-4" />
-            Nuevo Trabajador
-          </button>
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+            <div className="flex items-center gap-2 rounded-full border border-soft-gray-200/70 bg-white p-1 shadow-sm dark:border-dracula-current dark:bg-dracula-current">
+              <button
+                type="button"
+                onClick={() => setViewMode("card")}
+                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
+                  viewMode === "card"
+                    ? "bg-celeste-100 text-celeste-600 dark:bg-dracula-purple/30 dark:text-dracula-purple"
+                    : "text-slate-500 hover:text-slate-700 dark:text-dracula-comment dark:hover:text-dracula-foreground"
+                }`}
+              >
+                <Grid3x3 className="h-4 w-4" />
+                Tarjetas
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("list")}
+                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
+                  viewMode === "list"
+                    ? "bg-celeste-100 text-celeste-600 dark:bg-dracula-purple/30 dark:text-dracula-purple"
+                    : "text-slate-500 hover:text-slate-700 dark:text-dracula-comment dark:hover:text-dracula-foreground"
+                }`}
+              >
+                <List className="h-4 w-4" />
+                Lista
+              </button>
+            </div>
+            <button
+              onClick={() => handleOpenModal()}
+              className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full bg-gradient-to-r from-mint-200/80 via-white to-celeste-200/70 px-4 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-slate-700 shadow-md transition hover:shadow-lg dark:from-dracula-purple dark:via-dracula-pink dark:to-dracula-cyan dark:text-dracula-bg"
+            >
+              <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Nuevo Trabajador</span>
+              <span className="sm:hidden">Nuevo</span>
+            </button>
+          </div>
         </div>
 
         {/* Barra de búsqueda y filtros */}
@@ -235,7 +353,7 @@ export default function Trabajadores() {
                 : "Intenta ajustar los filtros de búsqueda."}
             </p>
           </div>
-        ) : (
+        ) : viewMode === "card" ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredTrabajadores.map((trabajador) => (
               <div
@@ -244,7 +362,7 @@ export default function Trabajadores() {
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-celeste-100 text-2xl dark:bg-dracula-cyan/20">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-celeste-100 text-3xl dark:bg-dracula-cyan/20">
                       {getAvatarIcon(trabajador.sexo)}
                     </div>
                     <div>
@@ -281,10 +399,32 @@ export default function Trabajadores() {
                     <MapPin className="h-4 w-4" />
                     <span>{trabajador.areaTrabajo}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-slate-600 dark:text-dracula-comment">
-                    <Phone className="h-4 w-4" />
-                    <span>{trabajador.numeroEmergencia}</span>
-                  </div>
+                  {trabajador.telefono && (
+                    <div className="flex items-center gap-2 text-slate-600 dark:text-dracula-comment">
+                      <Phone className="h-4 w-4" />
+                      <span>{trabajador.telefono}</span>
+                    </div>
+                  )}
+                  {trabajador.correoElectronico && (
+                    <div className="flex items-center gap-2 text-slate-600 dark:text-dracula-comment">
+                      <Mail className="h-4 w-4" />
+                      <span>{trabajador.correoElectronico}</span>
+                    </div>
+                  )}
+                  {trabajador.numeroEmergencia && (
+                    <div className="flex items-center gap-2 text-slate-600 dark:text-dracula-comment">
+                      <AlertCircle className="h-4 w-4" />
+                      <span>{trabajador.numeroEmergencia}</span>
+                    </div>
+                  )}
+                  {trabajador.poseeLicencia && trabajador.clasesLicencia.length > 0 && (
+                    <div className="flex items-center gap-2 text-slate-600 dark:text-dracula-comment">
+                      <UserCheck className="h-4 w-4" />
+                      <span>
+                        Licencias: {trabajador.clasesLicencia.sort().join(", ")}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="mt-4 pt-4 border-t border-soft-gray-200/70 dark:border-dracula-current">
@@ -292,18 +432,127 @@ export default function Trabajadores() {
                     <span className="text-slate-500 dark:text-dracula-comment">
                       Ingreso: {new Date(trabajador.fechaIngreso).toLocaleDateString()}
                     </span>
-                    <span className={`rounded-full px-2 py-1 font-medium ${
-                      trabajador.tipoContrato === "indefinido"
-                        ? "bg-mint-100 text-mint-700 dark:bg-dracula-green/20 dark:text-dracula-green"
-                        : "bg-amber-100 text-amber-700 dark:bg-dracula-orange/20 dark:text-dracula-orange"
-                    }`}>
-                      {trabajador.tipoContrato === "indefinido" ? "Indefinido" : 
-                       trabajador.tipoContrato === "plazo_fijo" ? "Plazo Fijo" : "Faena"}
+                    <span
+                      className={`rounded-full px-2 py-1 font-medium ${
+                        trabajador.tipoContrato === "indefinido"
+                          ? "bg-mint-100 text-mint-700 dark:bg-dracula-green/20 dark:text-dracula-green"
+                          : "bg-amber-100 text-amber-700 dark:bg-dracula-orange/20 dark:text-dracula-orange"
+                      }`}
+                    >
+                      {trabajador.tipoContrato === "indefinido"
+                        ? "Indefinido"
+                        : trabajador.tipoContrato === "plazo_fijo"
+                        ? "Plazo Fijo"
+                        : "Faena"}
                     </span>
                   </div>
                 </div>
               </div>
             ))}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em] text-slate-400 dark:text-dracula-comment">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-3.5 w-3.5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="m15 6-6 12" />
+                <path d="m9 6 6 12" />
+              </svg>
+              <span>Desliza para ver más información</span>
+            </div>
+            <div className="overflow-x-auto overflow-y-hidden -mx-3 sm:-mx-4 lg:-mx-5 px-3 sm:px-4 lg:px-5 rounded-3xl border border-soft-gray-200/70 bg-white shadow-sm scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent dark:border-dracula-current dark:bg-dracula-current/40 dark:scrollbar-thumb-dracula-current">
+              <table className="w-full min-w-[960px] divide-y divide-soft-gray-200/70 dark:divide-dracula-current">
+                <thead className="bg-soft-gray-50/60 text-slate-600 dark:bg-dracula-current/40 dark:text-dracula-comment">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em]">Nombre</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em]">RUT</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em]">Cargo</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.3em]">Área</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.3em]">Teléfono</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.3em]">Correo</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.3em]">Ingreso</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.3em]">Contrato</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.3em]">Licencias</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-[0.3em]">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-soft-gray-200/60 text-sm dark:divide-dracula-current/60">
+                  {filteredTrabajadores.map((trabajador) => (
+                    <tr key={trabajador.id} className="bg-white/95 hover:bg-celeste-50/40 transition dark:bg-dracula-current/30 dark:hover:bg-dracula-current/50">
+                      <td className="px-4 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-celeste-100 text-2xl dark:bg-dracula-cyan/20">
+                            {getAvatarIcon(trabajador.sexo)}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-slate-800 dark:text-dracula-foreground">
+                              {trabajador.nombre}
+                            </p>
+                            <p className="text-xs text-slate-500 dark:text-dracula-comment">
+                              Contacto emergencia: {trabajador.nombreContactoEmergencia || "—"}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 text-slate-600 dark:text-dracula-comment">{trabajador.rut}</td>
+                      <td className="px-4 py-4 text-slate-600 dark:text-dracula-comment">{trabajador.cargo}</td>
+                      <td className="px-4 py-4 text-slate-600 dark:text-dracula-comment">{trabajador.areaTrabajo}</td>
+                      <td className="px-4 py-4 text-slate-600 dark:text-dracula-comment">{trabajador.telefono || "—"}</td>
+                      <td className="px-4 py-4 text-slate-600 dark:text-dracula-comment">{trabajador.correoElectronico || "—"}</td>
+                      <td className="px-4 py-4 text-slate-600 dark:text-dracula-comment">
+                        {trabajador.fechaIngreso ? new Date(trabajador.fechaIngreso).toLocaleDateString() : "—"}
+                      </td>
+                      <td className="px-4 py-4">
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+                            trabajador.tipoContrato === "indefinido"
+                              ? "bg-mint-100 text-mint-700 dark:bg-dracula-green/20 dark:text-dracula-green"
+                              : "bg-amber-100 text-amber-700 dark:bg-dracula-orange/20 dark:text-dracula-orange"
+                          }`}
+                        >
+                          {trabajador.tipoContrato === "indefinido"
+                            ? "Indefinido"
+                            : trabajador.tipoContrato === "plazo_fijo"
+                            ? "Plazo Fijo"
+                            : "Faena"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 text-slate-600 dark:text-dracula-comment">
+                        {trabajador.poseeLicencia && trabajador.clasesLicencia.length > 0
+                          ? trabajador.clasesLicencia.sort().join(", ")
+                          : "—"}
+                      </td>
+                      <td className="px-4 py-4 text-right">
+                        <div className="inline-flex gap-2">
+                          <button
+                            onClick={() => handleOpenModal(trabajador.id)}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-celeste-200/70 bg-white text-celeste-500 transition hover:border-celeste-300 hover:bg-celeste-50 dark:border-dracula-purple/40 dark:bg-dracula-current dark:text-dracula-cyan dark:hover:border-dracula-purple dark:hover:bg-dracula-cyan/10"
+                            aria-label="Editar trabajador"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(trabajador.id)}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-rose-200/70 bg-white text-rose-500 transition hover:border-rose-300 hover:bg-rose-50 dark:border-dracula-red/40 dark:bg-dracula-current dark:text-dracula-red dark:hover:border-dracula-red dark:hover:bg-dracula-red/10"
+                            aria-label="Eliminar trabajador"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </section>
@@ -311,22 +560,25 @@ export default function Trabajadores() {
       {/* Modal de formulario */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[120] overflow-y-auto bg-slate-900/60 backdrop-blur-sm">
-          <div className="flex min-h-screen items-start justify-center px-4 py-10">
-            <div className="relative w-full max-w-4xl rounded-3xl border border-white/70 bg-white/95 px-6 py-8 shadow-2xl dark:border-dracula-current dark:bg-dracula-bg/95">
+          <div className="flex min-h-screen items-start justify-center px-4 py-10 sm:px-6 lg:py-16">
+            <div className="relative w-full max-w-5xl rounded-[28px] border border-white/70 bg-white/95 px-6 py-8 shadow-[0_40px_80px_-50px_rgba(15,23,42,0.6)] dark:border-dracula-current dark:bg-dracula-bg/95 sm:px-8 lg:px-10 lg:py-10">
               <button
                 type="button"
                 onClick={handleCloseModal}
-                className="absolute right-4 top-4 rounded-full p-2 text-slate-500 transition hover:bg-soft-gray-100 hover:text-slate-700 dark:text-dracula-comment dark:hover:bg-dracula-current dark:hover:text-dracula-foreground"
+                className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full border border-soft-gray-200/80 text-slate-500 transition hover:border-celeste-200 hover:text-slate-700 dark:border-dracula-current dark:text-dracula-comment dark:hover:border-dracula-purple dark:hover:text-dracula-foreground sm:right-6 sm:top-6 sm:h-10 sm:w-10"
               >
                 <X className="h-5 w-5" />
               </button>
 
-              <div className="mb-6">
-                <h3 className="text-2xl font-semibold text-slate-800 dark:text-dracula-foreground">
-                  {editingId ? "Editar Trabajador" : "Nuevo Trabajador"}
+              <div className="mb-6 space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-celeste-300 dark:text-dracula-cyan">
+                  {editingId ? "Editar trabajador" : "Nuevo trabajador"}
+                </p>
+                <h3 className="mt-2 text-2xl font-semibold text-slate-800 dark:text-dracula-foreground">
+                  {editingId ? "Actualizar registro" : "Registrar trabajador"}
                 </h3>
-                <p className="mt-1 text-sm text-slate-500 dark:text-dracula-comment">
-                  Completa la información del trabajador según normativas HSE
+                <p className="text-sm text-slate-500 dark:text-dracula-comment">
+                  Completa o actualiza la información del trabajador para cumplir con los requisitos HSE, ISO 45001 y la ley 16.744.
                 </p>
               </div>
 
@@ -363,7 +615,12 @@ export default function Trabajadores() {
                         type="text"
                         required
                         value={formState.rut}
-                        onChange={(e) => setFormState({ ...formState, rut: e.target.value })}
+                        onChange={(e) =>
+                          setFormState({
+                            ...formState,
+                            rut: formatRut(e.target.value),
+                          })
+                        }
                         placeholder="12.345.678-9"
                         className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-2 text-sm focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-bg dark:text-dracula-foreground"
                       />
@@ -394,6 +651,30 @@ export default function Trabajadores() {
                         <option value="femenino">Femenino</option>
                         <option value="otro">Otro</option>
                       </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-dracula-foreground mb-1">
+                        Teléfono de contacto
+                      </label>
+                      <input
+                        type="tel"
+                        value={formState.telefono}
+                        onChange={(e) => setFormState({ ...formState, telefono: e.target.value })}
+                        placeholder="+56 9 1234 5678"
+                        className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-2 text-sm focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-bg dark:text-dracula-foreground"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-dracula-foreground mb-1">
+                        Correo electrónico
+                      </label>
+                      <input
+                        type="email"
+                        value={formState.correoElectronico}
+                        onChange={(e) => setFormState({ ...formState, correoElectronico: e.target.value })}
+                        placeholder="nombre@empresa.cl"
+                        className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-2 text-sm focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-bg dark:text-dracula-foreground"
+                      />
                     </div>
                   </div>
                 </div>
@@ -505,11 +786,10 @@ export default function Trabajadores() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-slate-700 dark:text-dracula-foreground mb-1">
-                        Nombre Contacto *
+                        Nombre Contacto (opcional)
                       </label>
                       <input
                         type="text"
-                        required
                         value={formState.nombreContactoEmergencia}
                         onChange={(e) => setFormState({ ...formState, nombreContactoEmergencia: e.target.value })}
                         className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-2 text-sm focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-bg dark:text-dracula-foreground"
@@ -517,11 +797,10 @@ export default function Trabajadores() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 dark:text-dracula-foreground mb-1">
-                        Teléfono Emergencia *
+                        Teléfono Emergencia (opcional)
                       </label>
                       <input
                         type="tel"
-                        required
                         value={formState.numeroEmergencia}
                         onChange={(e) => setFormState({ ...formState, numeroEmergencia: e.target.value })}
                         placeholder="+56 9 1234 5678"
@@ -539,7 +818,7 @@ export default function Trabajadores() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-slate-700 dark:text-dracula-foreground mb-1">
-                        Grupo Sanguíneo
+                        Grupo Sanguíneo (opcional)
                       </label>
                       <select
                         value={formState.grupoSanguineo}
@@ -559,7 +838,7 @@ export default function Trabajadores() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 dark:text-dracula-foreground mb-1">
-                        Enfermedad Crónica
+                        Enfermedad Crónica (opcional)
                       </label>
                       <input
                         type="text"
@@ -571,7 +850,7 @@ export default function Trabajadores() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 dark:text-dracula-foreground mb-1">
-                        Alergias
+                        Alergias (opcional)
                       </label>
                       <input
                         type="text"
@@ -595,7 +874,7 @@ export default function Trabajadores() {
                     </div>
                     <div className="md:col-span-2">
                       <label className="block text-sm font-medium text-slate-700 dark:text-dracula-foreground mb-1">
-                        Restricciones Médicas
+                        Restricciones Médicas (opcional)
                       </label>
                       <textarea
                         value={formState.restriccionesMedicas}
@@ -616,7 +895,7 @@ export default function Trabajadores() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-slate-700 dark:text-dracula-foreground mb-1">
-                        Talla Camisa
+                        Talla Polera (opcional)
                       </label>
                       <select
                         value={formState.tallaCamisa}
@@ -635,7 +914,7 @@ export default function Trabajadores() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 dark:text-dracula-foreground mb-1">
-                        Talla Pantalón
+                        Talla Pantalón (opcional)
                       </label>
                       <input
                         type="text"
@@ -647,7 +926,7 @@ export default function Trabajadores() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 dark:text-dracula-foreground mb-1">
-                        Talla Calzado
+                        Talla Calzado (opcional)
                       </label>
                       <input
                         type="text"
@@ -660,6 +939,56 @@ export default function Trabajadores() {
                   </div>
                 </div>
 
+                {/* Licencia de Conducir */}
+                <div className="rounded-2xl border border-soft-gray-200/70 bg-soft-gray-50/50 p-5 dark:border-dracula-current dark:bg-dracula-current/30">
+                  <h4 className="mb-4 font-semibold text-slate-700 dark:text-dracula-foreground">
+                    🚗 Licencia de Conducir
+                  </h4>
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="poseeLicencia"
+                        checked={formState.poseeLicencia}
+                        onChange={(e) =>
+                          setFormState((prev) => ({
+                            ...prev,
+                            poseeLicencia: e.target.checked,
+                            clasesLicencia: e.target.checked ? prev.clasesLicencia : [],
+                          }))
+                        }
+                        className="h-4 w-4 rounded border-soft-gray-300 text-celeste-500 focus:ring-celeste-500"
+                      />
+                      <label htmlFor="poseeLicencia" className="text-sm font-medium text-slate-700 dark:text-dracula-foreground">
+                        ¿Posee licencia de conducir?
+                      </label>
+                    </div>
+
+                    {formState.poseeLicencia && (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                        {LICENCIAS_CHILE.map((clase) => (
+                          <label
+                            key={clase}
+                            className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${
+                              formState.clasesLicencia.includes(clase)
+                                ? "border-celeste-300 bg-celeste-50 text-celeste-700 dark:border-dracula-cyan dark:bg-dracula-cyan/10 dark:text-dracula-cyan"
+                                : "border-soft-gray-200/70 bg-white text-slate-600 dark:border-dracula-current dark:bg-dracula-bg dark:text-dracula-comment"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={formState.clasesLicencia.includes(clase)}
+                              onChange={() => toggleLicenciaClase(clase)}
+                              className="h-4 w-4 rounded border-soft-gray-300 text-celeste-500 focus:ring-celeste-500"
+                            />
+                            <span>Clase {clase}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 {/* Datos HSE (ISO 45001 / Ley 16744) */}
                 <div className="rounded-2xl border border-soft-gray-200/70 bg-soft-gray-50/50 p-5 dark:border-dracula-current dark:bg-dracula-current/30">
                   <h4 className="mb-4 font-semibold text-slate-700 dark:text-dracula-foreground">
@@ -668,16 +997,16 @@ export default function Trabajadores() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-slate-700 dark:text-dracula-foreground mb-1">
-                        Mutual de Seguridad *
+                        Mutual de Seguridad (opcional)
                       </label>
                       <select
-                        required
                         value={formState.mutualSeguridad}
                         onChange={(e) => setFormState({ ...formState, mutualSeguridad: e.target.value as any })}
                         className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-2 text-sm focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-bg dark:text-dracula-foreground"
                       >
+                        <option value="">Seleccionar...</option>
                         <option value="ACHS">ACHS</option>
-                        <option value="Mutual_ChileSeguro">Mutual ChileSeguro</option>
+                        <option value="Mutual">Mutual</option>
                         <option value="ISL">ISL</option>
                         <option value="otra">Otra</option>
                       </select>
@@ -697,7 +1026,7 @@ export default function Trabajadores() {
                     {formState.induccionHSE && (
                       <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-dracula-foreground mb-1">
-                          Fecha Inducción HSE
+                          Fecha Inducción HSE (opcional)
                         </label>
                         <input
                           type="date"
@@ -709,7 +1038,7 @@ export default function Trabajadores() {
                     )}
                     <div>
                       <label className="block text-sm font-medium text-slate-700 dark:text-dracula-foreground mb-1">
-                        Fecha Último Examen Ocupacional
+                        Fecha Último Examen Ocupacional (opcional)
                       </label>
                       <input
                         type="date"
@@ -720,7 +1049,7 @@ export default function Trabajadores() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 dark:text-dracula-foreground mb-1">
-                        Fecha Próximo Examen
+                        Fecha Próximo Examen (opcional)
                       </label>
                       <input
                         type="date"
@@ -733,20 +1062,24 @@ export default function Trabajadores() {
                 </div>
 
                 {/* Botones de acción */}
-                <div className="flex justify-end gap-3 pt-4">
+                <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
                   <button
                     type="button"
                     onClick={handleCloseModal}
-                    className="rounded-full border border-soft-gray-200/70 bg-white px-6 py-2 text-sm font-semibold text-slate-600 transition hover:bg-soft-gray-50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-comment dark:hover:bg-dracula-bg"
+                    className="inline-flex items-center justify-center rounded-full border border-soft-gray-300 px-6 py-2 text-sm font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
                     disabled={saving}
-                    className="rounded-full bg-celeste-500 px-6 py-2 text-sm font-semibold text-white transition hover:bg-celeste-600 disabled:opacity-50 dark:bg-dracula-cyan dark:text-dracula-bg dark:hover:bg-dracula-cyan/80"
+                    className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-mint-200/90 via-white to-celeste-200 px-6 py-2 text-sm font-semibold text-slate-700 shadow-md transition hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {saving ? "Guardando..." : editingId ? "Actualizar" : "Guardar"}
+                    {saving
+                      ? "Guardando..."
+                      : editingId
+                      ? "Actualizar trabajador"
+                      : "Guardar trabajador"}
                   </button>
                 </div>
               </form>
