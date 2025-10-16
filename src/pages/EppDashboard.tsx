@@ -231,6 +231,15 @@ export default function EppDashboard() {
     mediaQuery.addListener(handleChange);
     return () => mediaQuery.removeListener(handleChange);
   }, []);
+  const isDesktopMedia = () =>
+    typeof window !== "undefined" && window.matchMedia(DESKTOP_MEDIA_QUERY).matches;
+
+  const scrollToInventorySection = () => {
+    if (typeof document === "undefined") return;
+    document
+      .getElementById("epp-inventory-list")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
   const [showCostModal, setShowCostModal] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
@@ -785,18 +794,15 @@ export default function EppDashboard() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <button
             onClick={() => {
-              setViewMode("list");
               setSearchQuery("");
               setCategoryFilter("all");
               setStatusFilter("all");
               setStockFilter("all");
               setCurrentPage(1);
-              // Scroll suave a la sección de listado
-              setTimeout(() => {
-                document
-                  .querySelector("section:nth-of-type(2)")
-                  ?.scrollIntoView({ behavior: "smooth", block: "start" });
-              }, 100);
+              scrollToInventorySection();
+              if (isDesktopMedia()) {
+                setViewMode("list");
+              }
             }}
             className="rounded-3xl border border-mint-200/70 bg-mint-50/70 p-4 sm:p-5 text-left transition hover:border-mint-300 hover:bg-mint-100/70 hover:shadow-lg dark:border-dracula-green/30 dark:bg-dracula-current dark:hover:border-dracula-green/50 dark:hover:bg-dracula-green/10"
           >
@@ -816,18 +822,15 @@ export default function EppDashboard() {
           </button>
           <button
             onClick={() => {
-              setViewMode("card");
               setSearchQuery("");
               setCategoryFilter("all");
               setStatusFilter("all");
               setStockFilter("all");
               setCurrentPage(1);
-              // Scroll suave a la sección de listado
-              setTimeout(() => {
-                document
-                  .querySelector("section:nth-of-type(2)")
-                  ?.scrollIntoView({ behavior: "smooth", block: "start" });
-              }, 100);
+              scrollToInventorySection();
+              if (!isDesktopMedia()) {
+                setViewMode("card");
+              }
             }}
             className="rounded-3xl border border-celeste-200/70 bg-celeste-50/70 p-4 sm:p-5 text-left transition hover:border-celeste-300 hover:bg-celeste-100/70 hover:shadow-lg dark:border-dracula-cyan/30 dark:bg-dracula-current dark:hover:border-dracula-cyan/50 dark:hover:bg-dracula-cyan/10"
           >
@@ -847,18 +850,15 @@ export default function EppDashboard() {
           </button>
           <button
             onClick={() => {
-              setViewMode("list");
               setCategoryFilter("all");
               setStatusFilter("all");
               setStockFilter("critical");
               setSearchQuery("");
               setCurrentPage(1);
-              // Scroll suave a la sección de listado
-              setTimeout(() => {
-                document
-                  .querySelector("section:nth-of-type(2)")
-                  ?.scrollIntoView({ behavior: "smooth", block: "start" });
-              }, 100);
+              scrollToInventorySection();
+              if (isDesktopMedia()) {
+                setViewMode("list");
+              }
             }}
             className="rounded-3xl border border-amber-200/70 bg-amber-50/60 p-4 sm:p-5 text-left transition hover:border-amber-300 hover:bg-amber-100/70 hover:shadow-lg dark:border-dracula-orange/30 dark:bg-dracula-current dark:hover:border-dracula-orange/50 dark:hover:bg-dracula-orange/10"
           >

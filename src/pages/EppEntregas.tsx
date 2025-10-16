@@ -522,7 +522,7 @@ export default function EppEntregas() {
   const globalError = trabajadoresError || eppError || entregasError;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 overflow-x-hidden">
       <section className="rounded-4xl border border-white/70 bg-white/95 p-4 sm:p-6 lg:p-8 shadow-[0_30px_60px_-40px_rgba(15,23,42,0.45)] backdrop-blur dark:border-dracula-current dark:bg-dracula-bg/95">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -675,11 +675,11 @@ export default function EppEntregas() {
         ) : (
           <div className="space-y-3">
             {viewMode === "card" ? (
-              <div className="space-y-3">
+              <div className="grid grid-cols-1 gap-3">
                 {filteredEntregas.map((entrega) => (
                   <article
                     key={entrega.id}
-                    className="rounded-3xl border border-soft-gray-200/70 bg-white/95 p-4 shadow-sm transition hover:shadow-md dark:border-dracula-current dark:bg-dracula-current/40"
+                    className="w-full rounded-3xl border border-soft-gray-200/70 bg-white/95 p-4 shadow-sm transition hover:shadow-md dark:border-dracula-current dark:bg-dracula-current/40"
                   >
                     <header className="flex flex-wrap items-center justify-between gap-3">
                       <div>
@@ -700,7 +700,7 @@ export default function EppEntregas() {
                         </p>
                       </div>
                     </header>
-                    <dl className="mt-3 grid grid-cols-2 gap-3 text-xs text-slate-500 dark:text-dracula-comment">
+                    <dl className="mt-3 grid grid-cols-1 gap-3 text-xs text-slate-500 dark:text-dracula-comment sm:grid-cols-2">
                       <div>
                         <dt className="font-semibold uppercase tracking-[0.25em] text-slate-400 dark:text-dracula-comment/80">
                           Área
