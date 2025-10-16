@@ -312,6 +312,7 @@ export default function ProtectedLayout() {
         { label: "Entregas", to: "/epp/entregas", icon: Truck },
       ]
     },
+    { label: "Trabajadores", to: "/trabajadores", icon: Users },
     {
       label: "Inspecciones",
       to: "/inspecciones",
