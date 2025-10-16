@@ -25,6 +25,8 @@ export type Trabajador = {
   fechaIngreso: string;
   tipoContrato: "indefinido" | "plazo_fijo" | "faena";
   fechaVencimientoContrato?: string;
+  telefono: string;
+  correoElectronico: string;
   numeroEmergencia: string;
   nombreContactoEmergencia: string;
   enfermedadCronica: string; // "no" o descripción de la enfermedad
@@ -41,8 +43,10 @@ export type Trabajador = {
   fechaUltimoExamen?: string;
   fechaProximoExamen?: string;
   restriccionesMedicas: string;
-  mutualSeguridad: "ISL" | "Mutual_ChileSeguro" | "ACHS" | "otra";
-  
+  mutualSeguridad: "" | "ACHS" | "Mutual" | "ISL" | "otra";
+  poseeLicencia: boolean;
+  clasesLicencia: string[];
+
   // Metadata
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -66,7 +70,32 @@ export function useTrabajadoresFirestore() {
       (snapshot) => {
         const trabajadoresData: Trabajador[] = [];
         snapshot.forEach((doc) => {
-          trabajadoresData.push({ id: doc.id, ...doc.data() } as Trabajador);
+          const data = doc.data();
+          trabajadoresData.push({
+            ...data,
+            telefono: typeof data.telefono === "string" ? data.telefono : "",
+            correoElectronico:
+              typeof data.correoElectronico === "string" ? data.correoElectronico : "",
+            numeroEmergencia:
+              typeof data.numeroEmergencia === "string" ? data.numeroEmergencia : "",
+            nombreContactoEmergencia:
+              typeof data.nombreContactoEmergencia === "string"
+                ? data.nombreContactoEmergencia
+                : "",
+            enfermedadCronica:
+              typeof data.enfermedadCronica === "string" ? data.enfermedadCronica : "",
+            alergias: typeof data.alergias === "string" ? data.alergias : "",
+            restriccionesMedicas:
+              typeof data.restriccionesMedicas === "string" ? data.restriccionesMedicas : "",
+            mutualSeguridad:
+              typeof data.mutualSeguridad === "string" ? data.mutualSeguridad : "",
+            poseeLicencia: Boolean(data.poseeLicencia) ||
+              (Array.isArray(data.clasesLicencia) && data.clasesLicencia.length > 0),
+            clasesLicencia: Array.isArray(data.clasesLicencia)
+              ? data.clasesLicencia.map(String)
+              : [],
+            id: doc.id,
+          } as Trabajador);
         });
         setTrabajadores(trabajadoresData);
         setLoading(false);
@@ -85,11 +114,25 @@ export function useTrabajadoresFirestore() {
   const addTrabajador = async (trabajadorData: TrabajadorFormData) => {
     try {
       const now = Timestamp.now();
-      await addDoc(collection(db, "trabajadores"), {
+      const payload = {
         ...trabajadorData,
+        telefono: trabajadorData.telefono ?? "",
+        correoElectronico: trabajadorData.correoElectronico ?? "",
+        numeroEmergencia: trabajadorData.numeroEmergencia ?? "",
+        nombreContactoEmergencia: trabajadorData.nombreContactoEmergencia ?? "",
+        enfermedadCronica: trabajadorData.enfermedadCronica ?? "",
+        alergias: trabajadorData.alergias ?? "",
+        restriccionesMedicas: trabajadorData.restriccionesMedicas ?? "",
+        mutualSeguridad: trabajadorData.mutualSeguridad ?? "",
+        poseeLicencia: Boolean(trabajadorData.poseeLicencia),
+        clasesLicencia: trabajadorData.poseeLicencia
+          ? trabajadorData.clasesLicencia ?? []
+          : [],
         createdAt: now,
         updatedAt: now,
-      });
+      };
+
+      await addDoc(collection(db, "trabajadores"), payload);
     } catch (err) {
       console.error("Error adding trabajador:", err);
       throw new Error("Error al agregar trabajador");
@@ -99,10 +142,25 @@ export function useTrabajadoresFirestore() {
   const updateTrabajador = async (id: string, trabajadorData: Partial<TrabajadorFormData>) => {
     try {
       const trabajadorRef = doc(db, "trabajadores", id);
-      await updateDoc(trabajadorRef, {
+      const payload = {
         ...trabajadorData,
+        telefono: trabajadorData.telefono ?? "",
+        correoElectronico: trabajadorData.correoElectronico ?? "",
+        numeroEmergencia: trabajadorData.numeroEmergencia ?? "",
+        nombreContactoEmergencia: trabajadorData.nombreContactoEmergencia ?? "",
+        enfermedadCronica: trabajadorData.enfermedadCronica ?? "",
+        alergias: trabajadorData.alergias ?? "",
+        restriccionesMedicas: trabajadorData.restriccionesMedicas ?? "",
+        mutualSeguridad: trabajadorData.mutualSeguridad ?? "",
+        poseeLicencia: Boolean(trabajadorData.poseeLicencia) ||
+          (trabajadorData.clasesLicencia?.length ?? 0) > 0,
+        clasesLicencia: trabajadorData.poseeLicencia
+          ? trabajadorData.clasesLicencia ?? []
+          : [],
         updatedAt: Timestamp.now(),
-      });
+      };
+
+      await updateDoc(trabajadorRef, payload);
     } catch (err) {
       console.error("Error updating trabajador:", err);
       throw new Error("Error al actualizar trabajador");
