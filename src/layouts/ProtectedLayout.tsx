@@ -326,6 +326,44 @@ export default function ProtectedLayout() {
     { label: "Configuración", to: "/configuracion", icon: Settings },
   ];
 
+  const getSectionTitle = () => {
+    const { pathname } = location;
+
+    if (pathname.startsWith("/trabajadores")) {
+      return "Gestión de Personas";
+    }
+
+    if (pathname.startsWith("/epp")) {
+      return "Gestión de EPP";
+    }
+
+    if (pathname.startsWith("/inspecciones")) {
+      return "Gestión de Inspecciones";
+    }
+
+    if (pathname.startsWith("/capacitaciones")) {
+      return "Gestión de Capacitaciones";
+    }
+
+    if (pathname.startsWith("/riesgos")) {
+      return "Gestión de Riesgos";
+    }
+
+    if (pathname.startsWith("/protocolos")) {
+      return "Gestión de Protocolos";
+    }
+
+    if (pathname.startsWith("/reportes")) {
+      return "Reportes HSE";
+    }
+
+    if (pathname.startsWith("/configuracion")) {
+      return "Configuración";
+    }
+
+    return "Panel HSE";
+  };
+
   const renderNavigation = (onNavigate?: () => void) =>
     navigation.map((item) => {
       const Icon = item.icon;
@@ -551,7 +589,7 @@ export default function ProtectedLayout() {
                 <Menu className="h-5 w-5" />
               </button>
               <h1 className="text-base sm:text-lg font-semibold text-slate-700 dark:text-dracula-foreground truncate">
-                Gestión de EPP
+                {getSectionTitle()}
               </h1>
             </div>
             <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">

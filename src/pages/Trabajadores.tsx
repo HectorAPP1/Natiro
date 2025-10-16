@@ -533,20 +533,6 @@ export default function Trabajadores() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => handleOpenModal(trabajador.id)}
-                      className="rounded-lg p-2 text-slate-600 transition hover:bg-celeste-50 hover:text-celeste-600 dark:text-dracula-comment dark:hover:bg-dracula-cyan/10 dark:hover:text-dracula-cyan"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(trabajador.id)}
-                      className="rounded-lg p-2 text-slate-600 transition hover:bg-rose-50 hover:text-rose-600 dark:text-dracula-comment dark:hover:bg-dracula-red/10 dark:hover:text-dracula-red"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
                 </div>
 
                 <div className="space-y-2 text-sm">
@@ -587,66 +573,68 @@ export default function Trabajadores() {
                 </div>
 
                 <div className="mt-4 pt-4 border-t border-soft-gray-200/70 text-xs dark:border-dracula-current">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-start justify-between gap-4">
                     <span className="text-slate-500 dark:text-dracula-comment">
                       Ingreso: {new Date(trabajador.fechaIngreso).toLocaleDateString()}
                     </span>
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-                          trabajador.vigente
-                            ? "bg-mint-100 text-mint-700 dark:bg-dracula-green/20 dark:text-dracula-green"
-                            : "bg-amber-100 text-amber-700 dark:bg-dracula-orange/20 dark:text-dracula-orange"
-                        }`}
-                      >
-                        {trabajador.vigente ? "Vigente" : "No vigente"}
-                      </span>
-                      <span
-                        className={`rounded-full px-2 py-1 font-medium ${
-                          trabajador.tipoContrato === "indefinido"
-                            ? "bg-mint-100 text-mint-700 dark:bg-dracula-green/20 dark:text-dracula-green"
-                            : "bg-amber-100 text-amber-700 dark:bg-dracula-orange/20 dark:text-dracula-orange"
-                        }`}
-                      >
-                        {trabajador.tipoContrato === "indefinido"
-                          ? "Indefinido"
-                          : trabajador.tipoContrato === "plazo_fijo"
-                          ? "Plazo Fijo"
-                          : "Faena"}
-                      </span>
+                    <div className="flex flex-col items-end gap-2">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                            trabajador.vigente
+                              ? "bg-mint-100 text-mint-700 dark:bg-dracula-green/20 dark:text-dracula-green"
+                              : "bg-amber-100 text-amber-700 dark:bg-dracula-orange/20 dark:text-dracula-orange"
+                          }`}
+                        >
+                          {trabajador.vigente ? "Vigente" : "No vigente"}
+                        </span>
+                        <span
+                          className={`rounded-full px-2 py-1 font-medium ${
+                            trabajador.tipoContrato === "indefinido"
+                              ? "bg-mint-100 text-mint-700 dark:bg-dracula-green/20 dark:text-dracula-green"
+                              : "bg-amber-100 text-amber-700 dark:bg-dracula-orange/20 dark:text-dracula-orange"
+                          }`}
+                        >
+                          {trabajador.tipoContrato === "indefinido"
+                            ? "Indefinido"
+                            : trabajador.tipoContrato === "plazo_fijo"
+                            ? "Plazo Fijo"
+                            : "Faena"}
+                        </span>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleToggleVigente(trabajador.id, trabajador.vigente)}
+                          className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition ${
+                            trabajador.vigente
+                              ? "border-amber-200/70 bg-white text-amber-500 hover:border-amber-300 hover:bg-amber-50 dark:border-dracula-orange/40 dark:bg-dracula-current dark:text-dracula-orange dark:hover:border-dracula-orange dark:hover:bg-dracula-orange/10"
+                              : "border-mint-200/70 bg-white text-mint-500 hover:border-mint-300 hover:bg-mint-50 dark:border-dracula-green/40 dark:bg-dracula-current dark:text-dracula-green dark:hover:border-dracula-green dark:hover:bg-dracula-green/10"
+                          }`}
+                          aria-label={trabajador.vigente ? "Marcar como no vigente" : "Marcar como vigente"}
+                        >
+                          {trabajador.vigente ? (
+                            <ShieldOff className="h-4 w-4" />
+                          ) : (
+                            <ShieldCheck className="h-4 w-4" />
+                          )}
+                        </button>
+                        <button
+                          onClick={() => handleOpenModal(trabajador.id)}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-celeste-200/70 bg-white text-celeste-500 transition hover:border-celeste-300 hover:bg-celeste-50 dark:border-dracula-purple/40 dark:bg-dracula-current dark:text-dracula-cyan dark:hover:border-dracula-purple dark:hover:bg-dracula-cyan/10"
+                          aria-label="Editar trabajador"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(trabajador.id)}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-rose-200/70 bg-white text-rose-500 transition hover:border-rose-300 hover:bg-rose-50 dark:border-dracula-red/40 dark:bg-dracula-current dark:text-dracula-red dark:hover:border-dracula-red dark:hover:bg-dracula-red/10"
+                          aria-label="Eliminar trabajador"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="mt-3 flex gap-2">
-                  <button
-                    onClick={() => handleToggleVigente(trabajador.id, trabajador.vigente)}
-                    className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition ${
-                      trabajador.vigente
-                        ? "border-amber-200/70 bg-white text-amber-500 hover:border-amber-300 hover:bg-amber-50 dark:border-dracula-orange/40 dark:bg-dracula-current dark:text-dracula-orange dark:hover:border-dracula-orange dark:hover:bg-dracula-orange/10"
-                        : "border-mint-200/70 bg-white text-mint-500 hover:border-mint-300 hover:bg-mint-50 dark:border-dracula-green/40 dark:bg-dracula-current dark:text-dracula-green dark:hover:border-dracula-green dark:hover:bg-dracula-green/10"
-                    }`}
-                    aria-label={trabajador.vigente ? "Marcar como no vigente" : "Marcar como vigente"}
-                  >
-                    {trabajador.vigente ? (
-                      <ShieldOff className="h-4 w-4" />
-                    ) : (
-                      <ShieldCheck className="h-4 w-4" />
-                    )}
-                  </button>
-                  <button
-                    onClick={() => handleOpenModal(trabajador.id)}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-celeste-200/70 bg-white text-celeste-500 transition hover:border-celeste-300 hover:bg-celeste-50 dark:border-dracula-purple/40 dark:bg-dracula-current dark:text-dracula-cyan dark:hover:border-dracula-purple dark:hover:bg-dracula-cyan/10"
-                    aria-label="Editar trabajador"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(trabajador.id)}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-rose-200/70 bg-white text-rose-500 transition hover:border-rose-300 hover:bg-rose-50 dark:border-dracula-red/40 dark:bg-dracula-current dark:text-dracula-red dark:hover:border-dracula-red dark:hover:bg-dracula-red/10"
-                    aria-label="Eliminar trabajador"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
                 </div>
               </div>
             ))}
