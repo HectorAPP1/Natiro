@@ -93,33 +93,12 @@ export default defineConfig({
       },
     }),
   ],
-  // ▼▼▼ BLOQUE DE OPTIMIZACIÓN COMPLETO ▼▼▼
+  // ▼▼▼ ESTRATEGIA DE CHUNKS MÁS ESTABLE ▼▼▼
   build: {
     rollupOptions: {
       output: {
         manualChunks(id) {
-          // Crea un chunk para el core de React
-          if (
-            id.includes("react-router-dom") ||
-            id.includes("react-dom") ||
-            id.includes("react")
-          ) {
-            return "react-core";
-          }
-          // Crea chunks dedicados para las librerías más pesadas
-          if (id.includes("firebase")) {
-            return "firebase";
-          }
-          if (id.includes("pdf-lib")) {
-            return "pdf-lib";
-          }
-          if (id.includes("recharts")) {
-            return "recharts";
-          }
-          if (id.includes("xlsx")) {
-            return "xlsx";
-          }
-          // Agrupa el resto de dependencias en un chunk 'vendor'
+          // Agrupa todas las dependencias de node_modules en un único chunk 'vendor'
           if (id.includes("node_modules")) {
             return "vendor";
           }
