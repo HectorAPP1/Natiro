@@ -93,11 +93,19 @@ export default defineConfig({
       },
     }),
   ],
-  // ▼▼▼ BLOQUE AÑADIDO PARA OPTIMIZACIÓN ▼▼▼
+  // ▼▼▼ BLOQUE DE OPTIMIZACIÓN COMPLETO ▼▼▼
   build: {
     rollupOptions: {
       output: {
         manualChunks(id) {
+          // Crea un chunk para el core de React
+          if (
+            id.includes("react-router-dom") ||
+            id.includes("react-dom") ||
+            id.includes("react")
+          ) {
+            return "react-core";
+          }
           // Crea chunks dedicados para las librerías más pesadas
           if (id.includes("firebase")) {
             return "firebase";
