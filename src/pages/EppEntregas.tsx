@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
-import type { PDFImage } from "pdf-lib";
 import SignaturePad from "signature_pad";
 import * as XLSX from "xlsx";
 import {
@@ -162,34 +161,6 @@ const formatDate = (value: Date | string | undefined) => {
 
 const randomId = () => Math.random().toString(36).slice(2, 9);
 
-const wrapLines = (text: string, maxChars = 90): string[] => {
-  if (!text) return ["—"];
-  const words = text.split(/\s+/);
-  const lines: string[] = [];
-  let current = "";
-
-  words.forEach((word) => {
-    const candidate = current.length === 0 ? word : `${current} ${word}`;
-    if (candidate.length > maxChars) {
-      if (current.length > 0) {
-        lines.push(current);
-        current = word;
-      } else {
-        lines.push(candidate);
-        current = "";
-      }
-    } else {
-      current = candidate;
-    }
-  });
-
-  if (current.length > 0) {
-    lines.push(current);
-  }
-
-  return lines.length > 0 ? lines : ["—"];
-};
-
 const formatDateTime = (value: Date | string | undefined | null) => {
   if (!value) return "—";
   const date = value instanceof Date ? value : new Date(value);
@@ -231,7 +202,7 @@ const ensureCrypto = () => {
 
 const sha256Hex = async (data: Uint8Array) => {
   const cryptoObj = ensureCrypto();
-  const digest = await cryptoObj.subtle.digest("SHA-256", data);
+  const digest = await cryptoObj.subtle.digest("SHA-256", data as BufferSource); // <-- Línea corregida
   return Array.from(new Uint8Array(digest))
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
@@ -1765,7 +1736,7 @@ export default function EppEntregas() {
     URL.revokeObjectURL(url);
   };
 
-  // --- FIN DEL CÓDIGO A PEGAR ---
+  // --- FIN DEL CÓDIGO A PEGAR --
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
