@@ -188,6 +188,17 @@ const dataUrlToUint8Array = (dataUrl: string): Uint8Array => {
   return bytes;
 };
 
+const toArrayBuffer = (view: Uint8Array): ArrayBuffer => {
+  if (
+    view.byteOffset === 0 &&
+    view.byteLength === view.buffer.byteLength &&
+    view.buffer instanceof ArrayBuffer
+  ) {
+    return view.buffer;
+  }
+  return new Uint8Array(view).buffer;
+};
+
 const ensureCrypto = () => {
   const cryptoObj =
     globalThis.crypto ??
@@ -202,12 +213,12 @@ const ensureCrypto = () => {
 
 const sha256Hex = async (data: Uint8Array) => {
   const cryptoObj = ensureCrypto();
-  const digest = await cryptoObj.subtle.digest("SHA-256", data as BufferSource); // <-- Línea corregida
+  const digestInput = toArrayBuffer(data);
+  const digest = await cryptoObj.subtle.digest("SHA-256", digestInput);
   return Array.from(new Uint8Array(digest))
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
 };
-
 type SignatureMetadata = {
   dataUrl: string;
   hash: string;
@@ -1316,8 +1327,6 @@ export default function EppEntregas() {
     firmaTipo: "digital" | "manual";
   };
 
-  // --- INICIO DEL CÓDIGO A PEGAR ---
-
   const generateEntregaPdf = async (data: PdfEntregaData) => {
     // 1. --- PALETA DE COLORES (TEMA CLARO) ---
     const colors = {
@@ -1349,7 +1358,6 @@ export default function EppEntregas() {
     const bodyFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-    // --- ✅ FUNCIÓN REINTEGRADA ---
     const ensureSpace = (lines = 1) => {
       if (cursorY - lines * 14 < margin) {
         page = pdfDoc.addPage([pageWidth, pageHeight]);
@@ -1498,11 +1506,7 @@ export default function EppEntregas() {
       let currentY = tableTop - headerHeight;
 
       items.forEach((item) => {
-        // --- ✅ LLAMADA A LA FUNCIÓN ---
-        // Antes de dibujar cada fila, nos aseguramos de que haya espacio.
-        // Se necesitan unas 3 líneas de espacio por cada fila.
         ensureSpace(3);
-
         currentY -= rowHeight;
         page.drawLine({
           start: { x: margin, y: currentY },
@@ -1541,7 +1545,7 @@ export default function EppEntregas() {
 
     // 5. --- DECLARACIONES CON TEMA CLARO ---
     const drawDeclarations = (capacitacion: FormState["capacitacion"]) => {
-      ensureSpace(8); // Se asegura que haya espacio para toda la sección de declaraciones
+      ensureSpace(8);
       page.drawText("Declaraciones de Capacitación", {
         x: margin,
         y: cursorY,
@@ -1606,7 +1610,7 @@ export default function EppEntregas() {
 
     // 6. --- TARJETA DE FIRMA CON TEMA CLARO ---
     const drawSignatureArea = async () => {
-      ensureSpace(15); // Se asegura que haya espacio para la tarjeta de firma
+      ensureSpace(15);
       cursorY -= 20;
       const cardWidth = pageWidth - margin * 2;
       const cardHeight = 180;
@@ -1726,7 +1730,12 @@ export default function EppEntregas() {
 
     // --- GUARDAR Y DESCARGAR ---
     const pdfBytes = await pdfDoc.save();
-    const blob = new Blob([pdfBytes.buffer], { type: "application/pdf" });
+
+    // ✅ CORRECCIÓN FINAL
+    const blob = new Blob([toArrayBuffer(pdfBytes)], {
+      type: "application/pdf",
+    });
+
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -1740,8 +1749,6 @@ export default function EppEntregas() {
     link.click();
     URL.revokeObjectURL(url);
   };
-
-  // --- FIN DEL CÓDIGO A PEGAR ---
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
