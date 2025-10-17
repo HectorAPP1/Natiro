@@ -1349,9 +1349,8 @@ export default function EppEntregas() {
     const bodyFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
+    // --- ✅ FUNCIÓN REINTEGRADA ---
     const ensureSpace = (lines = 1) => {
-      // Esta función ahora es menos relevante ya que todo cabe en una página,
-      // pero la mantenemos por si acaso.
       if (cursorY - lines * 14 < margin) {
         page = pdfDoc.addPage([pageWidth, pageHeight]);
         page.drawRectangle({
@@ -1394,14 +1393,14 @@ export default function EppEntregas() {
         color: colors.textMuted,
       });
 
-      cursorY -= 55; // Espacio reducido
+      cursorY -= 55;
       page.drawLine({
         start: { x: margin, y: cursorY },
         end: { x: pageWidth - margin, y: cursorY },
         thickness: 1,
         color: colors.border,
       });
-      cursorY -= 25; // Espacio reducido
+      cursorY -= 25;
     };
 
     // 3. --- TARJETAS CON TEMA CLARO ---
@@ -1419,7 +1418,7 @@ export default function EppEntregas() {
       cursorY -= 20;
 
       const cardWidth = pageWidth - margin * 2;
-      const cardHeight = items.length * 22 + 15; // Altura reducida
+      const cardHeight = items.length * 22 + 15;
 
       page.drawRectangle({
         x: margin,
@@ -1432,7 +1431,7 @@ export default function EppEntregas() {
         borderRadius: 8,
       });
 
-      let itemY = cursorY - 18; // Espacio reducido
+      let itemY = cursorY - 18;
       items.forEach((item) => {
         page.drawText(item.label, {
           x: margin + 15,
@@ -1451,15 +1450,15 @@ export default function EppEntregas() {
         itemY -= 22;
       });
 
-      cursorY -= cardHeight + 20; // Espacio reducido
+      cursorY -= cardHeight + 20;
     };
 
     // 4. --- TABLA DE EPP CON TEMA CLARO ---
     const drawEppTable = (items: EntregaItem[]) => {
       const tableTop = cursorY;
       const tableWidth = pageWidth - margin * 2;
-      const rowHeight = 30; // Altura de fila reducida
-      const headerHeight = 28; // Altura de header reducida
+      const rowHeight = 30;
+      const headerHeight = 28;
 
       page.drawRectangle({
         x: margin,
@@ -1499,6 +1498,11 @@ export default function EppEntregas() {
       let currentY = tableTop - headerHeight;
 
       items.forEach((item) => {
+        // --- ✅ LLAMADA A LA FUNCIÓN ---
+        // Antes de dibujar cada fila, nos aseguramos de que haya espacio.
+        // Se necesitan unas 3 líneas de espacio por cada fila.
+        ensureSpace(3);
+
         currentY -= rowHeight;
         page.drawLine({
           start: { x: margin, y: currentY },
@@ -1532,11 +1536,12 @@ export default function EppEntregas() {
         );
       });
 
-      cursorY = currentY - 20; // Espacio reducido
+      cursorY = currentY - 20;
     };
 
     // 5. --- DECLARACIONES CON TEMA CLARO ---
     const drawDeclarations = (capacitacion: FormState["capacitacion"]) => {
+      ensureSpace(8); // Se asegura que haya espacio para toda la sección de declaraciones
       page.drawText("Declaraciones de Capacitación", {
         x: margin,
         y: cursorY,
@@ -1544,7 +1549,7 @@ export default function EppEntregas() {
         size: 12,
         color: colors.accentBlue,
       });
-      cursorY -= 20; // Espacio reducido
+      cursorY -= 20;
 
       const drawCheckbox = (label: string, checked: boolean) => {
         const boxSize = 12;
@@ -1578,7 +1583,7 @@ export default function EppEntregas() {
           size: 10,
           color: colors.textDark,
         });
-        cursorY -= 20; // Espacio de línea reducido
+        cursorY -= 20;
       };
 
       drawCheckbox(
@@ -1601,9 +1606,10 @@ export default function EppEntregas() {
 
     // 6. --- TARJETA DE FIRMA CON TEMA CLARO ---
     const drawSignatureArea = async () => {
-      cursorY -= 20; // Espacio reducido antes de la firma
+      ensureSpace(15); // Se asegura que haya espacio para la tarjeta de firma
+      cursorY -= 20;
       const cardWidth = pageWidth - margin * 2;
-      const cardHeight = 180; // Altura de la tarjeta significativamente reducida
+      const cardHeight = 180;
       const cardY = cursorY - cardHeight;
 
       page.drawRectangle({
@@ -1628,8 +1634,8 @@ export default function EppEntregas() {
         try {
           const signatureBytes = dataUrlToUint8Array(data.firmaDigitalDataUrl);
           const signatureImage = await pdfDoc.embedPng(signatureBytes);
-          const maxWidth = 180; // Un poco más pequeño
-          const maxHeight = 70; // Un poco más pequeño
+          const maxWidth = 180;
+          const maxHeight = 70;
           const scale = Math.min(
             maxWidth / signatureImage.width,
             maxHeight / signatureImage.height,
@@ -1641,14 +1647,14 @@ export default function EppEntregas() {
             y: cardY + 70,
             width: dims.width,
             height: dims.height,
-          }); // Reposicionado
+          });
           page.drawText(`Hash (SHA-256): ${data.firmaDigitalHash ?? "—"}`, {
             x: margin + 15,
             y: cardY + 35,
             font: bodyFont,
             size: 8,
             color: colors.textMuted,
-          }); // Reposicionado
+          });
           page.drawText(
             `Fecha/Hora Firma: ${formatDateTime(data.firmaDigitalTimestamp)}`,
             {
@@ -1658,7 +1664,7 @@ export default function EppEntregas() {
               size: 8,
               color: colors.textMuted,
             }
-          ); // Reposicionado
+          );
         } catch (e) {
           /* Fallback */
         }
@@ -1720,12 +1726,11 @@ export default function EppEntregas() {
 
     // --- GUARDAR Y DESCARGAR ---
     const pdfBytes = await pdfDoc.save();
-    const blob = new Blob([pdfBytes], { type: "application/pdf" });
+    const blob = new Blob([pdfBytes.buffer], { type: "application/pdf" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
 
-    // MODIFICACIÓN DEL NOMBRE DE ARCHIVO
     const fileName = `Clodiapp-Entrega-Epp-${data.trabajadorNombre.replace(
       /\s+/g,
       "_"
@@ -1736,7 +1741,7 @@ export default function EppEntregas() {
     URL.revokeObjectURL(url);
   };
 
-  // --- FIN DEL CÓDIGO A PEGAR --
+  // --- FIN DEL CÓDIGO A PEGAR ---
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
