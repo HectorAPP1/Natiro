@@ -1,60 +1,69 @@
-import { useState } from 'react'
-import { Bell, X, Send, Settings } from 'lucide-react'
-import { usePushNotifications } from '../hooks/usePushNotifications'
+import { useState } from "react";
+import { Bell, X, Send, Settings } from "lucide-react";
+import { usePushNotifications } from "../hooks/usePushNotifications";
 
 export default function Configuracion() {
-  const { permission, requestPermission, sendNotification } = usePushNotifications()
-  const [showModal, setShowModal] = useState(false)
-  const [title, setTitle] = useState('⚠️ Stock crítico en EPP')
-  const [message, setMessage] = useState('Tienes 3 equipos con stock bajo. Abre Clodi App para revisar tu inventario.')
+  const { permission, requestPermission, sendNotification } =
+    usePushNotifications();
+  const [showModal, setShowModal] = useState(false);
+  const [title, setTitle] = useState("⚠️ Stock crítico en EPP");
+  const [message, setMessage] = useState(
+    "Tienes 3 equipos con stock bajo. Abre Clodi App para revisar tu inventario."
+  );
 
   const handleSendNotification = async () => {
-    if (permission !== 'granted') {
-      const granted = await requestPermission()
+    if (permission !== "granted") {
+      const granted = await requestPermission();
       if (!granted) {
-        alert('Necesitas activar las notificaciones primero')
-        return
+        alert("Necesitas activar las notificaciones primero");
+        return;
       }
     }
 
     if (!title.trim() || !message.trim()) {
-      alert('Por favor completa el título y el mensaje')
-      return
+      alert("Por favor completa el título y el mensaje");
+      return;
     }
 
     // Enviar notificación personalizada
     sendNotification(title, {
       body: message,
-      tag: 'custom-notification',
+      tag: "custom-notification",
       requireInteraction: true,
       data: {
-        url: window.location.origin + '/epp',
-        action: 'open-app'
-      }
-    })
+        url: window.location.origin + "/epp",
+        action: "open-app",
+      },
+    });
 
-    setShowModal(false)
-    alert('¡Notificación enviada! Los usuarios la verán cuando tengan la app en segundo plano.')
-  }
+    setShowModal(false);
+    alert(
+      "¡Notificación enviada! Los usuarios la verán cuando tengan la app en segundo plano."
+    );
+  };
 
   const quickMessages = [
     {
-      title: '⚠️ Stock crítico en EPP',
-      message: 'Tienes equipos con stock bajo. Abre Clodi App para revisar tu inventario.'
+      title: "⚠️ Stock crítico en EPP",
+      message:
+        "Tienes equipos con stock bajo. Abre Clodi App para revisar tu inventario.",
     },
     {
-      title: '📅 Recordatorio de inspección',
-      message: 'Es momento de realizar la inspección mensual de EPP. Ingresa a la app.'
+      title: "📅 Recordatorio de inspección",
+      message:
+        "Es momento de realizar la inspección mensual de EPP. Ingresa a la app.",
     },
     {
-      title: '✅ Actualización completada',
-      message: 'Se han actualizado los registros de EPP. Revisa los cambios en la app.'
+      title: "✅ Actualización completada",
+      message:
+        "Se han actualizado los registros de EPP. Revisa los cambios en la app.",
     },
     {
-      title: '🎯 Nueva capacitación disponible',
-      message: 'Hay un nuevo módulo de capacitación en seguridad. Accede ahora.'
-    }
-  ]
+      title: "🎯 Nueva capacitación disponible",
+      message:
+        "Hay un nuevo módulo de capacitación en seguridad. Accede ahora.",
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -82,7 +91,8 @@ export default function Configuracion() {
               Notificaciones Push
             </h2>
             <p className="mt-1 text-sm text-slate-500 dark:text-dracula-comment">
-              Envía notificaciones personalizadas a todos los usuarios de la aplicación
+              Envía notificaciones personalizadas a todos los usuarios de la
+              aplicación
             </p>
             <button
               onClick={() => setShowModal(true)}
@@ -106,7 +116,8 @@ export default function Configuracion() {
               Más configuraciones
             </h2>
             <p className="mt-1 text-sm text-slate-500 dark:text-dracula-comment">
-              Próximamente agregaremos más opciones de configuración para personalizar tu experiencia
+              Próximamente agregaremos más opciones de configuración para
+              personalizar tu experiencia
             </p>
             <span className="mt-4 inline-block rounded-full bg-soft-gray-100 px-4 py-2 text-xs font-semibold uppercase text-slate-400 dark:bg-dracula-current dark:text-dracula-comment">
               Próximamente
@@ -142,13 +153,17 @@ export default function Configuracion() {
                     <button
                       key={index}
                       onClick={() => {
-                        setTitle(msg.title)
-                        setMessage(msg.message)
+                        setTitle(msg.title);
+                        setMessage(msg.message);
                       }}
                       className="rounded-xl border border-soft-gray-200/70 bg-white p-3 text-left text-xs transition hover:border-celeste-200 hover:bg-celeste-50/50 dark:border-dracula-current dark:bg-dracula-current dark:hover:border-dracula-purple dark:hover:bg-dracula-selection"
                     >
-                      <p className="font-semibold text-slate-700 dark:text-dracula-foreground">{msg.title}</p>
-                      <p className="mt-1 text-slate-500 dark:text-dracula-comment">{msg.message}</p>
+                      <p className="font-semibold text-slate-700 dark:text-dracula-foreground">
+                        {msg.title}
+                      </p>
+                      <p className="mt-1 text-slate-500 dark:text-dracula-comment">
+                        {msg.message}
+                      </p>
                     </button>
                   ))}
                 </div>
@@ -211,5 +226,5 @@ export default function Configuracion() {
         </div>
       )}
     </div>
-  )
+  );
 }
