@@ -1,9 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import type { PDFImage } from "pdf-lib";
+import SignaturePad from "signature_pad";
 import * as XLSX from "xlsx";
 import {
+  BarChart3,
   Calendar,
   Download,
+  Fingerprint,
+  Grid3x3,
   Layers,
+  List,
   MoveHorizontal,
   Pencil,
   Plus,
@@ -11,9 +18,8 @@ import {
   Trash2,
   Truck,
   User,
+  Users,
   X,
-  Grid3x3,
-  List,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useTrabajadoresFirestore } from "../hooks/useTrabajadoresFirestore";
@@ -22,6 +28,7 @@ import {
   useEppEntregasFirestore,
   type Entrega,
   type EntregaItem,
+  type CreateEntregaInput,
 } from "../hooks/useEppEntregasFirestore";
 
 type DraftItem = {
@@ -30,18 +37,68 @@ type DraftItem = {
   variantId?: string | null;
   cantidad: number;
   initialCantidad: number;
+  fechaRecambio: string;
 };
 
 type FormState = {
   trabajadorId: string;
+  trabajadorCargo: string;
   fechaEntrega: string;
+  firmaFecha: string;
+  firmaHora: string;
+  observaciones: string;
+  capacitacion: {
+    instruccionUso: boolean;
+    conoceLimitaciones: boolean;
+    recibioFolletos: boolean;
+    declaracionAceptada: boolean;
+  };
   items: DraftItem[];
+  firmaDigitalDataUrl: string | null;
+  firmaDigitalToken: string | null;
+  firmaDigitalHash: string | null;
+  firmaDigitalTimestamp: string | null;
+  firmaResponsableDataUrl: string | null;
+  firmaResponsableToken: string | null;
+  firmaResponsableHash: string | null;
+  firmaResponsableTimestamp: string | null;
+  firmaTipo: "digital" | "manual";
+  generarPdf: boolean;
+};
+
+const getTodayDate = () => new Date().toISOString().split("T")[0];
+const getCurrentTime = () => {
+  const now = new Date();
+  return `${now.getHours().toString().padStart(2, "0")}:${now
+    .getMinutes()
+    .toString()
+    .padStart(2, "0")}`;
 };
 
 const initialFormState = (): FormState => ({
   trabajadorId: "",
-  fechaEntrega: new Date().toISOString().split("T")[0],
+  trabajadorCargo: "",
+  fechaEntrega: getTodayDate(),
+  firmaFecha: getTodayDate(),
+  firmaHora: getCurrentTime(),
+  observaciones: "",
+  capacitacion: {
+    instruccionUso: true,
+    conoceLimitaciones: true,
+    recibioFolletos: true,
+    declaracionAceptada: true,
+  },
   items: [],
+  firmaDigitalDataUrl: null,
+  firmaDigitalToken: null,
+  firmaDigitalHash: null,
+  firmaDigitalTimestamp: null,
+  firmaResponsableDataUrl: null,
+  firmaResponsableToken: null,
+  firmaResponsableHash: null,
+  firmaResponsableTimestamp: null,
+  firmaTipo: "manual",
+  generarPdf: false,
 });
 
 const currency = new Intl.NumberFormat("es-CL", {
@@ -49,6 +106,8 @@ const currency = new Intl.NumberFormat("es-CL", {
   currency: "CLP",
   maximumFractionDigits: 0,
 });
+
+const integerFormatter = new Intl.NumberFormat("es-CL");
 
 const formatDate = (value: Date | string | undefined) => {
   if (!value) return "—";
@@ -58,6 +117,91 @@ const formatDate = (value: Date | string | undefined) => {
 };
 
 const randomId = () => Math.random().toString(36).slice(2, 9);
+
+const wrapLines = (text: string, maxChars = 90): string[] => {
+  if (!text) return ["—"];
+  const words = text.split(/\s+/);
+  const lines: string[] = [];
+  let current = "";
+
+  words.forEach((word) => {
+    const candidate = current.length === 0 ? word : `${current} ${word}`;
+    if (candidate.length > maxChars) {
+      if (current.length > 0) {
+        lines.push(current);
+        current = word;
+      } else {
+        lines.push(candidate);
+        current = "";
+      }
+    } else {
+      current = candidate;
+    }
+  });
+
+  if (current.length > 0) {
+    lines.push(current);
+  }
+
+  return lines.length > 0 ? lines : ["—"];
+};
+
+const formatDateTime = (value: Date | string | undefined | null) => {
+  if (!value) return "—";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleString("es-CL", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
+};
+
+const dataUrlToUint8Array = (dataUrl: string): Uint8Array => {
+  const parts = dataUrl.split(",");
+  if (parts.length < 2) return new Uint8Array();
+  const base64 = parts[1];
+  if (typeof atob !== "function") {
+    throw new Error("No se puede decodificar la firma digital en este entorno.");
+  }
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return bytes;
+};
+
+const ensureCrypto = () => {
+  const cryptoObj = globalThis.crypto ?? (typeof window !== "undefined" ? window.crypto : undefined);
+  if (!cryptoObj?.subtle) {
+    throw new Error("La API de criptografía no está disponible en este navegador.");
+  }
+  return cryptoObj;
+};
+
+const sha256Hex = async (data: Uint8Array) => {
+  const cryptoObj = ensureCrypto();
+  const digest = await cryptoObj.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+};
+
+type SignatureMetadata = {
+  dataUrl: string;
+  hash: string;
+  token: string;
+  timestamp: string;
+};
+
+const generateSignatureMetadata = async (dataUrl: string): Promise<SignatureMetadata> => {
+  const bytes = dataUrlToUint8Array(dataUrl);
+  const hash = await sha256Hex(bytes);
+  const cryptoObj = ensureCrypto();
+  const token = typeof cryptoObj.randomUUID === "function" ? cryptoObj.randomUUID() : hash.slice(0, 32);
+  const timestamp = new Date().toISOString();
+  return { dataUrl, hash, token, timestamp };
+};
 
 const DELIVERIES_DESKTOP_MEDIA_QUERY = "(min-width: 1024px)";
 
@@ -98,6 +242,31 @@ export default function EppEntregas() {
   const [formState, setFormState] = useState<FormState>(initialFormState);
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const signatureCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const signaturePadInstanceRef = useRef<SignaturePad | null>(null);
+  const [signatureStatus, setSignatureStatus] = useState<"idle" | "dirty" | "saved">("idle");
+  const [signatureError, setSignatureError] = useState<string | null>(null);
+  const signatureStatusMessages = {
+    idle: {
+      label: "Pendiente de firma",
+      toneClass: "text-slate-500 dark:text-dracula-comment",
+    },
+    dirty: {
+      label: "Firma modificada · guarda antes de enviar",
+      toneClass: "text-amber-600 dark:text-amber-400",
+    },
+    saved: {
+      label: "Firma guardada correctamente",
+      toneClass: "text-emerald-600 dark:text-emerald-400",
+    },
+  } as const;
+  const signatureStatusInfo =
+    formState.firmaTipo === "digital"
+      ? signatureStatusMessages[signatureStatus]
+      : {
+          label: "Firma manual seleccionada · se registrará en documento impreso",
+          toneClass: "text-slate-500 dark:text-dracula-comment",
+        };
 
   const trabajadorOptions = useMemo(
     () =>
@@ -154,6 +323,35 @@ export default function EppEntregas() {
     () => filteredEntregas.reduce((sum, entrega) => sum + entrega.totalEntrega, 0),
     [filteredEntregas]
   );
+
+  const overallSummary = useMemo(() => {
+    const total = entregas.length;
+    const uniqueWorkers = new Set<string>();
+    let totalValue = 0;
+    let digital = 0;
+
+    entregas.forEach((entrega) => {
+      uniqueWorkers.add(entrega.trabajadorId);
+      totalValue += entrega.totalEntrega;
+      if (entrega.firmaTipo === "digital") {
+        digital += 1;
+      }
+    });
+
+    const manual = total - digital;
+    const average = total > 0 ? totalValue / total : 0;
+    const digitalPercentage = total > 0 ? Math.round((digital / total) * 100) : 0;
+
+    return {
+      total,
+      uniqueWorkers: uniqueWorkers.size,
+      totalValue,
+      digital,
+      manual,
+      average,
+      digitalPercentage,
+    };
+  }, [entregas]);
 
   const [viewMode, setViewMode] = useState<"card" | "list">(getInitialDeliveriesViewMode);
 
@@ -276,9 +474,16 @@ export default function EppEntregas() {
   useEffect(() => {
     if (!isModalOpen) return;
     setFormState((prev) => {
-      if (prev.items.length > 0) return prev;
-      return {
+      const withSignature = {
         ...prev,
+        firmaFecha: prev.firmaFecha || getTodayDate(),
+        firmaHora: getCurrentTime(),
+      };
+
+      if (withSignature.items.length > 0) return withSignature;
+
+      return {
+        ...withSignature,
         items: [
           {
             tempId: randomId(),
@@ -286,11 +491,85 @@ export default function EppEntregas() {
             variantId: null,
             cantidad: 1,
             initialCantidad: 0,
+            fechaRecambio: withSignature.fechaEntrega ?? "",
           },
         ],
       };
     });
   }, [isModalOpen]);
+
+  useEffect(() => {
+    if (!isModalOpen) return;
+    if (formState.firmaTipo !== "digital") {
+      signaturePadInstanceRef.current?.clear();
+      return;
+    }
+    const canvas = signatureCanvasRef.current;
+    if (!canvas) return;
+
+    const resizeCanvas = () => {
+      const ratio = Math.max(window.devicePixelRatio || 1, 1);
+      const displayWidth = canvas.offsetWidth || 520;
+      const displayHeight = canvas.offsetHeight || 200;
+      canvas.width = displayWidth * ratio;
+      canvas.height = displayHeight * ratio;
+      const context = canvas.getContext("2d");
+      if (context) {
+        context.scale(ratio, ratio);
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, displayWidth, displayHeight);
+      }
+    };
+
+    resizeCanvas();
+
+    const signaturePad = new SignaturePad(canvas, {
+      minWidth: 0.8,
+      maxWidth: 2.4,
+      penColor: "#0f172a",
+      backgroundColor: "#ffffff",
+      throttle: 16,
+    });
+
+    signaturePadInstanceRef.current = signaturePad;
+
+    const markDirty = () => {
+      setSignatureStatus((prev) => (prev === "dirty" ? prev : "dirty"));
+      setSignatureError(null);
+    };
+
+    canvas.addEventListener("pointerdown", markDirty);
+
+    try {
+      if (formState.firmaDigitalDataUrl) {
+        signaturePad.fromDataURL(formState.firmaDigitalDataUrl);
+        setSignatureStatus("saved");
+      } else {
+        signaturePad.clear();
+      }
+    } catch (error) {
+      console.error("No se pudo cargar la firma digital guardada:", error);
+      signaturePad.clear();
+    }
+
+    const handleResize = () => {
+      const currentData = signaturePad.toData();
+      resizeCanvas();
+      signaturePad.clear();
+      if (currentData.length > 0) {
+        signaturePad.fromData(currentData);
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      canvas.removeEventListener("pointerdown", markDirty);
+      signaturePad.clear();
+      signaturePadInstanceRef.current = null;
+    };
+  }, [isModalOpen, formState.firmaDigitalDataUrl, formState.firmaTipo]);
 
   const handleOpenModal = (entrega?: Entrega) => {
     if (!user) {
@@ -302,18 +581,45 @@ export default function EppEntregas() {
       setEditingId(entrega.id);
       setFormState({
         trabajadorId: entrega.trabajadorId,
+        trabajadorCargo: entrega.trabajadorCargo,
         fechaEntrega: entrega.fechaEntrega.toISOString().split("T")[0],
+        firmaFecha: entrega.firmaFecha || getTodayDate(),
+        firmaHora: entrega.firmaHora || getCurrentTime(),
+        observaciones: entrega.observaciones ?? "",
+        capacitacion: {
+          instruccionUso: entrega.capacitacion?.instruccionUso ?? false,
+          conoceLimitaciones: entrega.capacitacion?.conoceLimitaciones ?? false,
+          recibioFolletos: entrega.capacitacion?.recibioFolletos ?? false,
+          declaracionAceptada: entrega.capacitacion?.declaracionAceptada ?? false,
+        },
         items: entrega.items.map((item) => ({
           tempId: randomId(),
           eppId: item.eppId,
           variantId: item.variantId ?? null,
           cantidad: item.cantidad,
           initialCantidad: item.cantidad,
+          fechaRecambio: item.fechaRecambio ?? "",
         })),
+        firmaDigitalDataUrl: entrega.firmaDigitalDataUrl ?? null,
+        firmaDigitalHash: entrega.firmaDigitalHash ?? null,
+        firmaDigitalToken: entrega.firmaDigitalToken ?? null,
+        firmaDigitalTimestamp: entrega.firmaDigitalTimestamp ?? null,
+        firmaResponsableDataUrl: entrega.firmaResponsableDataUrl ?? null,
+        firmaResponsableHash: entrega.firmaResponsableHash ?? null,
+        firmaResponsableToken: entrega.firmaResponsableToken ?? null,
+        firmaResponsableTimestamp: entrega.firmaResponsableTimestamp ?? null,
+        firmaTipo: entrega.firmaTipo ?? "digital",
+        generarPdf: entrega.firmaTipo === "digital",
       });
+      setSignatureStatus(
+        entrega.firmaTipo === "digital" && entrega.firmaDigitalDataUrl ? "saved" : "idle"
+      );
+      setSignatureError(null);
     } else {
       setEditingId(null);
       setFormState(initialFormState());
+      setSignatureStatus("idle");
+      setSignatureError(null);
     }
 
     setFormError(null);
@@ -326,6 +632,10 @@ export default function EppEntregas() {
     setFormState(initialFormState());
     setFormError(null);
     setSaving(false);
+    signaturePadInstanceRef.current?.clear();
+    clearWorkerSignatureData();
+    setSignatureStatus("idle");
+    setSignatureError(null);
   };
 
   const handleItemChange = (
@@ -401,9 +711,82 @@ export default function EppEntregas() {
           variantId: null,
           cantidad: 1,
           initialCantidad: 0,
+          fechaRecambio: prev.fechaEntrega,
         },
       ],
     }));
+  };
+
+  const clearWorkerSignatureData = () => {
+    setFormState((prev) => ({
+      ...prev,
+      firmaDigitalDataUrl: null,
+      firmaDigitalHash: null,
+      firmaDigitalToken: null,
+      firmaDigitalTimestamp: null,
+    }));
+  };
+
+  const handleSignatureClear = () => {
+    signaturePadInstanceRef.current?.clear();
+    clearWorkerSignatureData();
+    setSignatureStatus("idle");
+    setSignatureError(null);
+  };
+
+  const handleSignatureSave = async (): Promise<SignatureMetadata | null> => {
+    if (formState.firmaTipo !== "digital") {
+      return null;
+    }
+    const pad = signaturePadInstanceRef.current;
+    if (!pad) {
+      setSignatureError("No se pudo acceder al lienzo de firma.");
+      return null;
+    }
+
+    if (pad.isEmpty()) {
+      setSignatureError("Dibuja la firma del trabajador antes de guardarla.");
+      return null;
+    }
+
+    try {
+      const dataUrl = pad.toDataURL("image/png");
+      const metadata = await generateSignatureMetadata(dataUrl);
+      setFormState((prev) => ({
+        ...prev,
+        firmaDigitalDataUrl: metadata.dataUrl,
+        firmaDigitalHash: metadata.hash,
+        firmaDigitalToken: metadata.token,
+        firmaDigitalTimestamp: metadata.timestamp,
+      }));
+      setSignatureStatus("saved");
+      setSignatureError(null);
+      setFormError(null);
+      return metadata;
+    } catch (error) {
+      console.error("Error al generar la firma digital:", error);
+      setSignatureError("No se pudo generar la firma digital. Intenta nuevamente.");
+      return null;
+    }
+  };
+
+  const handleSignatureModeChange = (mode: "digital" | "manual") => {
+    setFormState((prev) => ({
+      ...prev,
+      firmaTipo: mode,
+      generarPdf: mode === "digital" ? true : false,
+    }));
+
+    if (mode === "digital") {
+      setSignatureStatus("idle");
+      setSignatureError(null);
+      return;
+    }
+
+    signaturePadInstanceRef.current?.clear();
+    clearWorkerSignatureData();
+    setSignatureStatus("idle");
+    setSignatureError(null);
   };
 
   const buildEntregaItems = (items: DraftItem[]): EntregaItem[] => {
@@ -438,13 +821,532 @@ export default function EppEntregas() {
       return {
         eppId: epp.id,
         eppName: epp.name,
+        brand: epp.brand ?? null,
+        model: epp.model ?? null,
         variantId: variant?.id ?? null,
         talla: epp.multiSize ? variant?.label ?? "" : "Única",
         cantidad: draft.cantidad,
         costoUnitario: epp.price,
         subtotal: draft.cantidad * epp.price,
+        fechaRecambio: draft.fechaRecambio || "",
       } satisfies EntregaItem;
     });
+  };
+
+  type PdfEntregaData = {
+    id?: string | null;
+    trabajadorNombre: string;
+    trabajadorRut: string;
+    trabajadorCargo: string;
+    areaTrabajo: string;
+    subAreaTrabajo: string;
+    fechaEntrega: Date;
+    firmaFecha: string;
+    firmaHora: string;
+    observaciones: string;
+    capacitacion: FormState["capacitacion"];
+    items: EntregaItem[];
+    totalEntrega: number;
+    autorizadoPorNombre: string;
+    autorizadoPorEmail?: string | null;
+    firmaDigitalDataUrl?: string | null;
+    firmaDigitalHash?: string | null;
+    firmaDigitalToken?: string | null;
+    firmaDigitalTimestamp?: string | null;
+    firmaTipo: "digital" | "manual";
+  };
+
+  const generateEntregaPdf = async (data: PdfEntregaData) => {
+    const pdfDoc = await PDFDocument.create();
+    const pageWidth = 595.28;
+    const pageHeight = 841.89;
+    const margin = 42;
+    const lineHeight = 14;
+    let page = pdfDoc.addPage([pageWidth, pageHeight]);
+    let cursorY = pageHeight - margin;
+
+    const bodyFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+    const ensureSpace = (lines = 1) => {
+      if (cursorY - lines * lineHeight < margin) {
+        page = pdfDoc.addPage([pageWidth, pageHeight]);
+        cursorY = pageHeight - margin;
+      }
+    };
+
+    const drawHeading = (text: string, size = 20) => {
+      ensureSpace(2);
+      page.drawText(text, {
+        x: margin,
+        y: cursorY,
+        font: boldFont,
+        size,
+        color: rgb(0.07, 0.18, 0.4),
+      });
+      cursorY -= size + 4;
+    };
+
+    const drawSectionTitle = (text: string) => {
+      ensureSpace(2);
+      cursorY -= lineHeight - 2;
+      page.drawText(text, {
+        x: margin,
+        y: cursorY,
+        font: boldFont,
+        size: 13,
+        color: rgb(0.08, 0.28, 0.45),
+      });
+      cursorY -= lineHeight / 2;
+      page.drawLine({
+        start: { x: margin, y: cursorY },
+        end: { x: pageWidth - margin, y: cursorY },
+        thickness: 1,
+        color: rgb(0.85, 0.88, 0.94),
+      });
+      cursorY -= lineHeight / 2;
+    };
+
+    const drawTextLines = (
+      lines: string[],
+      options?: { bold?: boolean; size?: number; color?: ReturnType<typeof rgb> }
+    ) => {
+      const font = options?.bold ? boldFont : bodyFont;
+      const size = options?.size ?? 11;
+      const color = options?.color ?? rgb(0.1, 0.11, 0.13);
+      lines.forEach((line) => {
+        ensureSpace(1);
+        page.drawText(line, {
+          x: margin,
+          y: cursorY,
+          font,
+          size,
+          color,
+        });
+        cursorY -= lineHeight;
+      });
+    };
+
+    const drawLabelValue = (label: string, value: string) => {
+      ensureSpace(1.5);
+      page.drawText(label, {
+        x: margin,
+        y: cursorY,
+        font: boldFont,
+        size: 11,
+        color: rgb(0.08, 0.28, 0.45),
+      });
+      page.drawText(value, {
+        x: margin + 160,
+        y: cursorY,
+        font: bodyFont,
+        size: 11,
+        color: rgb(0.15, 0.17, 0.2),
+      });
+      cursorY -= lineHeight;
+    };
+
+    const drawCheckbox = (checked: boolean, label: string) => {
+      const boxSize = 12;
+      const lineSpacing = 18;
+      ensureSpace(lineSpacing / lineHeight + 0.3);
+      const boxX = margin;
+      const boxY = cursorY - 2;
+
+      page.drawRectangle({
+        x: boxX,
+        y: boxY - boxSize + 4,
+        width: boxSize,
+        height: boxSize,
+        borderWidth: 1.1,
+        color: rgb(1, 1, 1),
+        borderColor: rgb(0.1, 0.28, 0.5),
+      });
+
+      if (checked) {
+        page.drawLine({
+          start: { x: boxX + 3, y: boxY - boxSize + 9 },
+          end: { x: boxX + 6, y: boxY - boxSize + 3 },
+          thickness: 1.6,
+          color: rgb(0.1, 0.28, 0.5),
+        });
+        page.drawLine({
+          start: { x: boxX + 6, y: boxY - boxSize + 3 },
+          end: { x: boxX + 10, y: boxY - boxSize + 14 },
+          thickness: 1.6,
+          color: rgb(0.1, 0.28, 0.5),
+        });
+      }
+
+      page.drawText(label, {
+        x: boxX + boxSize + 10,
+        y: boxY,
+        font: bodyFont,
+        size: 11,
+        color: rgb(0.1, 0.11, 0.13),
+      });
+
+      cursorY -= lineSpacing;
+    };
+
+    const drawTableHeader = (columns: { title: string; width: number }[]) => {
+      ensureSpace(1.6);
+      const totalWidth = columns.reduce((sum, col) => sum + col.width, 0);
+      page.drawRectangle({
+        x: margin,
+        y: cursorY - lineHeight - 2,
+        width: totalWidth,
+        height: lineHeight + 6,
+        color: rgb(0.95, 0.97, 1),
+      });
+
+      let cursorX = margin + 4;
+      columns.forEach((column) => {
+        page.drawText(column.title, {
+          x: cursorX,
+          y: cursorY,
+          font: boldFont,
+          size: 11,
+          color: rgb(0.05, 0.2, 0.42),
+        });
+        cursorX += column.width;
+      });
+
+      cursorY -= lineHeight + 6;
+      page.drawLine({
+        start: { x: margin, y: cursorY + 3 },
+        end: { x: margin + totalWidth, y: cursorY + 3 },
+        thickness: 0.6,
+        color: rgb(0.8, 0.84, 0.9),
+      });
+    };
+
+    const drawTableRow = (
+      values: { text: string; width: number; wrap?: number }[],
+      options?: { bold?: boolean }
+    ) => {
+      const totalWidth = values.reduce((sum, value) => sum + value.width, 0);
+      const columnEdges: number[] = [margin];
+      values.forEach((value) => {
+        columnEdges.push(columnEdges[columnEdges.length - 1] + value.width);
+      });
+
+      const wrapped = values.map((value) => {
+        const limit = value.wrap ?? 36;
+        return wrapLines(value.text, limit);
+      });
+      const rowLines = Math.max(...wrapped.map((lines) => lines.length));
+      ensureSpace(rowLines + 0.3);
+
+      const startY = cursorY;
+
+      for (let lineIndex = 0; lineIndex < rowLines; lineIndex += 1) {
+        let cursorX = margin + 4;
+        values.forEach((value, columnIndex) => {
+          const lines = wrapped[columnIndex];
+          const content = lines[lineIndex] ?? "";
+          if (content) {
+            page.drawText(content, {
+              x: cursorX,
+              y: cursorY,
+              font: options?.bold ? boldFont : bodyFont,
+              size: 10.2,
+              color: rgb(0.16, 0.17, 0.22),
+            });
+          }
+          cursorX += value.width;
+        });
+        cursorY -= lineHeight;
+      }
+
+      const topY = startY + lineHeight + 2;
+      const bottomY = cursorY - 2;
+
+      page.drawLine({
+        start: { x: margin, y: topY },
+        end: { x: margin + totalWidth, y: topY },
+        thickness: 0.6,
+        color: rgb(0.82, 0.86, 0.93),
+      });
+      page.drawLine({
+        start: { x: margin, y: bottomY },
+        end: { x: margin + totalWidth, y: bottomY },
+        thickness: 0.6,
+        color: rgb(0.82, 0.86, 0.93),
+      });
+
+      for (let edgeIndex = 1; edgeIndex < columnEdges.length - 1; edgeIndex += 1) {
+        const edgeX = columnEdges[edgeIndex];
+        page.drawLine({
+          start: { x: edgeX, y: topY },
+          end: { x: edgeX, y: bottomY },
+          thickness: 0.5,
+          color: rgb(0.9, 0.92, 0.96),
+        });
+      }
+
+      cursorY = bottomY - 6;
+    };
+
+    type SignatureCardHelpers = {
+      writeText: (
+        lines: string | string[],
+        options?: { bold?: boolean; size?: number; color?: ReturnType<typeof rgb> }
+      ) => void;
+      writeLabelValue: (label: string, value: string) => void;
+      addSpacing: (units?: number) => void;
+      drawSignatureUnderline: (label: string) => void;
+      drawImageCentered: (image: PDFImage, width: number, height: number) => void;
+      innerWidth: number;
+    };
+
+    const drawSignatureCard = async (
+      title: string,
+      height: number,
+      render: (helpers: SignatureCardHelpers) => Promise<void> | void
+    ) => {
+      ensureSpace(height / lineHeight + 1.5);
+      const cardTop = cursorY;
+      const cardWidth = pageWidth - margin * 2;
+      const radius = 12;
+      const innerMargin = margin + 18;
+      const innerWidth = cardWidth - 36;
+      let innerCursorY = cardTop - 48;
+
+      page.drawRectangle({
+        x: margin,
+        y: cardTop - height,
+        width: cardWidth,
+        height,
+        color: rgb(0.99, 0.99, 1),
+        borderColor: rgb(0.82, 0.86, 0.93),
+        borderWidth: 1,
+        borderRadius: radius,
+      });
+
+      page.drawText(title, {
+        x: innerMargin,
+        y: cardTop - 26,
+        font: boldFont,
+        size: 13,
+        color: rgb(0.08, 0.28, 0.45),
+      });
+
+      const writeText = (
+        text: string | string[],
+        options?: { bold?: boolean; size?: number; color?: ReturnType<typeof rgb> }
+      ) => {
+        const lines = Array.isArray(text) ? text : [text];
+        const font = options?.bold ? boldFont : bodyFont;
+        const size = options?.size ?? 11;
+        const color = options?.color ?? rgb(0.12, 0.13, 0.17);
+        lines.forEach((line) => {
+          page.drawText(line, {
+            x: innerMargin,
+            y: innerCursorY,
+            font,
+            size,
+            color,
+          });
+          innerCursorY -= lineHeight;
+        });
+      };
+
+      const writeLabelValue = (label: string, value: string) => {
+        page.drawText(label, {
+          x: innerMargin,
+          y: innerCursorY,
+          font: boldFont,
+          size: 10.5,
+          color: rgb(0.08, 0.28, 0.45),
+        });
+        page.drawText(value, {
+          x: innerMargin + 170,
+          y: innerCursorY,
+          font: bodyFont,
+          size: 10.5,
+          color: rgb(0.15, 0.17, 0.2),
+        });
+        innerCursorY -= lineHeight;
+      };
+
+      const addSpacing = (units = 1) => {
+        innerCursorY -= lineHeight * units;
+      };
+
+      const drawSignatureUnderline = (label: string) => {
+        const underscores = "_".repeat(Math.max(Math.floor(innerWidth / 6), 18));
+        page.drawText(underscores, {
+          x: innerMargin,
+          y: innerCursorY,
+          font: bodyFont,
+          size: 12,
+          color: rgb(0.15, 0.17, 0.2),
+        });
+        page.drawText(label, {
+          x: innerMargin,
+          y: innerCursorY - 12,
+          font: bodyFont,
+          size: 10,
+          color: rgb(0.32, 0.34, 0.4),
+        });
+        innerCursorY -= lineHeight * 2;
+      };
+
+      const drawImageCentered = (image: PDFImage, width: number, height: number) => {
+        const x = innerMargin + Math.max(0, (innerWidth - width) / 2);
+        const y = innerCursorY - height;
+        page.drawImage(image, {
+          x,
+          y,
+          width,
+          height,
+        });
+        innerCursorY = y - 12;
+      };
+
+      await render({
+        writeText,
+        writeLabelValue,
+        addSpacing,
+        drawSignatureUnderline,
+        drawImageCentered,
+        innerWidth,
+      });
+
+      cursorY = cardTop - height - 16;
+    };
+
+    drawHeading("Registro de entrega de EPP");
+
+    drawTextLines([
+      `Código de entrega interno: ${data.id ?? "—"}`,
+      `Fecha de entrega: ${formatDate(data.fechaEntrega)}`,
+    ]);
+
+    drawSectionTitle("Datos del trabajador");
+    drawLabelValue("Nombre", data.trabajadorNombre);
+    drawLabelValue("RUT", data.trabajadorRut);
+    drawLabelValue("Cargo", data.trabajadorCargo || "—");
+    drawLabelValue("Área", data.areaTrabajo || "—");
+    drawLabelValue("Sub-área", data.subAreaTrabajo || "—");
+
+    const tableColumns = [
+      { title: "EPP", width: 280, wrap: 38 },
+      { title: "Cantidad / Talla", width: 150, wrap: 24 },
+      { title: "Recambio", width: 110, wrap: 16 },
+    ] as const;
+
+    drawTableHeader(tableColumns.map(({ title, width }) => ({ title, width })));
+
+    for (const item of data.items) {
+      drawTableRow(
+        [
+          { text: item.eppName, width: tableColumns[0].width, wrap: tableColumns[0].wrap },
+          {
+            text: `${item.cantidad} unidad(es)${item.talla ? ` · ${item.talla}` : ""}`,
+            width: tableColumns[1].width,
+            wrap: tableColumns[1].wrap,
+          },
+          {
+            text: item.fechaRecambio ? formatDate(item.fechaRecambio) : "—",
+            width: tableColumns[2].width,
+            wrap: tableColumns[2].wrap,
+          },
+        ],
+        { bold: false }
+      );
+      cursorY -= 6;
+    }
+
+    drawSectionTitle("Observaciones");
+    const obsLines = wrapLines(data.observaciones?.trim() || "Sin observaciones", 100);
+    drawTextLines(obsLines);
+
+    drawSectionTitle("Declaraciones de capacitación");
+    drawCheckbox(data.capacitacion.instruccionUso, "He sido instruido en el uso correcto de los EPP");
+    drawCheckbox(data.capacitacion.conoceLimitaciones, "Conozco limitaciones y cuidados");
+    drawCheckbox(data.capacitacion.recibioFolletos, "Recibí folletos informativos");
+    drawCheckbox(
+      data.capacitacion.declaracionAceptada,
+      "Declaro conformidad con D.S. 44/2024"
+    );
+
+    await drawSignatureCard("Trabajador", 260, async ({
+      writeLabelValue,
+      addSpacing,
+      writeText,
+      drawImageCentered,
+      drawSignatureUnderline,
+    }) => {
+      writeLabelValue("Nombre", data.trabajadorNombre);
+      writeLabelValue("RUT", data.trabajadorRut);
+      addSpacing(0.3);
+      if (data.firmaTipo === "digital") {
+        if (data.firmaDigitalDataUrl) {
+          try {
+            const signatureBytes = dataUrlToUint8Array(data.firmaDigitalDataUrl);
+            const signatureImage = await pdfDoc.embedPng(signatureBytes);
+            const maxWidth = 260;
+            const maxHeight = 120;
+            const widthScale = maxWidth / signatureImage.width;
+            const heightScale = maxHeight / signatureImage.height;
+            const scale = Math.min(widthScale, heightScale, 1);
+            const dims = signatureImage.scale(scale);
+            drawImageCentered(signatureImage, dims.width, dims.height);
+          } catch (error) {
+            console.error("No se pudo incrustar la firma digital en el PDF:", error);
+            writeText("No se pudo incrustar la imagen de la firma digital.", {
+              bold: true,
+              color: rgb(0.62, 0.11, 0.11),
+            });
+          }
+        } else {
+          writeText("Firma digital no registrada.", {
+            bold: true,
+            color: rgb(0.4, 0.42, 0.48),
+          });
+        }
+
+        addSpacing(0.5);
+        writeText(
+          [
+            `Hash (SHA-256): ${data.firmaDigitalHash ?? "—"}`,
+            `Token: ${data.firmaDigitalToken ?? "—"}`,
+            `Fecha-hora firma: ${formatDateTime(data.firmaDigitalTimestamp)}`,
+          ],
+          { size: 10 }
+        );
+      } else {
+        writeText(
+          "Firma manual: el trabajador firmará sobre el documento físico entregado.",
+          {
+            bold: true,
+            color: rgb(0.3, 0.22, 0.15),
+          }
+        );
+        addSpacing(0.5);
+        writeText(
+          "No se generan hash ni token digitales para esta entrega.",
+          {
+            size: 10,
+            color: rgb(0.36, 0.27, 0.18),
+          }
+        );
+      }
+
+      addSpacing(0.5);
+      drawSignatureUnderline("Firma trabajador");
+    });
+
+    const pdfBytes = await pdfDoc.save();
+    const blob = new Blob([pdfBytes], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `entrega-epp-${data.id ?? data.trabajadorRut}-${Date.now()}.pdf`;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -479,18 +1381,59 @@ export default function EppEntregas() {
       return;
     }
 
-    const payload = {
+    const isFirmaDigital = formState.firmaTipo === "digital";
+
+    const existingSignature =
+      formState.firmaDigitalDataUrl &&
+      formState.firmaDigitalHash &&
+      formState.firmaDigitalToken &&
+      formState.firmaDigitalTimestamp
+        ? {
+            dataUrl: formState.firmaDigitalDataUrl,
+            hash: formState.firmaDigitalHash,
+            token: formState.firmaDigitalToken,
+            timestamp: formState.firmaDigitalTimestamp,
+          }
+        : null;
+
+    let signatureMetadata = existingSignature;
+
+    if (isFirmaDigital) {
+      if (!signatureMetadata || signatureStatus !== "saved") {
+        signatureMetadata = await handleSignatureSave();
+        if (!signatureMetadata) {
+          setFormError(
+            "Captura y guarda la firma digital del trabajador antes de registrar la entrega."
+          );
+          return;
+        }
+      }
+    } else {
+      signatureMetadata = null;
+    }
+
+    const payload: CreateEntregaInput = {
       trabajadorId: trabajador.id,
       trabajadorNombre: trabajador.nombre,
       trabajadorRut: trabajador.rut,
+      trabajadorCargo: formState.trabajadorCargo.trim() || trabajador.cargo,
       areaTrabajo: trabajador.areaTrabajo,
       subAreaTrabajo: trabajador.subAreaTrabajo,
       fechaEntrega: new Date(formState.fechaEntrega),
+      firmaFecha: formState.firmaFecha || getTodayDate(),
+      firmaHora: formState.firmaHora || getCurrentTime(),
+      observaciones: formState.observaciones.trim(),
+      capacitacion: formState.capacitacion,
       items,
       autorizadoPorUid: user.uid,
       autorizadoPorNombre: user.displayName ?? user.email ?? "Usuario",
       autorizadoPorEmail: user.email ?? undefined,
-    } as const;
+      firmaDigitalDataUrl: signatureMetadata?.dataUrl ?? null,
+      firmaDigitalHash: signatureMetadata?.hash ?? null,
+      firmaDigitalToken: signatureMetadata?.token ?? null,
+      firmaDigitalTimestamp: signatureMetadata?.timestamp ?? null,
+      firmaTipo: formState.firmaTipo,
+    };
 
     setSaving(true);
     const result = editingId
@@ -501,6 +1444,23 @@ export default function EppEntregas() {
     if (!result.success) {
       setFormError(result.error ?? "No se pudo guardar la entrega.");
       return;
+    }
+
+    const totalEntrega = items.reduce((sum, item) => sum + item.subtotal, 0);
+
+    const shouldGeneratePdf =
+      formState.firmaTipo === "digital" || formState.generarPdf === true;
+
+    if (shouldGeneratePdf) {
+      try {
+        await generateEntregaPdf({
+          ...payload,
+          id: editingId ?? (result.id ?? null),
+          totalEntrega,
+        });
+      } catch (pdfError) {
+        console.error("No se pudo generar el PDF de la entrega:", pdfError);
+      }
     }
 
     handleCloseModal();
@@ -545,6 +1505,72 @@ export default function EppEntregas() {
             <span className="hidden sm:inline">Nueva Entrega</span>
             <span className="sm:hidden">Nueva</span>
           </button>
+        </div>
+
+        <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-3xl border border-mint-200/70 bg-mint-50/70 p-4 sm:p-5 text-left shadow-sm transition hover:border-mint-300 hover:bg-mint-100/70 hover:shadow-lg dark:border-dracula-green/30 dark:bg-dracula-current dark:hover:border-dracula-green/50 dark:hover:bg-dracula-green/10">
+            <p className="text-xs font-medium uppercase tracking-[0.2em] text-mint-400 dark:text-dracula-green">
+              Entregas registradas
+            </p>
+            <p className="mt-2 text-2xl sm:text-3xl font-semibold text-slate-800 dark:text-dracula-foreground">
+              {integerFormatter.format(overallSummary.total)}
+            </p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-dracula-comment">
+              Movimientos totales almacenados en el historial.
+            </p>
+            <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-mint-500 dark:text-dracula-green">
+              <List className="h-3.5 w-3.5" />
+              Ver historial completo
+            </p>
+          </div>
+          <div className="rounded-3xl border border-celeste-200/70 bg-celeste-50/70 p-4 sm:p-5 text-left shadow-sm transition hover:border-celeste-300 hover:bg-celeste-100/70 hover:shadow-lg dark:border-dracula-cyan/30 dark:bg-dracula-current dark:hover:border-dracula-cyan/50 dark:hover:bg-dracula-cyan/10">
+            <p className="text-xs font-medium uppercase tracking-[0.2em] text-celeste-400 dark:text-dracula-cyan">
+              Trabajadores con entregas
+            </p>
+            <p className="mt-2 text-2xl sm:text-3xl font-semibold text-slate-800 dark:text-dracula-foreground">
+              {integerFormatter.format(overallSummary.uniqueWorkers)}
+            </p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-dracula-comment">
+              Colaboradores con al menos una asignación registrada.
+            </p>
+            <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-celeste-500 dark:text-dracula-cyan">
+              <Users className="h-3.5 w-3.5" />
+              Ver detalle por trabajador
+            </p>
+          </div>
+          <div className="rounded-3xl border border-amber-200/70 bg-amber-50/60 p-4 sm:p-5 text-left shadow-sm transition hover:border-amber-300 hover:bg-amber-100/70 hover:shadow-lg dark:border-dracula-orange/30 dark:bg-dracula-current dark:hover:border-dracula-orange/50 dark:hover:bg-dracula-orange/10">
+            <p className="text-xs font-medium uppercase tracking-[0.2em] text-amber-500 dark:text-dracula-orange">
+              Firmas digitales
+            </p>
+            <p className="mt-2 text-2xl sm:text-3xl font-semibold text-slate-800 dark:text-dracula-foreground">
+              {integerFormatter.format(overallSummary.digital)}
+              <span className="ml-2 text-sm font-medium text-amber-500 dark:text-dracula-orange">
+                ({overallSummary.digitalPercentage}% digital)
+              </span>
+            </p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-dracula-comment">
+              {integerFormatter.format(overallSummary.manual)} entregas con firma manual.
+            </p>
+            <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-amber-500 dark:text-dracula-orange">
+              <Fingerprint className="h-3.5 w-3.5" />
+              Analizar registros de firma
+            </p>
+          </div>
+          <div className="rounded-3xl border border-purple-200/70 bg-purple-50/60 p-4 sm:p-5 text-left shadow-sm transition hover:border-purple-300 hover:bg-purple-100/70 hover:shadow-lg dark:border-dracula-purple/30 dark:bg-dracula-current dark:hover:border-dracula-purple/50 dark:hover:bg-dracula-purple/10">
+            <p className="text-xs font-medium uppercase tracking-[0.2em] text-purple-400 dark:text-dracula-purple">
+              Valor total entregado
+            </p>
+            <p className="mt-2 text-xl sm:text-2xl lg:text-3xl font-semibold text-slate-800 dark:text-dracula-foreground">
+              {currency.format(overallSummary.totalValue)}
+            </p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-dracula-comment">
+              Promedio por entrega: {currency.format(overallSummary.average || 0)}.
+            </p>
+            <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-purple-500 dark:text-dracula-purple">
+              <BarChart3 className="h-3.5 w-3.5" />
+              Ver análisis económico
+            </p>
+          </div>
         </div>
 
         <div className="mb-6 space-y-3 lg:space-y-0 lg:flex lg:flex-wrap lg:items-center lg:justify-between gap-4">
@@ -913,59 +1939,84 @@ export default function EppEntregas() {
               )}
 
               <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div>
-                    <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-foreground">
-                      👷 Trabajador *
-                    </label>
-                    <select
-                      required
-                      value={formState.trabajadorId}
-                      onChange={(event) =>
-                        setFormState((prev) => ({
-                          ...prev,
-                          trabajadorId: event.target.value,
-                        }))
-                      }
-                      className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-2 text-sm focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-bg dark:text-dracula-foreground"
-                    >
-                      <option value="">Selecciona un trabajador</option>
-                      {trabajadorOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
+                <section className="space-y-4">
+                  <h4 className="text-sm font-semibold uppercase tracking-[0.25em] text-celeste-300 dark:text-dracula-cyan">
+                    Identificación general
+                  </h4>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-foreground">
+                        👷 Trabajador *
+                      </label>
+                      <select
+                        required
+                        value={formState.trabajadorId}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          const worker = trabajadores.find((t) => t.id === value) ?? null;
+                          setFormState((prev) => ({
+                            ...prev,
+                            trabajadorId: value,
+                            trabajadorCargo: worker?.cargo ?? "",
+                          }));
+                        }}
+                        className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-2 text-sm focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-bg dark:text-dracula-foreground"
+                      >
+                        <option value="">Selecciona un trabajador</option>
+                        {trabajadorOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-foreground">
+                        📅 Fecha de entrega *
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={formState.fechaEntrega}
+                        onChange={(event) =>
+                          setFormState((prev) => ({
+                            ...prev,
+                            fechaEntrega: event.target.value,
+                            items: prev.items.map((item) => ({
+                              ...item,
+                              fechaRecambio: item.fechaRecambio || event.target.value,
+                            })),
+                          }))
+                        }
+                        className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-2 text-sm focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-bg dark:text-dracula-foreground"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-foreground">
-                      📅 Fecha de entrega *
-                    </label>
-                    <input
-                      type="date"
-                      required
-                      value={formState.fechaEntrega}
-                      onChange={(event) =>
-                        setFormState((prev) => ({
-                          ...prev,
-                          fechaEntrega: event.target.value,
-                        }))
-                      }
-                      className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-2 text-sm focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-bg dark:text-dracula-foreground"
-                    />
-                  </div>
-                </div>
 
-                {selectedTrabajador && (
-                  <div className="rounded-2xl border border-soft-gray-200/70 bg-soft-gray-50/70 px-4 py-3 text-sm text-slate-600 dark:border-dracula-current dark:bg-dracula-current/30 dark:text-dracula-comment">
-                    <div className="font-semibold text-slate-800 dark:text-dracula-foreground">
-                      {selectedTrabajador.areaTrabajo || "Sin área"}
+                  {selectedTrabajador && (
+                    <div className="grid grid-cols-1 gap-3 rounded-2xl border border-soft-gray-200/70 bg-soft-gray-50/70 px-4 py-3 text-sm text-slate-600 dark:border-dracula-current dark:bg-dracula-current/30 dark:text-dracula-comment md:grid-cols-2">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.25em] text-slate-400 dark:text-dracula-comment/80">
+                          Área / Sub-área
+                        </p>
+                        <p className="font-semibold text-slate-800 dark:text-dracula-foreground">
+                          {selectedTrabajador.areaTrabajo || "Sin área"}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-dracula-comment">
+                          {selectedTrabajador.subAreaTrabajo || "Sin sub-área"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.25em] text-slate-400 dark:text-dracula-comment/80">
+                          Cargo
+                        </p>
+                        <p className="font-semibold text-slate-800 dark:text-dracula-foreground">
+                          {formState.trabajadorCargo || selectedTrabajador.cargo || "Sin cargo"}
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-xs text-slate-500 dark:text-dracula-comment">
-                      {selectedTrabajador.subAreaTrabajo || "Sin sub-área"}
-                    </div>
-                  </div>
-                )}
+                  )}
+                </section>
 
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
@@ -993,11 +2044,14 @@ export default function EppEntregas() {
                       const maxCantidad = getAvailableStockForDraft(item);
                       const cantidadDisabled =
                         !item.eppId || (epp?.multiSize && !item.variantId) || maxCantidad === 0;
+                      const showNoStockAlert = Boolean(
+                        item.eppId && maxCantidad !== null && maxCantidad <= 0
+                      );
 
                       return (
                         <div
                           key={item.tempId}
-                          className="grid grid-cols-1 gap-3 rounded-2xl border border-soft-gray-200/70 bg-white/90 p-4 shadow-sm dark:border-dracula-current dark:bg-dracula-current/40 md:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1fr)_auto]"
+                          className="grid grid-cols-1 gap-3 rounded-2xl border border-soft-gray-200/70 bg-white/90 p-4 shadow-sm dark:border-dracula-current dark:bg-dracula-current/40 md:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.2fr)_auto]"
                         >
                           <div>
                             <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-dracula-comment">
@@ -1073,6 +2127,27 @@ export default function EppEntregas() {
                                 Stock disponible: {maxCantidad}
                               </p>
                             )}
+                            {showNoStockAlert && (
+                              <div className="mt-2 rounded-xl border border-rose-200 bg-rose-50/90 px-3 py-2 text-xs font-semibold text-rose-600 dark:border-dracula-red/50 dark:bg-dracula-red/10 dark:text-dracula-red">
+                                La cantidad debe ser mayor que cero.
+                              </div>
+                            )}
+                          </div>
+
+                          <div>
+                            <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-dracula-comment">
+                              Fecha probable de recambio
+                            </label>
+                            <input
+                              type="date"
+                              value={item.fechaRecambio}
+                              onChange={(event) =>
+                                handleItemChange(item.tempId, {
+                                  fechaRecambio: event.target.value,
+                                })
+                              }
+                              className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-3 py-2 text-sm focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-bg dark:text-dracula-foreground"
+                            />
                           </div>
 
                           <div className="flex items-center justify-between gap-3 md:flex-col md:items-end">
@@ -1093,6 +2168,258 @@ export default function EppEntregas() {
                     })}
                   </div>
                 </div>
+
+                <section className="space-y-4">
+                  <h4 className="text-sm font-semibold uppercase tracking-[0.25em] text-celeste-300 dark:text-dracula-cyan">
+                    📘 Capacitación y entrega informada
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-dracula-comment">
+                    Declaro haber recibido los Elementos de Protección Personal antes descritos, adecuados a los riesgos de mi labor, conforme a la evaluación de riesgos. He recibido instrucción teórica y práctica sobre su uso, mantenimiento, limitaciones y sustitución, conforme al D.S. 44/2024 y D.S. 594/1999.
+                  </p>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <label className="flex items-start gap-3 rounded-2xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm transition hover:border-celeste-200 dark:border-dracula-current dark:bg-dracula-current/40 dark:text-dracula-comment">
+                      <input
+                        type="checkbox"
+                        checked={formState.capacitacion.instruccionUso}
+                        onChange={(event) =>
+                          setFormState((prev) => ({
+                            ...prev,
+                            capacitacion: {
+                              ...prev.capacitacion,
+                              instruccionUso: event.target.checked,
+                            },
+                          }))
+                        }
+                        className="mt-1 h-4 w-4 rounded border-slate-300 text-celeste-500 focus:ring-celeste-400"
+                      />
+                      <span>🧑‍🏫 He sido instruido en el uso correcto de los EPP.</span>
+                    </label>
+                    <label className="flex items-start gap-3 rounded-2xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm transition hover:border-celeste-200 dark:border-dracula-current dark:bg-dracula-current/40 dark:text-dracula-comment">
+                      <input
+                        type="checkbox"
+                        checked={formState.capacitacion.conoceLimitaciones}
+                        onChange={(event) =>
+                          setFormState((prev) => ({
+                            ...prev,
+                            capacitacion: {
+                              ...prev.capacitacion,
+                              conoceLimitaciones: event.target.checked,
+                            },
+                          }))
+                        }
+                        className="mt-1 h-4 w-4 rounded border-slate-300 text-celeste-500 focus:ring-celeste-400"
+                      />
+                      <span>🛡️ Comprendo las limitaciones y cuidados de cada elemento.</span>
+                    </label>
+                    <label className="flex items-start gap-3 rounded-2xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm transition hover:border-celeste-200 dark:border-dracula-current dark:bg-dracula-current/40 dark:text-dracula-comment">
+                      <input
+                        type="checkbox"
+                        checked={formState.capacitacion.recibioFolletos}
+                        onChange={(event) =>
+                          setFormState((prev) => ({
+                            ...prev,
+                            capacitacion: {
+                              ...prev.capacitacion,
+                              recibioFolletos: event.target.checked,
+                            },
+                          }))
+                        }
+                        className="mt-1 h-4 w-4 rounded border-slate-300 text-celeste-500 focus:ring-celeste-400"
+                      />
+                      <span>📄 Recibí los folletos informativos de cada EPP.</span>
+                    </label>
+                    <label className="flex items-start gap-3 rounded-2xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm transition hover:border-celeste-200 dark:border-dracula-current dark:bg-dracula-current/40 dark:text-dracula-comment">
+                      <input
+                        type="checkbox"
+                        checked={formState.capacitacion.declaracionAceptada}
+                        onChange={(event) =>
+                          setFormState((prev) => ({
+                            ...prev,
+                            capacitacion: {
+                              ...prev.capacitacion,
+                              declaracionAceptada: event.target.checked,
+                            },
+                          }))
+                        }
+                        className="mt-1 h-4 w-4 rounded border-slate-300 text-celeste-500 focus:ring-celeste-400"
+                      />
+                      <span>✅ Declaro haber recibido la capacitación conforme al D.S. 44/2024.</span>
+                    </label>
+                  </div>
+                </section>
+
+                <section className="space-y-4">
+                  <h4 className="text-sm font-semibold uppercase tracking-[0.25em] text-celeste-300 dark:text-dracula-cyan">
+                    📝 Observaciones y firmas
+                  </h4>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div className="md:col-span-2">
+                      <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-dracula-comment">
+                        🗒️ Observaciones
+                      </label>
+                      <textarea
+                        value={formState.observaciones}
+                        onChange={(event) =>
+                          setFormState((prev) => ({
+                            ...prev,
+                            observaciones: event.target.value,
+                          }))
+                        }
+                        placeholder="Cambios de talla, EPP defectuoso, indicaciones especiales, etc."
+                        className="h-24 w-full rounded-2xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-bg dark:text-dracula-foreground"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-dracula-comment">
+                        📅 Fecha firma trabajador
+                      </label>
+                      <input
+                        type="date"
+                        value={formState.firmaFecha}
+                        onChange={(event) =>
+                          setFormState((prev) => ({
+                            ...prev,
+                            firmaFecha: event.target.value,
+                          }))
+                        }
+                        className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-2 text-sm focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-bg dark:text-dracula-foreground"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-dracula-comment">
+                        ⏰ Hora firma trabajador
+                      </label>
+                      <input
+                        type="time"
+                        value={formState.firmaHora}
+                        onChange={(event) =>
+                          setFormState((prev) => ({
+                            ...prev,
+                            firmaHora: event.target.value,
+                          }))
+                        }
+                        className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-2 text-sm focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-bg dark:text-dracula-foreground"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)]">
+                    <div className="rounded-2xl border border-soft-gray-200/70 bg-white px-4 py-4 shadow-sm dark:border-dracula-current dark:bg-dracula-current/20">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-dracula-comment">
+                            ✍️ Firma del trabajador
+                          </p>
+                          <p className={`mt-1 text-xs font-medium ${signatureStatusInfo.toneClass}`}>
+                            {signatureStatusInfo.label}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-dracula-comment">
+                          <button
+                            type="button"
+                            onClick={() => handleSignatureModeChange("digital")}
+                            className={`rounded-full border px-3 py-1.5 transition ${
+                              formState.firmaTipo === "digital"
+                                ? "border-celeste-400 bg-celeste-50 text-celeste-600 dark:border-dracula-cyan dark:bg-dracula-cyan/20 dark:text-dracula-cyan"
+                                : "border-soft-gray-200 text-slate-500 hover:border-celeste-300 hover:text-celeste-500 dark:border-dracula-current/60 dark:hover:border-dracula-cyan dark:hover:text-dracula-cyan"
+                            }`}
+                          >
+                            Digital
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSignatureModeChange("manual")}
+                            className={`rounded-full border px-3 py-1.5 transition ${
+                              formState.firmaTipo === "manual"
+                                ? "border-amber-400 bg-amber-50 text-amber-600 dark:border-amber-300 dark:bg-amber-300/20 dark:text-amber-200"
+                                : "border-soft-gray-200 text-slate-500 hover:border-amber-300 hover:text-amber-600 dark:border-dracula-current/60 dark:hover:border-amber-300 dark:hover:text-amber-200"
+                            }`}
+                          >
+                            Manual
+                          </button>
+                        </div>
+                      </div>
+                      {formState.firmaTipo === "digital" ? (
+                        <>
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={handleSignatureClear}
+                              className="inline-flex items-center gap-1 rounded-full border border-soft-gray-200/70 px-3 py-1.5 text-xs font-semibold text-slate-500 transition hover:border-rose-200 hover:text-rose-500 dark:border-dracula-current dark:text-dracula-comment dark:hover:border-dracula-red dark:hover:text-dracula-red"
+                            >
+                              Limpiar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleSignatureSave}
+                              className="inline-flex items-center gap-1 rounded-full bg-celeste-500/90 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-celeste-500"
+                            >
+                              Guardar firma
+                            </button>
+                          </div>
+                          <div className="mt-4 overflow-hidden rounded-xl border border-dashed border-soft-gray-300 bg-soft-gray-50/80">
+                            <canvas
+                              ref={signatureCanvasRef}
+                              className="h-48 w-full touch-manipulation bg-white"
+                            />
+                          </div>
+                          {signatureError && (
+                            <p className="mt-3 text-xs font-semibold text-rose-600 dark:text-dracula-red">
+                              {signatureError}
+                            </p>
+                          )}
+                          {formState.firmaDigitalHash && (
+                            <div className="mt-4 space-y-1 rounded-xl bg-soft-gray-100/70 p-3 text-[11px] text-slate-600 dark:bg-dracula-current/40 dark:text-dracula-comment">
+                              <p>
+                                <span className="font-semibold text-slate-700 dark:text-dracula-foreground">
+                                  Hash (SHA-256):
+                                </span>{" "}
+                                {formState.firmaDigitalHash}
+                              </p>
+                              <p>
+                                <span className="font-semibold text-slate-700 dark:text-dracula-foreground">
+                                  Token:
+                                </span>{" "}
+                                {formState.firmaDigitalToken}
+                              </p>
+                              <p>
+                                <span className="font-semibold text-slate-700 dark:text-dracula-foreground">
+                                  Fecha-hora de firma:
+                                </span>{" "}
+                                {formatDateTime(formState.firmaDigitalTimestamp)}
+                              </p>
+                            </div>
+                          )}
+                          <p className="mt-3 text-[11px] text-slate-400 dark:text-dracula-comment">
+                            La firma digital queda asociada a esta entrega con sello de tiempo y hash. Asegúrate de guardarla antes de enviar.
+                          </p>
+                        </>
+                      ) : (
+                        <div className="mt-4 space-y-3 rounded-xl border border-dashed border-amber-200 bg-amber-50/70 p-4 text-sm text-amber-700 dark:border-amber-300/60 dark:bg-amber-300/10 dark:text-amber-200">
+                          <p className="font-semibold">Firma manual seleccionada.</p>
+                          <p className="text-xs">
+                            El trabajador firmará el documento impreso. No se generarán sello de tiempo ni hash digitales para esta entrega.
+                          </p>
+                          <label className="flex items-start gap-3 rounded-xl border border-amber-200/70 bg-white/80 px-3 py-2 text-xs font-semibold text-amber-700 shadow-sm transition hover:border-amber-300 dark:border-amber-300/40 dark:bg-transparent dark:text-amber-200">
+                            <input
+                              type="checkbox"
+                              checked={formState.generarPdf}
+                              onChange={(event) =>
+                                setFormState((prev) => ({
+                                  ...prev,
+                                  generarPdf: event.target.checked,
+                                }))
+                              }
+                              className="mt-0.5 h-4 w-4 rounded border-amber-300 text-amber-500 focus:ring-amber-400"
+                            />
+                            <span>
+                              Generar PDF al guardar (opcional)
+                            </span>
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </section>
 
                 <div className="flex items-center justify-between rounded-2xl border border-soft-gray-200/70 bg-soft-gray-50/80 px-4 py-3 text-sm text-slate-600 dark:border-dracula-current dark:bg-dracula-current/30 dark:text-dracula-comment">
                   <span>💰 Total estimado</span>

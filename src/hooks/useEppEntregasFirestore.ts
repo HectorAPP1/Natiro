@@ -11,14 +11,24 @@ import {
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
 
+export type CapacitacionChecklist = {
+  instruccionUso: boolean;
+  conoceLimitaciones: boolean;
+  recibioFolletos: boolean;
+  declaracionAceptada: boolean;
+};
+
 export type EntregaItem = {
   eppId: string;
   eppName: string;
+  brand?: string | null;
+  model?: string | null;
   variantId?: string | null;
   talla?: string | null;
   cantidad: number;
   costoUnitario: number;
   subtotal: number;
+  fechaRecambio?: string | null;
 };
 
 export type Entrega = {
@@ -26,9 +36,23 @@ export type Entrega = {
   trabajadorId: string;
   trabajadorNombre: string;
   trabajadorRut: string;
+  trabajadorCargo: string;
   areaTrabajo: string;
   subAreaTrabajo: string;
   fechaEntrega: Date;
+  firmaFecha: string;
+  firmaHora: string;
+  firmaDigitalToken?: string | null;
+  firmaDigitalHash?: string | null;
+  firmaDigitalDataUrl?: string | null;
+  firmaDigitalTimestamp?: string | null;
+  firmaResponsableToken?: string | null;
+  firmaResponsableHash?: string | null;
+  firmaResponsableDataUrl?: string | null;
+  firmaResponsableTimestamp?: string | null;
+  firmaTipo: "digital" | "manual";
+  observaciones: string;
+  capacitacion: CapacitacionChecklist;
   items: EntregaItem[];
   totalEntrega: number;
   autorizadoPorUid: string;
@@ -38,20 +62,37 @@ export type Entrega = {
   updatedAt: Date;
 };
 
-type FirestoreEntrega = Omit<Entrega, "id" | "fechaEntrega" | "items" | "createdAt" | "updatedAt"> & {
+type FirestoreEntrega = Omit<
+  Entrega,
+  "id" | "fechaEntrega" | "items" | "createdAt" | "updatedAt"
+> & {
   fechaEntrega: Timestamp;
   createdAt: Timestamp;
   updatedAt: Timestamp;
   items: EntregaItem[];
 };
 
-type CreateEntregaInput = {
+export type CreateEntregaInput = {
   trabajadorId: string;
   trabajadorNombre: string;
   trabajadorRut: string;
+  trabajadorCargo: string;
   areaTrabajo: string;
   subAreaTrabajo: string;
   fechaEntrega: Date;
+  firmaFecha: string;
+  firmaHora: string;
+  firmaDigitalToken?: string | null;
+  firmaDigitalHash?: string | null;
+  firmaDigitalDataUrl?: string | null;
+  firmaDigitalTimestamp?: string | null;
+  firmaResponsableToken?: string | null;
+  firmaResponsableHash?: string | null;
+  firmaResponsableDataUrl?: string | null;
+  firmaResponsableTimestamp?: string | null;
+  firmaTipo: "digital" | "manual";
+  observaciones: string;
+  capacitacion: CapacitacionChecklist;
   items: EntregaItem[];
   autorizadoPorUid: string;
   autorizadoPorNombre: string;
@@ -78,6 +119,10 @@ type Adjustment = {
   variantId?: string | null;
   delta: number;
 };
+
+export type EntregaMutationResult =
+  | { success: true; id?: string }
+  | { success: false; error: string };
 
 const entregasCollection = collection(db, "entregas");
 
@@ -216,9 +261,28 @@ export function useEppEntregasFirestore() {
             trabajadorId: raw.trabajadorId,
             trabajadorNombre: raw.trabajadorNombre,
             trabajadorRut: raw.trabajadorRut,
+            trabajadorCargo: raw.trabajadorCargo ?? "",
             areaTrabajo: raw.areaTrabajo,
             subAreaTrabajo: raw.subAreaTrabajo,
             fechaEntrega: ensureDate(raw.fechaEntrega?.toDate()),
+            firmaFecha: raw.firmaFecha ?? "",
+            firmaHora: raw.firmaHora ?? "",
+            firmaDigitalToken: raw.firmaDigitalToken ?? null,
+            firmaDigitalHash: raw.firmaDigitalHash ?? null,
+            firmaDigitalDataUrl: raw.firmaDigitalDataUrl ?? null,
+            firmaDigitalTimestamp: raw.firmaDigitalTimestamp ?? null,
+            firmaResponsableToken: raw.firmaResponsableToken ?? null,
+            firmaResponsableHash: raw.firmaResponsableHash ?? null,
+            firmaResponsableDataUrl: raw.firmaResponsableDataUrl ?? null,
+            firmaResponsableTimestamp: raw.firmaResponsableTimestamp ?? null,
+            firmaTipo: (raw as { firmaTipo?: "digital" | "manual" }).firmaTipo ?? "digital",
+            observaciones: raw.observaciones ?? "",
+            capacitacion: {
+              instruccionUso: raw.capacitacion?.instruccionUso ?? false,
+              conoceLimitaciones: raw.capacitacion?.conoceLimitaciones ?? false,
+              recibioFolletos: raw.capacitacion?.recibioFolletos ?? false,
+              declaracionAceptada: raw.capacitacion?.declaracionAceptada ?? false,
+            },
             items: safeItems,
             totalEntrega: calculateTotalEntrega(safeItems),
             autorizadoPorUid: raw.autorizadoPorUid,
@@ -243,7 +307,7 @@ export function useEppEntregasFirestore() {
     return () => unsubscribe();
   }, []);
 
-  const addEntrega = async (input: CreateEntregaInput) => {
+  const addEntrega = async (input: CreateEntregaInput): Promise<EntregaMutationResult> => {
     const items = calculateItemsTotals(input.items);
 
     if (items.length === 0) {
@@ -254,30 +318,45 @@ export function useEppEntregasFirestore() {
     const totalEntrega = calculateTotalEntrega(items);
     const now = Timestamp.now();
     const fechaEntrega = Timestamp.fromDate(input.fechaEntrega);
+    const adjustments = groupAdjustmentsByEpp([], items);
 
     try {
       await runTransaction(db, async (transaction) => {
         const stockTimestamp = Timestamp.now();
+        const eppSnapshots = new Map<
+          string,
+          { ref: ReturnType<typeof doc>; data: FirestoreEppDoc }
+        >();
 
-        for (const item of items) {
-          const eppRef = doc(db, "epp", item.eppId);
+        for (const eppId of adjustments.keys()) {
+          const eppRef = doc(db, "epp", eppId);
           const eppSnap = await transaction.get(eppRef);
 
           if (!eppSnap.exists()) {
             throw new Error("No se encontró el EPP seleccionado.");
           }
 
-          const eppData = eppSnap.data() as FirestoreEppDoc;
+          eppSnapshots.set(eppId, {
+            ref: eppRef,
+            data: eppSnap.data() as FirestoreEppDoc,
+          });
+        }
 
-          if (eppData.multiSize) {
-            applyMultiSizeAdjustments(transaction, eppRef, eppData, [
-              {
-                variantId: item.variantId,
-                delta: -item.cantidad,
-              },
-            ], stockTimestamp);
+        for (const [eppId, adjustmentList] of adjustments.entries()) {
+          const cached = eppSnapshots.get(eppId);
+          if (!cached) continue;
+
+          if (cached.data.multiSize) {
+            applyMultiSizeAdjustments(
+              transaction,
+              cached.ref,
+              cached.data,
+              adjustmentList,
+              stockTimestamp
+            );
           } else {
-            applySingleSizeAdjustment(transaction, eppRef, eppData, -item.cantidad, stockTimestamp);
+            const delta = adjustmentList.reduce((sum, adjustment) => sum + adjustment.delta, 0);
+            applySingleSizeAdjustment(transaction, cached.ref, cached.data, delta, stockTimestamp);
           }
         }
 
@@ -285,9 +364,23 @@ export function useEppEntregasFirestore() {
           trabajadorId: input.trabajadorId,
           trabajadorNombre: input.trabajadorNombre,
           trabajadorRut: input.trabajadorRut,
+          trabajadorCargo: input.trabajadorCargo,
           areaTrabajo: input.areaTrabajo,
           subAreaTrabajo: input.subAreaTrabajo,
           fechaEntrega,
+          firmaFecha: input.firmaFecha,
+          firmaHora: input.firmaHora,
+          firmaDigitalToken: input.firmaDigitalToken ?? null,
+          firmaDigitalHash: input.firmaDigitalHash ?? null,
+          firmaDigitalDataUrl: input.firmaDigitalDataUrl ?? null,
+          firmaDigitalTimestamp: input.firmaDigitalTimestamp ?? null,
+          firmaResponsableToken: input.firmaResponsableToken ?? null,
+          firmaResponsableHash: input.firmaResponsableHash ?? null,
+          firmaResponsableDataUrl: input.firmaResponsableDataUrl ?? null,
+          firmaResponsableTimestamp: input.firmaResponsableTimestamp ?? null,
+          firmaTipo: input.firmaTipo,
+          observaciones: input.observaciones,
+          capacitacion: input.capacitacion,
           items,
           totalEntrega,
           autorizadoPorUid: input.autorizadoPorUid,
@@ -311,7 +404,10 @@ export function useEppEntregasFirestore() {
     }
   };
 
-  const updateEntrega = async (id: string, input: UpdateEntregaInput) => {
+  const updateEntrega = async (
+    id: string,
+    input: UpdateEntregaInput
+  ): Promise<EntregaMutationResult> => {
     const items = calculateItemsTotals(input.items);
 
     if (items.length === 0) {
@@ -335,8 +431,12 @@ export function useEppEntregasFirestore() {
         const previousItems = calculateItemsTotals(existingData.items ?? []);
         const adjustments = groupAdjustmentsByEpp(previousItems, items);
         const stockTimestamp = Timestamp.now();
+        const eppSnapshots = new Map<
+          string,
+          { ref: ReturnType<typeof doc>; data: FirestoreEppDoc }
+        >();
 
-        for (const [eppId, adjustmentList] of adjustments.entries()) {
+        for (const eppId of adjustments.keys()) {
           const eppRef = doc(db, "epp", eppId);
           const eppSnap = await transaction.get(eppRef);
 
@@ -344,13 +444,27 @@ export function useEppEntregasFirestore() {
             throw new Error("No se encontró el EPP asociado a la entrega.");
           }
 
-          const eppData = eppSnap.data() as FirestoreEppDoc;
+          eppSnapshots.set(eppId, {
+            ref: eppRef,
+            data: eppSnap.data() as FirestoreEppDoc,
+          });
+        }
 
-          if (eppData.multiSize) {
-            applyMultiSizeAdjustments(transaction, eppRef, eppData, adjustmentList, stockTimestamp);
+        for (const [eppId, adjustmentList] of adjustments.entries()) {
+          const cached = eppSnapshots.get(eppId);
+          if (!cached) continue;
+
+          if (cached.data.multiSize) {
+            applyMultiSizeAdjustments(
+              transaction,
+              cached.ref,
+              cached.data,
+              adjustmentList,
+              stockTimestamp
+            );
           } else {
             const delta = adjustmentList.reduce((sum, adjustment) => sum + adjustment.delta, 0);
-            applySingleSizeAdjustment(transaction, eppRef, eppData, delta, stockTimestamp);
+            applySingleSizeAdjustment(transaction, cached.ref, cached.data, delta, stockTimestamp);
           }
         }
 
@@ -358,9 +472,14 @@ export function useEppEntregasFirestore() {
           trabajadorId: input.trabajadorId,
           trabajadorNombre: input.trabajadorNombre,
           trabajadorRut: input.trabajadorRut,
+          trabajadorCargo: input.trabajadorCargo,
           areaTrabajo: input.areaTrabajo,
           subAreaTrabajo: input.subAreaTrabajo,
           fechaEntrega,
+          firmaFecha: input.firmaFecha,
+          firmaHora: input.firmaHora,
+          observaciones: input.observaciones,
+          capacitacion: input.capacitacion,
           items,
           totalEntrega,
           autorizadoPorUid: input.autorizadoPorUid,
@@ -383,7 +502,7 @@ export function useEppEntregasFirestore() {
     }
   };
 
-  const deleteEntrega = async (id: string) => {
+  const deleteEntrega = async (id: string): Promise<EntregaMutationResult> => {
     const entregaRef = doc(entregasCollection, id);
 
     try {
@@ -398,8 +517,12 @@ export function useEppEntregasFirestore() {
         const previousItems = calculateItemsTotals(existingData.items ?? []);
         const adjustments = groupAdjustmentsByEpp(previousItems, []);
         const stockTimestamp = Timestamp.now();
+        const eppSnapshots = new Map<
+          string,
+          { ref: ReturnType<typeof doc>; data: FirestoreEppDoc }
+        >();
 
-        for (const [eppId, adjustmentList] of adjustments.entries()) {
+        for (const eppId of adjustments.keys()) {
           const eppRef = doc(db, "epp", eppId);
           const eppSnap = await transaction.get(eppRef);
 
@@ -407,13 +530,27 @@ export function useEppEntregasFirestore() {
             throw new Error("No se encontró el EPP asociado a la entrega.");
           }
 
-          const eppData = eppSnap.data() as FirestoreEppDoc;
+          eppSnapshots.set(eppId, {
+            ref: eppRef,
+            data: eppSnap.data() as FirestoreEppDoc,
+          });
+        }
 
-          if (eppData.multiSize) {
-            applyMultiSizeAdjustments(transaction, eppRef, eppData, adjustmentList, stockTimestamp);
+        for (const [eppId, adjustmentList] of adjustments.entries()) {
+          const cached = eppSnapshots.get(eppId);
+          if (!cached) continue;
+
+          if (cached.data.multiSize) {
+            applyMultiSizeAdjustments(
+              transaction,
+              cached.ref,
+              cached.data,
+              adjustmentList,
+              stockTimestamp
+            );
           } else {
             const delta = adjustmentList.reduce((sum, adjustment) => sum + adjustment.delta, 0);
-            applySingleSizeAdjustment(transaction, eppRef, eppData, delta, stockTimestamp);
+            applySingleSizeAdjustment(transaction, cached.ref, cached.data, delta, stockTimestamp);
           }
         }
 
