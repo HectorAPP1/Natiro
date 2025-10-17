@@ -2,6 +2,7 @@ import AppRouter from './routes/AppRouter'
 import PWAUpdatePrompt from './components/PWAUpdatePrompt'
 import NotificationPermission from './components/NotificationPermission'
 import DynamicThemeColor from './components/DynamicThemeColor'
+import PWAInstallPrompt from './components/PWAInstallPrompt'
 
 function App() {
   return (
@@ -9,6 +10,7 @@ function App() {
       <DynamicThemeColor />
       <AppRouter />
       <PWAUpdatePrompt />
+      <PWAInstallPrompt />
       <NotificationPermission />
     </>
   )
