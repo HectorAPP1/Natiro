@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BookOpen, Download, Edit, Plus, Trash2, X } from "lucide-react";
+import * as XLSX from "xlsx";
 import { useRiskMatrix } from "../hooks/useRiskMatrix";
+import { useAuth } from "../context/AuthContext";
 import type {
   RiskMatrixRow,
   RiskClassificationDescriptor,
@@ -342,9 +344,7 @@ const RiskMatrixRowEditor = ({
           <input
             className="rounded-xl border border-soft-gray-200 px-3 py-2 text-slate-700 outline-none transition focus:border-celeste-300 focus:ring-2 focus:ring-celeste-200 dark:border-dracula-selection dark:bg-dracula-current/40 dark:text-dracula-foreground"
             value={row.responsable}
-            onChange={(event) =>
-              onChange(row.id, { responsable: event.target.value })
-            }
+            readOnly
           />
         </label>
 
@@ -605,12 +605,24 @@ const Riesgos = () => {
     createEmptyDocument,
     evaluationCriteria,
     getScoreDetails,
+    members,
   } = useRiskMatrix();
+  const { user } = useAuth();
   const [rows, setRows] = useState<RiskMatrixRow[]>([]);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [pendingNewRowId, setPendingNewRowId] = useState<string | null>(null);
   const [showCriteriaModal, setShowCriteriaModal] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+
+  const responsibleName = useMemo(() => {
+    const lowerEmail = user?.email?.toLowerCase() ?? "";
+    const member = members.find(
+      (candidate) => candidate.email.toLowerCase() === lowerEmail
+    );
+    return (
+      member?.displayName || user?.displayName || user?.email || "Sin responsable"
+    );
+  }, [members, user?.displayName, user?.email]);
 
   const isAnyModalOpen = useMemo(
     () => Boolean(editingRowId) || showCriteriaModal,
@@ -688,6 +700,7 @@ const Riesgos = () => {
             ...row,
             ...patch,
             numeroTrabajadores: mergedNumeroTrabajadores,
+            responsable: responsibleName,
           };
 
           const { score, classification } = getScoreDetails(
@@ -703,11 +716,11 @@ const Riesgos = () => {
         })
       );
     },
-    [getScoreDetails]
+    [getScoreDetails, responsibleName]
   );
 
   const handleAddRow = () => {
-    const newRow = buildRiskRow({});
+    const newRow = buildRiskRow({ responsable: responsibleName });
     setRows((prev) => {
       const updated = [...prev, newRow];
       setCurrentPage(Math.ceil(updated.length / ROWS_PER_PAGE));
@@ -718,6 +731,11 @@ const Riesgos = () => {
   };
 
   const handleEditRow = (rowId: string) => {
+    setRows((prev) =>
+      prev.map((row) =>
+        row.id === rowId ? { ...row, responsable: responsibleName } : row
+      )
+    );
     setEditingRowId(rowId);
     setPendingNewRowId(null);
   };
@@ -751,6 +769,84 @@ const Riesgos = () => {
 
   const totalPages =
     rows.length > 0 ? Math.ceil(rows.length / ROWS_PER_PAGE) : 1;
+
+  const handleExportMatrix = useCallback(() => {
+    const workbook = XLSX.utils.book_new();
+
+    const headerInfo = [
+      ["Empresa", matrixDocument.header.nombreEmpresa || ""],
+      ["RUT", matrixDocument.header.rutEmpleador || ""],
+      ["Centro de trabajo", matrixDocument.header.nombreCentroTrabajo || ""],
+      [
+        "Dirección centro",
+        matrixDocument.header.direccionCentroTrabajo || "",
+      ],
+      [
+        "Fecha de actualización",
+        formatDate(matrixDocument.header.fechaActualizacion || ""),
+      ],
+      ["Revisor", matrixDocument.header.nombreRevisor || ""],
+      [],
+    ];
+
+    const tableHeader = [
+      "#",
+      "Actividad",
+      "Tarea",
+      "Puesto",
+      "Lugar específico",
+      "Trabajadores F",
+      "Trabajadores M",
+      "Trabajadores otros",
+      "Rutina",
+      "Peligro / factor",
+      "Riesgo",
+      "Daño probable",
+      "Probabilidad",
+      "Consecuencia",
+      "Puntaje",
+      "Clasificación",
+      "Riesgo controlado",
+      "Responsable",
+      "Plazo",
+    ];
+
+    const tableRows = rows.map((row, index) => [
+      index + 1,
+      row.actividad,
+      row.tarea,
+      row.puestoTrabajo,
+      row.lugarEspecifico,
+      row.numeroTrabajadores.femenino,
+      row.numeroTrabajadores.masculino,
+      row.numeroTrabajadores.otros,
+      row.rutina,
+      row.factorDeRiesgo || row.peligro,
+      row.riesgo,
+      row.danoProbable,
+      row.probabilidad,
+      row.consecuencia,
+      row.puntuacion,
+      row.clasificacion,
+      row.estaControlado ? "Sí" : "No",
+      row.responsable,
+      row.plazo ? formatDate(row.plazo) : "",
+    ]);
+
+    const worksheet = XLSX.utils.aoa_to_sheet([
+      ...headerInfo,
+      tableHeader,
+      ...tableRows,
+    ]);
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Matriz de riesgos");
+
+    const companySlug = (matrixDocument.header.nombreEmpresa || "matriz")
+      .toLowerCase()
+      .replace(/[^a-z0-9-_]+/g, "_");
+
+    XLSX.writeFile(workbook, `matriz-riesgos-${companySlug}.xlsx`);
+  }, [matrixDocument.header, rows]);
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -811,7 +907,10 @@ const Riesgos = () => {
                 <Edit className="h-4 w-4" />
                 Editar cabecera
               </button>
-              <button className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full bg-gradient-to-r from-mint-200/80 via-white to-celeste-200/70 px-4 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-slate-700 shadow-md transition hover:shadow-lg dark:from-dracula-purple dark:via-dracula-pink dark:to-dracula-cyan dark:text-dracula-bg">
+              <button
+                className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full bg-gradient-to-r from-mint-200/80 via-white to-celeste-200/70 px-4 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-slate-700 shadow-md transition hover:shadow-lg dark:from-dracula-purple dark:via-dracula-pink dark:to-dracula-cyan dark:text-dracula-bg"
+                onClick={handleExportMatrix}
+              >
                 <Download className="h-4 w-4" />
                 <span className="hidden sm:inline">Exportar matriz</span>
                 <span className="sm:hidden">Exportar</span>
@@ -1061,7 +1160,10 @@ const Riesgos = () => {
             escritorio. Desde aquí puedes descargar la última matriz disponible.
           </p>
         </div>
-        <button className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-mint-200/80 via-white to-celeste-200/70 px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-md transition hover:shadow-lg dark:from-dracula-purple dark:via-dracula-pink dark:to-dracula-cyan dark:text-dracula-bg">
+        <button
+          className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-mint-200/80 via-white to-celeste-200/70 px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-md transition hover:shadow-lg dark:from-dracula-purple dark:via-dracula-pink dark:to-dracula-cyan dark:text-dracula-bg"
+          onClick={handleExportMatrix}
+        >
           <Download className="h-4 w-4" />
           Exportar matriz
         </button>
