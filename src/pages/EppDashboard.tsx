@@ -199,6 +199,7 @@ export default function EppDashboard() {
   } = useEppFirestore();
   const { canManageModule, role } = useAccessControl();
   const canManageEpp = canManageModule("epp");
+  const canDeleteEpp = canManageEpp && role !== "Comentarista";
   const canUseQRTools = role !== "Lector";
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -497,7 +498,7 @@ export default function EppDashboard() {
   };
 
   const handleDelete = async (itemId: string) => {
-    if (!canManageEpp) {
+    if (!canDeleteEpp) {
       return;
     }
     if (
@@ -793,6 +794,11 @@ export default function EppDashboard() {
               <span className="hidden sm:inline">Exportar Excel</span>
               <span className="sm:hidden">Excel</span>
             </button>
+            {!canManageEpp ? (
+              <span className="text-[11px] text-slate-400 dark:text-dracula-comment">
+                Solo administradores o editores pueden exportar inventario.
+              </span>
+            ) : null}
             {canManageEpp ? (
               <button
                 onClick={() => {
@@ -1012,7 +1018,7 @@ export default function EppDashboard() {
             {canManageEpp ? (
               <button
                 onClick={() => {
-                  resetForm();
+                  resetForm(items.length);
                   setIsModalOpen(true);
                 }}
                 className="inline-flex items-center gap-2 rounded-full border border-celeste-200/60 bg-white/80 px-5 py-2 text-sm font-semibold text-slate-600 transition hover:border-celeste-200 hover:text-slate-800"
@@ -1144,7 +1150,7 @@ export default function EppDashboard() {
                                 )}
                               </button>
                             ) : null}
-                            {canManageEpp ? (
+                            {canDeleteEpp ? (
                               <button
                                 type="button"
                                 onClick={() => handleDelete(item.id)}
@@ -1535,7 +1541,7 @@ export default function EppDashboard() {
                                     )}
                                   </button>
                                 ) : null}
-                                {canManageEpp ? (
+                                {canDeleteEpp ? (
                                   <button
                                     type="button"
                                     onClick={() => handleDelete(item.id)}

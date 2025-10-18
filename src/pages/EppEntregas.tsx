@@ -40,6 +40,7 @@ import {
   type EntregaItem,
   type CreateEntregaInput,
 } from "../hooks/useEppEntregasFirestore";
+import { useAccessControl } from "../hooks/useAccessControl";
 
 type DraftItem = {
   tempId: string;
@@ -268,6 +269,8 @@ export default function EppEntregas() {
     updateEntrega,
     deleteEntrega,
   } = useEppEntregasFirestore();
+  const { canManageModule } = useAccessControl();
+  const canManageDeliveries = canManageModule("epp");
 
   const [searchQuery, setSearchQuery] = useState("");
   const [areaFilter, setAreaFilter] = useState("all");
@@ -276,6 +279,7 @@ export default function EppEntregas() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
+  const canDeleteDeliveries = canManageDeliveries;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formState, setFormState] = useState<FormState>(initialFormState);
@@ -1908,15 +1912,17 @@ export default function EppEntregas() {
                 mantén trazabilidad por trabajador, área y fecha.
               </p>
             </div>
-            <button
-              onClick={() => handleOpenModal()}
-              disabled={isLoading || !user}
-              className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full bg-gradient-to-r from-mint-200/80 via-white to-celeste-200/70 px-4 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-slate-700 shadow-md transition hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60 dark:from-dracula-purple dark:via-dracula-pink dark:to-dracula-cyan dark:text-dracula-bg"
-            >
-              <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              <span className="hidden sm:inline">Nueva Entrega</span>
-              <span className="sm:hidden">Nueva</span>
-            </button>
+            {canManageDeliveries ? (
+              <button
+                onClick={() => handleOpenModal()}
+                disabled={isLoading || !user}
+                className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full bg-gradient-to-r from-mint-200/80 via-white to-celeste-200/70 px-4 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-slate-700 shadow-md transition hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60 dark:from-dracula-purple dark:via-dracula-pink dark:to-dracula-cyan dark:text-dracula-bg"
+              >
+                <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Nueva Entrega</span>
+                <span className="sm:hidden">Nueva</span>
+              </button>
+            ) : null}
           </div>
 
           <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -2458,15 +2464,22 @@ export default function EppEntregas() {
               </label>
             </div>
 
-            <button
-              onClick={handleExportToExcel}
-              disabled={!isDateRangeValid || filteredEntregas.length === 0}
-              className="inline-flex w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-mint-200/70 bg-white/80 px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-mint-300 hover:bg-mint-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-green dark:hover:border-dracula-green dark:hover:bg-dracula-bg sm:w-auto sm:gap-2 sm:px-5 sm:py-2.5 sm:text-sm"
-            >
-              <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              <span className="hidden sm:inline">Exportar Excel</span>
-              <span className="sm:hidden">Excel</span>
-            </button>
+            <div className="flex flex-col items-start gap-1">
+              <button
+                onClick={handleExportToExcel}
+                disabled={!canManageDeliveries || !isDateRangeValid || filteredEntregas.length === 0}
+                className="inline-flex w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-mint-200/70 bg-white/80 px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-mint-300 hover:bg-mint-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-green dark:hover:border-dracula-green dark:hover:bg-dracula-bg sm:w-auto sm:gap-2 sm:px-5 sm:py-2.5 sm:text-sm"
+              >
+                <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Exportar Excel</span>
+                <span className="sm:hidden">Excel</span>
+              </button>
+              {!canManageDeliveries ? (
+                <span className="text-[11px] text-slate-400 dark:text-dracula-comment">
+                  Solo administradores o editores pueden exportar inventario.
+                </span>
+              ) : null}
+            </div>
           </div>
 
           {globalError && (
@@ -2609,20 +2622,24 @@ export default function EppEntregas() {
                           )}
                         </div>
                         <div className="inline-flex gap-2">
-                          <button
-                            onClick={() => handleOpenModal(entrega)}
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-celeste-200/70 text-celeste-500 transition hover:border-celeste-300 hover:bg-celeste-50 dark:border-dracula-purple/40 dark:text-dracula-cyan dark:hover:border-dracula-purple dark:hover:bg-dracula-cyan/10"
-                            aria-label="Editar entrega"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(entrega.id)}
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-rose-200/70 text-rose-500 transition hover:border-rose-300 hover:bg-rose-50 dark:border-dracula-red/40 dark:text-dracula-red dark:hover:border-dracula-red dark:hover:bg-dracula-red/10"
-                            aria-label="Eliminar entrega"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                          {canManageDeliveries ? (
+                            <button
+                              onClick={() => handleOpenModal(entrega)}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-celeste-200/70 text-celeste-500 transition hover:border-celeste-300 hover:bg-celeste-50 dark:border-dracula-purple/40 dark:text-dracula-cyan dark:hover:border-dracula-purple dark:hover:bg-dracula-cyan/10"
+                              aria-label="Editar entrega"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                          ) : null}
+                          {canDeleteDeliveries ? (
+                            <button
+                              onClick={() => handleDelete(entrega.id)}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-rose-200/70 text-rose-500 transition hover:border-rose-300 hover:bg-rose-50 dark:border-dracula-red/40 dark:text-dracula-red dark:hover:border-dracula-red dark:hover:bg-dracula-red/10"
+                              aria-label="Eliminar entrega"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          ) : null}
                         </div>
                       </footer>
                     </article>
@@ -2711,20 +2728,24 @@ export default function EppEntregas() {
                             </td>
                             <td className="px-4 py-4 text-right">
                               <div className="inline-flex gap-2">
-                                <button
-                                  onClick={() => handleOpenModal(entrega)}
-                                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-celeste-200/70 text-celeste-500 transition hover:border-celeste-300 hover:bg-celeste-50 dark:border-dracula-purple/40 dark:text-dracula-cyan dark:hover;border-dracula-purple dark:hover:bg-dracula-cyan/10"
-                                  aria-label="Editar entrega"
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                </button>
-                                <button
-                                  onClick={() => handleDelete(entrega.id)}
-                                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-rose-200/70 text-rose-500 transition hover:border-rose-300 hover:bg-rose-50 dark:border-dracula-red/40 dark:text-dracula-red dark:hover:border-dracula-red dark:hover:bg-dracula-red/10"
-                                  aria-label="Eliminar entrega"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
+                                {canManageDeliveries ? (
+                                  <button
+                                    onClick={() => handleOpenModal(entrega)}
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-celeste-200/70 text-celeste-500 transition hover:border-celeste-300 hover:bg-celeste-50 dark:border-dracula-purple/40 dark:text-dracula-cyan dark:hover;border-dracula-purple dark:hover:bg-dracula-cyan/10"
+                                    aria-label="Editar entrega"
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </button>
+                                ) : null}
+                                {canDeleteDeliveries ? (
+                                  <button
+                                    onClick={() => handleDelete(entrega.id)}
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-rose-200/70 text-rose-500 transition hover:border-rose-300 hover:bg-rose-50 dark:border-dracula-red/40 dark:text-dracula-red dark:hover;border-dracula-red dark:hover:bg-dracula-red/10"
+                                    aria-label="Eliminar entrega"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                ) : null}
                               </div>
                             </td>
                           </tr>
