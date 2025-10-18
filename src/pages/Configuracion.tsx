@@ -1,15 +1,231 @@
-import { useState } from "react";
-import { Bell, X, Send, Settings } from "lucide-react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
+import {
+  Bell,
+  X,
+  Send,
+  Settings,
+  Building2,
+  Loader2,
+  Users,
+  BarChart2,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { usePushNotifications } from "../hooks/usePushNotifications";
+import { useCompanySettings } from "../hooks/useCompanySettings";
+import type {
+  CompanyRepresentative,
+  CompanySettings,
+  CompanySettingsSection,
+  HealthAndSafetyInfo,
+  JointCommitteeInfo,
+  ISO45001Info,
+  RiskLevel,
+  WorkforceProfile,
+} from "../types/company";
+import {
+  COMPANY_MUTUAL_OPTIONS,
+  COMPANY_RISK_LEVELS,
+  createDefaultCompanySettings,
+} from "../types/company";
+
+type SectionCardQuickInfo = {
+  label: string;
+  icon: string;
+  value: string;
+  containerClass?: string;
+  valueClass?: string;
+  labelClass?: string;
+  href?: string;
+};
+
+type SectionCardAction = {
+  label: string;
+  variant?: "primary" | "secondary";
+  openSectionKey: CompanySettingsSection;
+};
+
+type SectionCard = {
+  key: CompanySettingsSection;
+  title: string;
+  description: string;
+  icon: LucideIcon;
+  summary: string;
+  quickInfo?: SectionCardQuickInfo[];
+  actions: SectionCardAction[];
+};
 
 export default function Configuracion() {
   const { permission, requestPermission, sendNotification } =
     usePushNotifications();
+  const {
+    data: remoteSettings,
+    loading: settingsLoading,
+    error: settingsError,
+    save,
+  } = useCompanySettings();
+  const [companySettings, setCompanySettings] = useState<CompanySettings>(
+    () => createDefaultCompanySettings()
+  );
+  const [activeSection, setActiveSection] = useState<
+    CompanySettingsSection | null
+  >(null);
+  const [saving, setSaving] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [title, setTitle] = useState("⚠️ Stock crítico en EPP");
   const [message, setMessage] = useState(
     "Tienes 3 equipos con stock bajo. Abre Clodi App para revisar tu inventario."
   );
+
+  useEffect(() => {
+    if (remoteSettings) {
+      setCompanySettings(remoteSettings);
+    }
+  }, [remoteSettings]);
+
+  const handleGeneralChange = <
+    K extends keyof CompanySettings["general"]
+  >(
+    field: K,
+    value: CompanySettings["general"][K]
+  ) => {
+    setCompanySettings((prev) => ({
+      ...prev,
+      general: {
+        ...prev.general,
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleWorkforceChange = <K extends keyof WorkforceProfile>(
+    field: K,
+    value: WorkforceProfile[K]
+  ) => {
+    setCompanySettings((prev) => ({
+      ...prev,
+      workforce: {
+        ...prev.workforce,
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleHealthAndSafetyChange = <
+    K extends keyof HealthAndSafetyInfo
+  >(
+    field: K,
+    value: HealthAndSafetyInfo[K]
+  ) => {
+    setCompanySettings((prev) => ({
+      ...prev,
+      healthAndSafety: {
+        ...prev.healthAndSafety,
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleJointCommitteeChange = <
+    K extends keyof JointCommitteeInfo
+  >(
+    field: K,
+    value: JointCommitteeInfo[K]
+  ) => {
+    setCompanySettings((prev) => ({
+      ...prev,
+      healthAndSafety: {
+        ...prev.healthAndSafety,
+        jointCommittee: {
+          ...prev.healthAndSafety.jointCommittee,
+          [field]: value,
+        },
+      },
+    }));
+  };
+
+  const handleISO45001Change = <
+    K extends keyof ISO45001Info
+  >(
+    field: K,
+    value: ISO45001Info[K]
+  ) => {
+    setCompanySettings((prev) => ({
+      ...prev,
+      healthAndSafety: {
+        ...prev.healthAndSafety,
+        iso45001: {
+          ...prev.healthAndSafety.iso45001,
+          [field]: value,
+        },
+      },
+    }));
+  };
+
+  const handleAddressChange = <
+    K extends keyof CompanySettings["general"]["address"]
+  >(
+    field: K,
+    value: CompanySettings["general"]["address"][K]
+  ) => {
+    setCompanySettings((prev) => ({
+      ...prev,
+      general: {
+        ...prev.general,
+        address: {
+          ...prev.general.address,
+          [field]: value,
+        },
+      },
+    }));
+  };
+
+  const handleRepresentativeChange = <
+    K extends keyof CompanySettings["representatives"],
+    F extends keyof CompanyRepresentative
+  >(
+    representative: K,
+    field: F,
+    value: CompanyRepresentative[F]
+  ) => {
+    setCompanySettings((prev) => ({
+      ...prev,
+      representatives: {
+        ...prev.representatives,
+        [representative]: {
+          ...prev.representatives[representative],
+          [field]: value,
+        },
+      },
+    }));
+  };
+
+  const openSection = (section: CompanySettingsSection) => {
+    setActiveSection(section);
+  };
+
+  const closeSection = () => {
+    setActiveSection(null);
+  };
+
+  const handleModalSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSaving(true);
+    try {
+      await save(companySettings);
+      closeSection();
+    } catch (error) {
+      console.error("Error al guardar configuraciones", error);
+      alert("No se pudieron guardar los cambios. Intenta nuevamente.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleSendNotification = async () => {
     if (permission !== "granted") {
@@ -65,6 +281,1372 @@ export default function Configuracion() {
     },
   ];
 
+  const sectionCards = useMemo<SectionCard[]>(() => {
+    const formatNumber = (value: number) =>
+      Number.isFinite(value) ? value.toLocaleString("es-CL") : "0";
+
+    const formatPercent = (value: number) => {
+      const safeValue = Number.isFinite(value) ? value : 0;
+      return `${safeValue.toFixed(1)}%`;
+    };
+
+    const safeText = (value: string | undefined, fallback = "Sin registro") => {
+      const trimmed = value?.trim();
+      return trimmed && trimmed.length > 0 ? trimmed : fallback;
+    };
+
+    const formatWebsite = (value: string | undefined) => {
+      const trimmed = value?.trim();
+      if (!trimmed) {
+        return { value: "Sin sitio web", href: undefined };
+      }
+
+      const hasProtocol = /^https?:\/\//i.test(trimmed);
+      const href = hasProtocol ? trimmed : `https://${trimmed}`;
+      return {
+        value: trimmed,
+        href,
+      };
+    };
+
+    const formatRepresentativeInfo = (rep: CompanyRepresentative) => {
+      const hasName = rep.fullName?.trim();
+      const hasPosition = rep.position?.trim();
+
+      if (hasName && hasPosition) {
+        return `${rep.fullName} • ${rep.position}`;
+      }
+
+      if (hasName) {
+        return rep.fullName;
+      }
+
+      if (hasPosition) {
+        return rep.position;
+      }
+
+      return "Sin asignar";
+    };
+
+    const riskLevelStyles: Record<
+      RiskLevel,
+      { container: string; value: string }
+    > = {
+      Bajo: {
+        container: "border-emerald-100 bg-emerald-50/80 dark:border-emerald-900/40 dark:bg-emerald-900/30",
+        value: "text-emerald-600 dark:text-emerald-300",
+      },
+      Medio: {
+        container: "border-amber-100 bg-amber-50/80 dark:border-amber-900/40 dark:bg-amber-900/30",
+        value: "text-amber-600 dark:text-amber-300",
+      },
+      Alto: {
+        container: "border-orange-100 bg-orange-50/80 dark:border-orange-900/40 dark:bg-orange-900/30",
+        value: "text-orange-600 dark:text-orange-300",
+      },
+      Crítico: {
+        container: "border-red-100 bg-red-50/80 dark:border-red-900/40 dark:bg-red-900/30",
+        value: "text-red-600 dark:text-red-300",
+      },
+    };
+
+    const generalSummary = [
+      companySettings.general.legalName,
+      companySettings.general.contactEmail,
+    ]
+      .filter(Boolean)
+      .join(" • ");
+
+    const representativeSummary = Object.values(
+      companySettings.representatives
+    )
+      .map((rep) => rep.fullName)
+      .filter(Boolean)
+      .join(", ");
+
+    const healthSummary = `🏢 ${companySettings.healthAndSafety.mutualOrganization} • ⚖️ Riesgo ${companySettings.healthAndSafety.riskLevel}`;
+
+    const workforceSummary = `Colab. ${formatNumber(
+      companySettings.workforce.totalEmployees
+    )} • Freq. ${formatPercent(
+      companySettings.workforce.accidentFrequencyRate
+    )} • Gravedad ${formatPercent(
+      companySettings.workforce.accidentSeverityRate
+    )}`;
+
+    return [
+      {
+        key: "general",
+        title: "Datos generales",
+        description: "Razón social, actividad económica y contacto principal",
+        icon: Building2,
+        summary: generalSummary || "Completa la información general de tu empresa",
+        quickInfo: (() => {
+          const websiteInfo = formatWebsite(companySettings.general.website);
+          return [
+            {
+              label: "Razón social",
+              icon: "🏢",
+              value: safeText(
+                companySettings.general.legalName,
+                "Sin informar"
+              ),
+            },
+            {
+              label: "RUT",
+              icon: "🆔",
+              value: safeText(companySettings.general.rut, "Sin RUT"),
+            },
+            {
+              label: "Sitio web",
+              icon: "🔗",
+              value: websiteInfo.value,
+              href: websiteInfo.href,
+            },
+          ];
+        })(),
+        actions: [
+          {
+            label: "Ver datos",
+            variant: "secondary",
+            openSectionKey: "general",
+          },
+          {
+            label: "Editar",
+            variant: "primary",
+            openSectionKey: "general",
+          },
+        ],
+      },
+      {
+        key: "representatives",
+        title: "Representantes clave",
+        description: "Encargados legales, de seguridad y RRHH",
+        icon: Users,
+        summary:
+          representativeSummary ||
+          "Designa los responsables y datos de contacto principales",
+        quickInfo: [
+          {
+            label: "Representante Legal",
+            icon: "⚖️",
+            value: formatRepresentativeInfo(
+              companySettings.representatives.legalRepresentative
+            ),
+          },
+          {
+            label: "Encargado HSE",
+            icon: "🦺",
+            value: formatRepresentativeInfo(
+              companySettings.representatives.safetyManager
+            ),
+          },
+          {
+            label: "Capital Humano",
+            icon: "👥",
+            value: formatRepresentativeInfo(
+              companySettings.representatives.hrManager
+            ),
+          },
+        ],
+        actions: [
+          {
+            label: "Ver datos",
+            variant: "secondary",
+            openSectionKey: "representatives",
+          },
+          {
+            label: "Editar",
+            variant: "primary",
+            openSectionKey: "representatives",
+          },
+        ],
+      },
+      {
+        key: "healthAndSafety",
+        title: "Salud y seguridad",
+        description: "Cumplimiento normativo y gestión preventiva",
+        icon: Settings,
+        summary: healthSummary,
+        quickInfo: [
+          {
+            label: "OAL",
+            icon: "🏢",
+            value: companySettings.healthAndSafety.mutualOrganization,
+          },
+          {
+            label: "N° afiliado",
+            icon: "🆔",
+            value:
+              companySettings.healthAndSafety.mutualAffiliateNumber ||
+              "Sin registro",
+          },
+          {
+            label: "Riesgo",
+            icon: "⚖️",
+            value: companySettings.healthAndSafety.riskLevel,
+            containerClass:
+              riskLevelStyles[companySettings.healthAndSafety.riskLevel].container,
+            valueClass:
+              riskLevelStyles[companySettings.healthAndSafety.riskLevel].value,
+            labelClass:
+              riskLevelStyles[companySettings.healthAndSafety.riskLevel].value,
+          },
+        ],
+        actions: [
+          {
+            label: "Ver datos",
+            variant: "secondary",
+            openSectionKey: "healthAndSafety",
+          },
+          {
+            label: "Editar",
+            variant: "primary",
+            openSectionKey: "healthAndSafety",
+          },
+        ],
+      },
+      {
+        key: "workforce",
+        title: "Perfil de dotación",
+        description: "Distribución de colaboradores y métricas laborales",
+        icon: BarChart2,
+        summary: workforceSummary,
+        quickInfo: [
+          {
+            label: "Colaboradores",
+            icon: "👥",
+            value: formatNumber(companySettings.workforce.totalEmployees),
+          },
+          {
+            label: "Índice de frecuencia",
+            icon: "⚠️",
+            value: formatPercent(
+              companySettings.workforce.accidentFrequencyRate
+            ),
+          },
+          {
+            label: "Índice de gravedad",
+            icon: "🚑",
+            value: formatPercent(companySettings.workforce.accidentSeverityRate),
+          },
+        ],
+        actions: [
+          {
+            label: "Ver datos",
+            variant: "secondary",
+            openSectionKey: "workforce",
+          },
+          {
+            label: "Editar",
+            variant: "primary",
+            openSectionKey: "workforce",
+          },
+        ],
+      },
+    ];
+  }, [companySettings]);
+
+  const renderModal = (
+    modalTitle: string,
+    modalDescription: string,
+    modalContent: ReactNode
+  ) => (
+    <div className="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto bg-slate-900/60 backdrop-blur-sm p-4 sm:items-center">
+      <div className="flex w-full max-w-3xl flex-col rounded-3xl border border-white/70 bg-white/95 p-5 shadow-2xl dark:border-dracula-current dark:bg-dracula-bg/95 sm:rounded-2xl sm:p-6 max-h-[calc(100vh-2rem)] sm:max-h-[70vh] overflow-hidden">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-celeste-300 dark:text-dracula-cyan">
+              Configuración
+            </p>
+            <h2 className="mt-2 text-xl font-semibold text-slate-800 dark:text-dracula-foreground">
+              {modalTitle}
+            </h2>
+            <p className="mt-1 text-sm text-slate-500 dark:text-dracula-comment">
+              {modalDescription}
+            </p>
+          </div>
+          <button
+            onClick={closeSection}
+            className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-soft-gray-100 hover:text-slate-600 dark:text-dracula-comment dark:hover:bg-dracula-selection"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <form onSubmit={handleModalSubmit} className="mt-4 flex flex-1 flex-col overflow-hidden">
+          <div className="flex-1 space-y-6 overflow-y-auto pr-1">
+            {modalContent}
+          </div>
+          <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={closeSection}
+              className="w-full rounded-full border border-soft-gray-300 px-6 py-3 text-sm font-semibold text-slate-600 transition hover:bg-soft-gray-50 dark:border-dracula-current dark:text-dracula-comment dark:hover:bg-dracula-selection sm:w-auto"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-celeste-500 to-mint-500 px-6 py-3 text-sm font-semibold text-white shadow-md transition hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+            >
+              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+              Guardar cambios
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+
+  const renderGeneralModal = () =>
+    renderModal(
+      "Datos generales",
+      "Actualiza la razón social, contacto y dirección principal.",
+      <>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-comment">
+              Razón social 🏢
+            </label>
+            <input
+              type="text"
+              value={companySettings.general.legalName}
+              onChange={(event) =>
+                handleGeneralChange("legalName", event.target.value)
+              }
+              className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
+              placeholder="Ej: Clodi Spa"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-comment">
+              Nombre de fantasía 🎭
+            </label>
+            <input
+              type="text"
+              value={companySettings.general.tradeName}
+              onChange={(event) =>
+                handleGeneralChange("tradeName", event.target.value)
+              }
+              className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
+              placeholder="Ej: Clodi"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-comment">
+              RUT empresa 🆔
+            </label>
+            <input
+              type="text"
+              value={companySettings.general.rut}
+              onChange={(event) => handleGeneralChange("rut", event.target.value)}
+              className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
+              placeholder="12.345.678-9"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-comment">
+              Correo de contacto 📧
+            </label>
+            <input
+              type="email"
+              value={companySettings.general.contactEmail}
+              onChange={(event) =>
+                handleGeneralChange("contactEmail", event.target.value)
+              }
+              className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
+              placeholder="contacto@empresa.cl"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-comment">
+              Teléfono 📞
+            </label>
+            <input
+              type="tel"
+              value={companySettings.general.contactPhone}
+              onChange={(event) =>
+                handleGeneralChange("contactPhone", event.target.value)
+              }
+              className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
+              placeholder="+56 9 1234 5678"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-comment">
+              Sitio web 🔗
+            </label>
+            <input
+              type="url"
+              value={companySettings.general.website}
+              onChange={(event) =>
+                handleGeneralChange("website", event.target.value)
+              }
+              className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
+              placeholder="https://empresa.cl"
+            />
+          </div>
+        </div>
+        <div className="rounded-xl border border-soft-gray-200/70 bg-white p-4 dark:border-dracula-current dark:bg-dracula-current">
+          <h3 className="text-sm font-semibold text-slate-700 dark:text-dracula-foreground">
+            Dirección principal 🏠
+          </h3>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <input
+              type="text"
+              value={companySettings.general.address.street}
+              onChange={(event) =>
+                handleAddressChange("street", event.target.value)
+              }
+              className="col-span-2 w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-selection dark:bg-dracula-bg dark:text-dracula-foreground"
+              placeholder="Calle 📍"
+            />
+            <input
+              type="text"
+              value={companySettings.general.address.number}
+              onChange={(event) =>
+                handleAddressChange("number", event.target.value)
+              }
+              className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-selection dark:bg-dracula-bg dark:text-dracula-foreground"
+              placeholder="Número"
+            />
+            <input
+              type="text"
+              value={companySettings.general.address.office}
+              onChange={(event) =>
+                handleAddressChange("office", event.target.value)
+              }
+              className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-selection dark:bg-dracula-bg dark:text-dracula-foreground"
+              placeholder="Oficina"
+            />
+            <input
+              type="text"
+              value={companySettings.general.address.region}
+              onChange={(event) =>
+                handleAddressChange("region", event.target.value)
+              }
+              className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-selection dark:bg-dracula-bg dark:text-dracula-foreground"
+              placeholder="Región"
+            />
+            <input
+              type="text"
+              value={companySettings.general.address.city}
+              onChange={(event) =>
+                handleAddressChange("city", event.target.value)
+              }
+              className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-selection dark:bg-dracula-bg dark:text-dracula-foreground"
+              placeholder="Ciudad"
+            />
+            <input
+              type="text"
+              value={companySettings.general.address.commune}
+              onChange={(event) =>
+                handleAddressChange("commune", event.target.value)
+              }
+              className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-selection dark:bg-dracula-bg dark:text-dracula-foreground"
+              placeholder="Comuna"
+            />
+            <input
+              type="text"
+              value={companySettings.general.address.country}
+              onChange={(event) =>
+                handleAddressChange("country", event.target.value)
+              }
+              className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-selection dark:bg-dracula-bg dark:text-dracula-foreground"
+              placeholder="País"
+            />
+          </div>
+        </div>
+      </>
+    );
+
+  const representativeFields = (
+    [
+      { key: "legalRepresentative", label: "Representante legal ⚖️", helper: "Firma documentos y representa legalmente a la empresa." },
+      { key: "safetyManager", label: "Encargado HSE 🦺", helper: "Coordina el sistema de seguridad y salud ocupacional (HSE)." },
+      { key: "hrManager", label: "Encargado Cap. Humano 👥", helper: "Gestiona el talento, contratos y comunicaciones internas." },
+    ] as const
+  ).map(({ key, label, helper }) => (
+    <div
+      key={key}
+      className="rounded-xl border border-soft-gray-200/70 bg-white p-4 dark:border-dracula-current dark:bg-dracula-current"
+    >
+      <h3 className="text-sm font-semibold text-slate-700 dark:text-dracula-foreground">
+        {label}
+      </h3>
+      <p className="mt-1 text-xs text-slate-500 dark:text-dracula-comment">
+        {helper}
+      </p>
+      <div className="mt-4 space-y-3">
+        <input
+          type="text"
+          value={companySettings.representatives[key].fullName}
+          onChange={(event) =>
+            handleRepresentativeChange(key, "fullName", event.target.value)
+          }
+          className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-selection dark:bg-dracula-bg dark:text-dracula-foreground"
+          placeholder="Nombre completo"
+        />
+        <input
+          type="text"
+          value={companySettings.representatives[key].rut}
+          onChange={(event) =>
+            handleRepresentativeChange(key, "rut", event.target.value)
+          }
+          className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-selection dark:bg-dracula-bg dark:text-dracula-foreground"
+          placeholder="RUT"
+        />
+        <input
+          type="text"
+          value={companySettings.representatives[key].position}
+          onChange={(event) =>
+            handleRepresentativeChange(key, "position", event.target.value)
+          }
+          className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-selection dark:bg-dracula-bg dark:text-dracula-foreground"
+          placeholder="Cargo"
+        />
+        <input
+          type="email"
+          value={companySettings.representatives[key].email}
+          onChange={(event) =>
+            handleRepresentativeChange(key, "email", event.target.value)
+          }
+          className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-selection dark:bg-dracula-bg dark:text-dracula-foreground"
+          placeholder="Correo electrónico"
+        />
+        <input
+          type="tel"
+          value={companySettings.representatives[key].phone}
+          onChange={(event) =>
+            handleRepresentativeChange(key, "phone", event.target.value)
+          }
+          className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-selection dark:bg-dracula-bg dark:text-dracula-foreground"
+          placeholder="Teléfono"
+        />
+      </div>
+    </div>
+  ));
+
+  const renderRepresentativesModal = () =>
+    renderModal(
+      "Representantes clave",
+      "Designa los responsables legales, de seguridad y recursos humanos.",
+      <div className="grid gap-4 md:grid-cols-3">{representativeFields}</div>
+    );
+
+  const renderHealthAndSafetyModal = () =>
+    renderModal(
+      "Salud y seguridad",
+      "Gestiona mutual, prevencionistas y cumplimiento normativo.",
+      <div className="space-y-6">
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-comment">
+              OAL (Organismo Administrador de la Ley 16.744) 🏢
+            </label>
+            <select
+              value={companySettings.healthAndSafety.mutualOrganization}
+              onChange={(event) =>
+                handleHealthAndSafetyChange(
+                  "mutualOrganization",
+                  event.target.value as HealthAndSafetyInfo["mutualOrganization"]
+                )
+              }
+              className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
+            >
+              {COMPANY_MUTUAL_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-comment">
+              Nivel de riesgo ⚖️
+            </label>
+            <select
+              value={companySettings.healthAndSafety.riskLevel}
+              onChange={(event) =>
+                handleHealthAndSafetyChange(
+                  "riskLevel",
+                  event.target.value as HealthAndSafetyInfo["riskLevel"]
+                )
+              }
+              className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
+            >
+              {COMPANY_RISK_LEVELS.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-comment">
+              Número afiliado 🆔
+            </label>
+            <input
+              type="text"
+              value={companySettings.healthAndSafety.mutualAffiliateNumber}
+              onChange={(event) =>
+                handleHealthAndSafetyChange(
+                  "mutualAffiliateNumber",
+                  event.target.value
+                )
+              }
+              className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
+              placeholder="000000"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-comment">
+              Encargado de Departamento HSE 🧑‍🚒
+            </label>
+            <input
+              type="text"
+              value={companySettings.healthAndSafety.hseManagerName}
+              onChange={(event) =>
+                handleHealthAndSafetyChange("hseManagerName", event.target.value)
+              }
+              className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
+              placeholder="Nombre completo"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-comment">
+              Número de credencial HSE 🪪
+            </label>
+            <input
+              type="text"
+              value={companySettings.healthAndSafety.hseManagerIdCard}
+              onChange={(event) =>
+                handleHealthAndSafetyChange("hseManagerIdCard", event.target.value)
+              }
+              className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
+              placeholder="ID o credencial del encargado"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-comment">
+              Correo encargado HSE 📧
+            </label>
+            <input
+              type="email"
+              value={companySettings.healthAndSafety.hseManagerEmail}
+              onChange={(event) =>
+                handleHealthAndSafetyChange("hseManagerEmail", event.target.value)
+              }
+              className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
+              placeholder="hse@empresa.cl"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-comment">
+              Teléfono encargado HSE 📞
+            </label>
+            <input
+              type="tel"
+              value={companySettings.healthAndSafety.hseManagerPhone}
+              onChange={(event) =>
+                handleHealthAndSafetyChange("hseManagerPhone", event.target.value)
+              }
+              className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
+              placeholder="+56 9 9876 5432"
+            />
+          </div>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-comment">
+              Seguro Ley 16.744 🛡️
+            </label>
+            <input
+              type="text"
+              value={companySettings.healthAndSafety.ley16744InsurancePolicy}
+              onChange={(event) =>
+                handleHealthAndSafetyChange(
+                  "ley16744InsurancePolicy",
+                  event.target.value
+                )
+              }
+              className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
+              placeholder="Número de póliza"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-comment">
+              Cobertura Ley 16.744 📄
+            </label>
+            <textarea
+              value={companySettings.healthAndSafety.ley16744CoverageNotes}
+              onChange={(event) =>
+                handleHealthAndSafetyChange(
+                  "ley16744CoverageNotes",
+                  event.target.value
+                )
+              }
+              rows={3}
+              className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
+              placeholder="Notas de cobertura"
+            />
+          </div>
+        </div>
+        <div className="space-y-4">
+          <div className="rounded-xl border border-soft-gray-200/70 bg-white p-4 dark:border-dracula-current dark:bg-dracula-current">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-slate-700 dark:text-dracula-foreground">
+                ISO 45001 🏆
+              </span>
+              <label className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-dracula-comment">
+                <input
+                  type="checkbox"
+                  checked={companySettings.healthAndSafety.iso45001.isCertified}
+                  onChange={(event) =>
+                    handleISO45001Change("isCertified", event.target.checked)
+                  }
+                  className="h-4 w-4 rounded border-soft-gray-300 text-emerald-500 focus:ring-emerald-200 dark-border-dracula-selection dark:bg-dracula-bg"
+                />
+                Certificada
+              </label>
+            </div>
+            <p className="mt-2 text-xs text-slate-500 dark:text-dracula-comment">
+              Registra el alcance, organismo certificador y cronograma de auditorías para mantener la norma ISO 45001 al día.
+            </p>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <input
+                type="text"
+                value={companySettings.healthAndSafety.iso45001.certificationScope}
+                onChange={(event) =>
+                  handleISO45001Change("certificationScope", event.target.value)
+                }
+                className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark-border-dracula-selection dark:bg-dracula-bg dark-text-dracula-foreground"
+                placeholder="Alcance"
+              />
+              <input
+                type="text"
+                value={companySettings.healthAndSafety.iso45001.certificationBody}
+                onChange={(event) =>
+                  handleISO45001Change("certificationBody", event.target.value)
+                }
+                className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark-border-dracula-selection dark:bg-dracula-bg dark-text-dracula-foreground"
+                placeholder="Organismo"
+              />
+              <p className="col-span-2 text-xs text-slate-500 dark:text-dracula-comment">
+                Usa formato dd-mm-aaaa para las fechas. Mantén las renovaciones y auditorías planificadas.
+              </p>
+              <input
+                type="date"
+                value={companySettings.healthAndSafety.iso45001.certificationDate}
+                onChange={(event) =>
+                  handleISO45001Change("certificationDate", event.target.value)
+                }
+                className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark-border-dracula-selection dark:bg-dracula-bg dark-text-dracula-foreground"
+              />
+              <input
+                type="date"
+                value={companySettings.healthAndSafety.iso45001.certificationExpiry}
+                onChange={(event) =>
+                  handleISO45001Change("certificationExpiry", event.target.value)
+                }
+                className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus-border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark-border-dracula-selection dark:bg-dracula-bg dark-text-dracula-foreground"
+              />
+              <input
+                type="date"
+                value={companySettings.healthAndSafety.iso45001.nextAuditDate}
+                onChange={(event) =>
+                  handleISO45001Change("nextAuditDate", event.target.value)
+                }
+                className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus-border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark-border-dracula-selection dark:bg-dracula-bg dark-text-dracula-foreground"
+              />
+              <textarea
+                value={companySettings.healthAndSafety.iso45001.lastAuditFindings}
+                onChange={(event) =>
+                  handleISO45001Change("lastAuditFindings", event.target.value)
+                }
+                rows={3}
+                className="col-span-2 w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark-border-dracula-selection dark:bg-dracula-bg dark-text-dracula-foreground"
+                placeholder="Hallazgos última auditoría"
+              />
+            </div>
+          </div>
+          <div className="rounded-xl border border-soft-gray-200/70 bg-white p-4 dark:border-dracula-current dark:bg-dracula-current">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-slate-700 dark:text-dracula-foreground">
+                Comité paritario 🤝
+              </span>
+              <label className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-dracula-comment">
+                <input
+                  type="checkbox"
+                  checked={companySettings.healthAndSafety.jointCommittee.hasCommittee}
+                  onChange={(event) =>
+                    handleJointCommitteeChange(
+                      "hasCommittee",
+                      event.target.checked
+                    )
+                  }
+                  className="h-4 w-4 rounded border-soft-gray-300 text-celeste-500 focus:ring-celeste-200 dark:border-dracula-selection dark:bg-dracula-bg"
+                />
+                Activo
+              </label>
+            </div>
+            <div className="mt-4 space-y-3">
+              <input
+                type="text"
+                value={companySettings.healthAndSafety.jointCommittee.resolutionNumber}
+                onChange={(event) =>
+                  handleJointCommitteeChange(
+                    "resolutionNumber",
+                    event.target.value
+                  )
+                }
+                className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark-border-dracula-selection dark:bg-dracula-bg dark-text-dracula-foreground"
+                placeholder="Resolución"
+              />
+              <input
+                type="date"
+                value={companySettings.healthAndSafety.jointCommittee.resolutionDate}
+                onChange={(event) =>
+                  handleJointCommitteeChange(
+                    "resolutionDate",
+                    event.target.value
+                  )
+                }
+                className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark-border-dracula-selection dark:bg-dracula-bg dark-text-dracula-foreground"
+              />
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="rounded-lg border border-soft-gray-200/70 bg-soft-gray-50/70 p-3 dark:border-dracula-selection dark:bg-dracula-bg/60">
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-dracula-comment">
+                    Titulares empresa 🏢
+                  </h4>
+                  <div className="mt-2 space-y-2">
+                    <input
+                      type="text"
+                      value={companySettings.healthAndSafety.jointCommittee.titularCompanyMember1}
+                      onChange={(event) =>
+                        handleJointCommitteeChange(
+                          "titularCompanyMember1",
+                          event.target.value
+                        )
+                      }
+                      className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-xs text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark-border-dracula-selection dark:bg-dracula-bg dark-text-dracula-foreground"
+                      placeholder="Representante empresa 1"
+                    />
+                    <input
+                      type="text"
+                      value={companySettings.healthAndSafety.jointCommittee.titularCompanyMember2}
+                      onChange={(event) =>
+                        handleJointCommitteeChange(
+                          "titularCompanyMember2",
+                          event.target.value
+                        )
+                      }
+                      className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-xs text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark-border-dracula-selection dark:bg-dracula-bg dark-text-dracula-foreground"
+                      placeholder="Representante empresa 2"
+                    />
+                    <input
+                      type="text"
+                      value={companySettings.healthAndSafety.jointCommittee.titularCompanyMember3}
+                      onChange={(event) =>
+                        handleJointCommitteeChange(
+                          "titularCompanyMember3",
+                          event.target.value
+                        )
+                      }
+                      className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-xs text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark-border-dracula-selection dark:bg-dracula-bg dark-text-dracula-foreground"
+                      placeholder="Representante empresa 3"
+                    />
+                  </div>
+                  <h4 className="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-dracula-comment">
+                    Titulares trabajadores 👷‍♂️
+                  </h4>
+                  <div className="mt-2 space-y-2">
+                    <input
+                      type="text"
+                      value={companySettings.healthAndSafety.jointCommittee.titularWorkerMember1}
+                      onChange={(event) =>
+                        handleJointCommitteeChange(
+                          "titularWorkerMember1",
+                          event.target.value
+                        )
+                      }
+                      className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-xs text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark-border-dracula-selection dark:bg-dracula-bg dark-text-dracula-foreground"
+                      placeholder="Trabajador titular 1"
+                    />
+                    <input
+                      type="text"
+                      value={companySettings.healthAndSafety.jointCommittee.titularWorkerMember2}
+                      onChange={(event) =>
+                        handleJointCommitteeChange(
+                          "titularWorkerMember2",
+                          event.target.value
+                        )
+                      }
+                      className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-xs text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark-border-dracula-selection dark:bg-dracula-bg dark-text-dracula-foreground"
+                      placeholder="Trabajador titular 2"
+                    />
+                    <input
+                      type="text"
+                      value={companySettings.healthAndSafety.jointCommittee.titularWorkerMember3}
+                      onChange={(event) =>
+                        handleJointCommitteeChange(
+                          "titularWorkerMember3",
+                          event.target.value
+                        )
+                      }
+                      className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-xs text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark-border-dracula-selection dark:bg-dracula-bg dark-text-dracula-foreground"
+                      placeholder="Trabajador titular 3"
+                    />
+                  </div>
+                </div>
+                <div className="rounded-lg border border-soft-gray-200/70 bg-soft-gray-50/70 p-3 dark:border-dracula-selection dark:bg-dracula-bg/60">
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-dracula-comment">
+                    Suplentes empresa 🏢
+                  </h4>
+                  <div className="mt-2 space-y-2">
+                    <input
+                      type="text"
+                      value={companySettings.healthAndSafety.jointCommittee.alternateCompanyMember1}
+                      onChange={(event) =>
+                        handleJointCommitteeChange(
+                          "alternateCompanyMember1",
+                          event.target.value
+                        )
+                      }
+                      className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-xs text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark-border-dracula-selection dark:bg-dracula-bg dark-text-dracula-foreground"
+                      placeholder="Representante empresa suplente 1"
+                    />
+                    <input
+                      type="text"
+                      value={companySettings.healthAndSafety.jointCommittee.alternateCompanyMember2}
+                      onChange={(event) =>
+                        handleJointCommitteeChange(
+                          "alternateCompanyMember2",
+                          event.target.value
+                        )
+                      }
+                      className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-xs text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark-border-dracula-selection dark:bg-dracula-bg dark-text-dracula-foreground"
+                      placeholder="Representante empresa suplente 2"
+                    />
+                    <input
+                      type="text"
+                      value={companySettings.healthAndSafety.jointCommittee.alternateCompanyMember3}
+                      onChange={(event) =>
+                        handleJointCommitteeChange(
+                          "alternateCompanyMember3",
+                          event.target.value
+                        )
+                      }
+                      className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-xs text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark-border-dracula-selection dark:bg-dracula-bg dark-text-dracula-foreground"
+                      placeholder="Representante empresa suplente 3"
+                    />
+                  </div>
+                  <h4 className="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-dracula-comment">
+                    Suplentes trabajadores 👷‍♀️
+                  </h4>
+                  <div className="mt-2 space-y-2">
+                    <input
+                      type="text"
+                      value={companySettings.healthAndSafety.jointCommittee.alternateWorkerMember1}
+                      onChange={(event) =>
+                        handleJointCommitteeChange(
+                          "alternateWorkerMember1",
+                          event.target.value
+                        )
+                      }
+                      className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-xs text-slate-700 transition focus-border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark-border-dracula-selection dark:bg-dracula-bg dark-text-dracula-foreground"
+                      placeholder="Trabajador suplente 1"
+                    />
+                    <input
+                      type="text"
+                      value={companySettings.healthAndSafety.jointCommittee.alternateWorkerMember2}
+                      onChange={(event) =>
+                        handleJointCommitteeChange(
+                          "alternateWorkerMember2",
+                          event.target.value
+                        )
+                      }
+                      className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-xs text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark-border-dracula-selection dark:bg-dracula-bg dark-text-dracula-foreground"
+                      placeholder="Trabajador suplente 2"
+                    />
+                    <input
+                      type="text"
+                      value={companySettings.healthAndSafety.jointCommittee.alternateWorkerMember3}
+                      onChange={(event) =>
+                        handleJointCommitteeChange(
+                          "alternateWorkerMember3",
+                          event.target.value
+                        )
+                      }
+                      className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-xs text-slate-700 transition focus-border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark-border-dracula-selection dark:bg-dracula-bg dark-text-dracula-foreground"
+                      placeholder="Trabajador suplente 3"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+
+  const renderWorkforceModal = () =>
+    renderModal(
+      "Perfil de dotación",
+      "Registra la distribución de colaboradores y contratistas.",
+      <div className="space-y-6">
+        <div className="grid gap-4 md:grid-cols-3">
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-comment">
+              Total colaboradores 👥
+            </label>
+            <p className="mb-2 text-xs text-slate-500 dark:text-dracula-comment">
+              Cantidad total de trabajadores directos.
+            </p>
+            <input
+              type="number"
+              min={0}
+              value={companySettings.workforce.totalEmployees}
+              onChange={(event) =>
+                handleWorkforceChange(
+                  "totalEmployees",
+                  Number.isNaN(event.target.valueAsNumber)
+                    ? 0
+                    : event.target.valueAsNumber
+                )
+              }
+              className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-comment">
+              Colaboradoras 👩
+            </label>
+            <p className="mb-2 text-xs text-slate-500 dark:text-dracula-comment">
+              Número de mujeres en la dotación.
+            </p>
+            <input
+              type="number"
+              min={0}
+              value={companySettings.workforce.femaleEmployees}
+              onChange={(event) =>
+                handleWorkforceChange(
+                  "femaleEmployees",
+                  Number.isNaN(event.target.valueAsNumber)
+                    ? 0
+                    : event.target.valueAsNumber
+                )
+              }
+              className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-comment">
+              Colaboradores 👨
+            </label>
+            <p className="mb-2 text-xs text-slate-500 dark:text-dracula-comment">
+              Número de hombres en la dotación.
+            </p>
+            <input
+              type="number"
+              min={0}
+              value={companySettings.workforce.maleEmployees}
+              onChange={(event) =>
+                handleWorkforceChange(
+                  "maleEmployees",
+                  Number.isNaN(event.target.valueAsNumber)
+                    ? 0
+                    : event.target.valueAsNumber
+                )
+              }
+              className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-comment">
+              Otro género 🌈
+            </label>
+            <p className="mb-2 text-xs text-slate-500 dark:text-dracula-comment">
+              Personas que se identifican con otro género.
+            </p>
+            <input
+              type="number"
+              min={0}
+              value={companySettings.workforce.nonBinaryEmployees}
+              onChange={(event) =>
+                handleWorkforceChange(
+                  "nonBinaryEmployees",
+                  Number.isNaN(event.target.valueAsNumber)
+                    ? 0
+                    : event.target.valueAsNumber
+                )
+              }
+              className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-comment">
+              Subcontratistas 🤝
+            </label>
+            <p className="mb-2 text-xs text-slate-500 dark:text-dracula-comment">
+              Personal externo que trabaja para la empresa.
+            </p>
+            <input
+              type="number"
+              min={0}
+              value={companySettings.workforce.subcontractorCount}
+              onChange={(event) =>
+                handleWorkforceChange(
+                  "subcontractorCount",
+                  Number.isNaN(event.target.valueAsNumber)
+                    ? 0
+                    : event.target.valueAsNumber
+                )
+              }
+              className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark-border-dracula-current dark:bg-dracula-current dark-text-dracula-foreground"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-comment">
+              Sindicalización (%) 🧑‍🤝‍🧑
+            </label>
+            <p className="mb-2 text-xs text-slate-500 dark:text-dracula-comment">
+              Porcentaje de colaboradores afiliados a sindicatos.
+            </p>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={companySettings.workforce.unionizedPercentage}
+              onChange={(event) =>
+                handleWorkforceChange(
+                  "unionizedPercentage",
+                  Number.isNaN(event.target.valueAsNumber)
+                    ? 0
+                    : event.target.valueAsNumber
+                )
+              }
+              className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark-border-dracula-current dark:bg-dracula-current dark-text-dracula-foreground"
+            />
+          </div>
+        </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-comment">
+              Promedio de años colaboradores 📈
+            </label>
+            <p className="mb-2 text-xs text-slate-500 dark:text-dracula-comment">
+              Años promedio que llevan en la empresa.
+            </p>
+            <input
+              type="number"
+              min={0}
+              step="0.1"
+              value={companySettings.workforce.averageSeniorityYears}
+              onChange={(event) =>
+                handleWorkforceChange(
+                  "averageSeniorityYears",
+                  Number.isNaN(event.target.valueAsNumber)
+                    ? 0
+                    : event.target.valueAsNumber
+                )
+              }
+              className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark-border-dracula-current dark:bg-dracula-current dark-text-dracula-foreground"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-comment">
+              Índice frecuencia ⚠️
+            </label>
+            <p className="mb-2 text-xs text-slate-500 dark:text-dracula-comment">
+              Accidentes con tiempo perdido por millón de horas.
+            </p>
+            <input
+              type="number"
+              min={0}
+              step="0.01"
+              value={companySettings.workforce.accidentFrequencyRate}
+              onChange={(event) =>
+                handleWorkforceChange(
+                  "accidentFrequencyRate",
+                  Number.isNaN(event.target.valueAsNumber)
+                    ? 0
+                    : event.target.valueAsNumber
+                )
+              }
+              className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark-border-dracula-current dark:bg-dracula-current dark-text-dracula-foreground"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-comment">
+              Índice gravedad 🚑
+            </label>
+            <p className="mb-2 text-xs text-slate-500 dark:text-dracula-comment">
+              Días perdidos por accidentes por millón de horas.
+            </p>
+            <input
+              type="number"
+              min={0}
+              step="0.01"
+              value={companySettings.workforce.accidentSeverityRate}
+              onChange={(event) =>
+                handleWorkforceChange(
+                  "accidentSeverityRate",
+                  Number.isNaN(event.target.valueAsNumber)
+                    ? 0
+                    : event.target.valueAsNumber
+                )
+              }
+              className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
+            />
+          </div>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-comment">
+              Tasa de incidencia 📊
+            </label>
+            <p className="mb-2 text-xs text-slate-500 dark:text-dracula-comment">
+              Accidentes registrados por cada 100 trabajadores.
+            </p>
+            <input
+              type="number"
+              min={0}
+              step="0.01"
+              value={companySettings.workforce.accidentIncidenceRate}
+              onChange={(event) =>
+                handleWorkforceChange(
+                  "accidentIncidenceRate",
+                  Number.isNaN(event.target.valueAsNumber)
+                    ? 0
+                    : event.target.valueAsNumber
+                )
+              }
+              className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-comment">
+              Tasa de ausentismo 🛌
+            </label>
+            <p className="mb-2 text-xs text-slate-500 dark:text-dracula-comment">
+              Porcentaje de días perdidos por ausencias.
+            </p>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              step="0.1"
+              value={companySettings.workforce.absenteeismRate}
+              onChange={(event) =>
+                handleWorkforceChange(
+                  "absenteeismRate",
+                  Number.isNaN(event.target.valueAsNumber)
+                    ? 0
+                    : event.target.valueAsNumber
+                )
+              }
+              className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-comment">
+              Tasa de rotación 🔄
+            </label>
+            <p className="mb-2 text-xs text-slate-500 dark:text-dracula-comment">
+              Porcentaje de salidas respecto al total anual.
+            </p>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              step="0.1"
+              value={companySettings.workforce.turnoverRate}
+              onChange={(event) =>
+                handleWorkforceChange(
+                  "turnoverRate",
+                  Number.isNaN(event.target.valueAsNumber)
+                    ? 0
+                    : event.target.valueAsNumber
+                )
+              }
+              className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-comment">
+              Tasa enfermedad profesional 🩺
+            </label>
+            <p className="mb-2 text-xs text-slate-500 dark:text-dracula-comment">
+              Casos de enfermedad ocupacional por 100 trabajadores.
+            </p>
+            <input
+              type="number"
+              min={0}
+              step="0.01"
+              value={companySettings.workforce.occupationalIllnessRate}
+              onChange={(event) =>
+                handleWorkforceChange(
+                  "occupationalIllnessRate",
+                  Number.isNaN(event.target.valueAsNumber)
+                    ? 0
+                    : event.target.valueAsNumber
+                )
+              }
+              className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-comment">
+              Tasa de accidentabilidad 🦺
+            </label>
+            <p className="mb-2 text-xs text-slate-500 dark:text-dracula-comment">
+              Accidentes con tiempo perdido por cada 100 trabajadores.
+            </p>
+            <input
+              type="number"
+              min={0}
+              step="0.01"
+              value={companySettings.workforce.accidentabilityRate}
+              onChange={(event) =>
+                handleWorkforceChange(
+                  "accidentabilityRate",
+                  Number.isNaN(event.target.valueAsNumber)
+                    ? 0
+                    : event.target.valueAsNumber
+                )
+              }
+              className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-comment">
+              Tasa de siniestralidad ⚙️
+            </label>
+            <p className="mb-2 text-xs text-slate-500 dark:text-dracula-comment">
+              Eventos totales (accidentes + enfermedades) por 100 trabajadores.
+            </p>
+            <input
+              type="number"
+              min={0}
+              step="0.01"
+              value={companySettings.workforce.siniestralityRate}
+              onChange={(event) =>
+                handleWorkforceChange(
+                  "siniestralityRate",
+                  Number.isNaN(event.target.valueAsNumber)
+                    ? 0
+                    : event.target.valueAsNumber
+                )
+              }
+              className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
+            />
+          </div>
+        </div>
+      </div>
+    );
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -79,6 +1661,114 @@ export default function Configuracion() {
           Configura las opciones y preferencias de Clodi App
         </p>
       </div>
+
+      {settingsError && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-900/40 dark:text-red-200">
+          {settingsError}
+        </div>
+      )}
+
+      {settingsLoading ? (
+        <div className="flex items-center gap-3 rounded-2xl border border-soft-gray-200/70 bg-white p-6 text-slate-600 shadow-sm dark:border-dracula-current dark:bg-dracula-bg dark:text-dracula-comment">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          Cargando configuraciones de la empresa...
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2">
+          {sectionCards.map((card) => (
+            <div
+              key={card.key}
+              className="rounded-2xl border border-soft-gray-200/70 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-celeste-200 hover:shadow-md dark:border-dracula-current dark:bg-dracula-bg"
+            >
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-celeste-200/50 to-mint-200/50 text-celeste-500 dark:from-dracula-purple/20 dark:to-dracula-cyan/20 dark:text-dracula-cyan">
+                  <card.icon className="h-6 w-6" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-800 dark:text-dracula-foreground">
+                    {card.title}
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-dracula-comment">
+                    {card.description}
+                  </p>
+                </div>
+              </div>
+
+              <p className="mt-4 text-sm text-slate-600 dark:text-dracula-comment">
+                {card.summary}
+              </p>
+
+              {card.quickInfo && card.quickInfo.length > 0 && (
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  {card.quickInfo.map((info) => {
+                    const baseContainerClasses =
+                      "flex flex-col rounded-xl p-3 text-xs";
+                    const defaultContainerClasses =
+                      "border border-soft-gray-200/70 bg-soft-gray-50/70 dark:border-dracula-current dark:bg-dracula-current";
+
+                    const containerClasses = info.containerClass
+                      ? `${baseContainerClasses} ${info.containerClass}`
+                      : `${baseContainerClasses} ${defaultContainerClasses}`;
+
+                    const href = info.href?.trim();
+
+                    return (
+                      <div key={info.label} className={containerClasses}>
+                        <span
+                          className={`font-semibold ${
+                            info.labelClass ?? "text-slate-600 dark:text-dracula-foreground"
+                          }`}
+                        >
+                          {info.icon} {info.label}
+                        </span>
+                        {href ? (
+                          <a
+                            href={href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`mt-1 inline-flex items-center gap-1 text-base font-semibold underline-offset-2 hover:underline ${
+                              info.valueClass ?? "text-celeste-600 dark:text-dracula-cyan"
+                            }`}
+                          >
+                            {info.value}
+                          </a>
+                        ) : (
+                          <span
+                            className={`mt-1 text-base font-semibold ${
+                              info.valueClass ?? "text-slate-800 dark:text-dracula-cyan"
+                            }`}
+                          >
+                            {info.value}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+                {card.actions.map((action) => {
+                  const isPrimary = action.variant !== "secondary";
+                  return (
+                    <button
+                      key={action.label}
+                      onClick={() => openSection(action.openSectionKey)}
+                      className={
+                        isPrimary
+                          ? "inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-celeste-500 to-mint-500 px-6 py-3 text-sm font-semibold text-white shadow-md transition hover:shadow-lg"
+                          : "inline-flex items-center justify-center gap-2 rounded-full border border-soft-gray-300 px-6 py-3 text-sm font-semibold text-slate-600 transition hover:bg-soft-gray-50 dark:border-dracula-current dark:text-dracula-comment dark:hover:bg-dracula-selection"
+                      }
+                    >
+                      {action.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Sección de Notificaciones */}
       <div className="rounded-2xl border border-soft-gray-200/70 bg-white p-6 shadow-sm dark:border-dracula-current dark:bg-dracula-bg">
@@ -225,6 +1915,11 @@ export default function Configuracion() {
           </div>
         </div>
       )}
+
+      {activeSection === "general" && renderGeneralModal()}
+      {activeSection === "representatives" && renderRepresentativesModal()}
+      {activeSection === "healthAndSafety" && renderHealthAndSafetyModal()}
+      {activeSection === "workforce" && renderWorkforceModal()}
     </div>
   );
 }
