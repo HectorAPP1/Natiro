@@ -97,6 +97,36 @@ export interface CompanyDocuments {
   contractorControlPlan: string
 }
 
+export type AccessRole = 'Administrador' | 'Editor' | 'Comentarista' | 'Lector'
+
+export type AccessModule =
+  | 'dashboard'
+  | 'epp'
+  | 'trabajadores'
+  | 'configuracion'
+  | 'reportes'
+  | 'documentos'
+  | 'inspecciones'
+  | 'capacitaciones'
+  | 'riesgos'
+  | 'protocolos'
+  | 'proximamente'
+
+export interface AccessMember {
+  id: string
+  displayName: string
+  email: string
+  role: AccessRole
+  modules: AccessModule[]
+  invitedBy: string
+  invitedAt: string
+}
+
+export interface AccessSettings {
+  members: AccessMember[]
+  roleDefaults: Record<AccessRole, AccessModule[]>
+}
+
 export interface CompanySettings {
   general: {
     legalName: string
@@ -118,6 +148,7 @@ export interface CompanySettings {
   healthAndSafety: HealthAndSafetyInfo
   workforce: WorkforceProfile
   documents: CompanyDocuments
+  access: AccessSettings
 }
 
 export type CompanySettingsSection = keyof CompanySettings
@@ -239,5 +270,26 @@ export const createDefaultCompanySettings = (): CompanySettings => ({
     riskMatrix: '',
     inductionProgram: '',
     contractorControlPlan: '',
+  },
+  access: {
+    members: [],
+    roleDefaults: {
+      Administrador: [
+        'dashboard',
+        'epp',
+        'trabajadores',
+        'configuracion',
+        'documentos',
+        'reportes',
+        'inspecciones',
+        'capacitaciones',
+        'riesgos',
+        'protocolos',
+        'proximamente',
+      ],
+      Editor: ['dashboard', 'epp', 'trabajadores', 'documentos'],
+      Comentarista: ['dashboard', 'trabajadores', 'documentos'],
+      Lector: ['dashboard'],
+    },
   },
 })

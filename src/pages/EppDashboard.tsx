@@ -20,6 +20,7 @@ import {
 import { useEppFirestore } from "../hooks/useEppFirestore";
 import * as XLSX from "xlsx";
 import QRManager from "./QRManager";
+import { useAccessControl } from "../hooks/useAccessControl";
 import {
   PieChart,
   Pie,
@@ -196,6 +197,9 @@ export default function EppDashboard() {
     updateEpp,
     deleteEpp,
   } = useEppFirestore();
+  const { canManageModule, role } = useAccessControl();
+  const canManageEpp = canManageModule("epp");
+  const canUseQRTools = role !== "Lector";
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [formState, setFormState] = useState<EppFormState>(() =>
@@ -380,6 +384,9 @@ export default function EppDashboard() {
   };
 
   const handleEdit = (item: EppItem) => {
+    if (!canManageEpp) {
+      return;
+    }
     setEditingItemId(item.id);
     setFormState({
       eppId: item.eppId,
@@ -490,6 +497,9 @@ export default function EppDashboard() {
   };
 
   const handleDelete = async (itemId: string) => {
+    if (!canManageEpp) {
+      return;
+    }
     if (
       window.confirm(
         "¿Estás seguro de eliminar este EPP? Esta acción no se puede deshacer."
@@ -503,6 +513,9 @@ export default function EppDashboard() {
   };
 
   const handleToggleDiscontinued = async (itemId: string) => {
+    if (!canManageEpp) {
+      return;
+    }
     const item = items.find((i) => i.id === itemId);
     if (item) {
       const result = await updateEpp(itemId, {
@@ -761,34 +774,38 @@ export default function EppDashboard() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            <button
-              onClick={() => setShowQRManager(true)}
-              className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full border border-celeste-200/70 bg-white/80 px-3 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-slate-600 shadow-sm transition hover:border-celeste-300 hover:bg-celeste-50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-cyan dark:hover:border-dracula-purple dark:hover:bg-dracula-bg"
-            >
-              <QrCode className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              <span className="hidden sm:inline">Gestión QR</span>
-              <span className="sm:hidden">QR</span>
-            </button>
+            {canUseQRTools ? (
+              <button
+                onClick={() => setShowQRManager(true)}
+                className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full border border-celeste-200/70 bg-white/80 px-3 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-slate-600 shadow-sm transition hover:border-celeste-300 hover:bg-celeste-50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-cyan dark:hover:border-dracula-purple dark:hover:bg-dracula-bg"
+              >
+                <QrCode className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Gestor QR</span>
+                <span className="sm:hidden">QR</span>
+              </button>
+            ) : null}
             <button
               onClick={handleExportToExcel}
-              disabled={items.length === 0}
+              disabled={items.length === 0 || !canManageEpp}
               className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full border border-mint-200/70 bg-white/80 px-3 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-slate-600 shadow-sm transition hover:border-mint-300 hover:bg-mint-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-green dark:hover:border-dracula-green dark:hover:bg-dracula-bg"
             >
               <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               <span className="hidden sm:inline">Exportar Excel</span>
               <span className="sm:hidden">Excel</span>
             </button>
-            <button
-              onClick={() => {
-                resetForm(items.length);
-                setIsModalOpen(true);
-              }}
-              className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full bg-gradient-to-r from-mint-200/80 via-white to-celeste-200/70 px-4 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-slate-700 shadow-md transition hover:shadow-lg dark:from-dracula-purple dark:via-dracula-pink dark:to-dracula-cyan dark:text-dracula-bg"
-            >
-              <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              <span className="hidden sm:inline">Añadir EPP</span>
-              <span className="sm:hidden">Añadir</span>
-            </button>
+            {canManageEpp ? (
+              <button
+                onClick={() => {
+                  resetForm(items.length);
+                  setIsModalOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full bg-gradient-to-r from-mint-200/80 via-white to-celeste-200/70 px-4 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-slate-700 shadow-md transition hover:shadow-lg dark:from-dracula-purple dark:via-dracula-pink dark:to-dracula-cyan dark:text-dracula-bg"
+              >
+                <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Añadir EPP</span>
+                <span className="sm:hidden">Añadir</span>
+              </button>
+            ) : null}
           </div>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -992,16 +1009,18 @@ export default function EppDashboard() {
                 controlar entregas, stock y certificaciones.
               </p>
             </div>
-            <button
-              onClick={() => {
-                resetForm();
-                setIsModalOpen(true);
-              }}
-              className="inline-flex items-center gap-2 rounded-full border border-celeste-200/60 bg-white/80 px-5 py-2 text-sm font-semibold text-slate-600 transition hover:border-celeste-200 hover:text-slate-800"
-            >
-              <Plus className="h-4 w-4" />
-              Registrar EPP
-            </button>
+            {canManageEpp ? (
+              <button
+                onClick={() => {
+                  resetForm();
+                  setIsModalOpen(true);
+                }}
+                className="inline-flex items-center gap-2 rounded-full border border-celeste-200/60 bg-white/80 px-5 py-2 text-sm font-semibold text-slate-600 transition hover:border-celeste-200 hover:text-slate-800"
+              >
+                <Plus className="h-4 w-4" />
+                Registrar EPP
+              </button>
+            ) : null}
           </div>
         ) : filteredItems.length === 0 ? (
           <div className="mt-10 flex flex-col items-center justify-center gap-4 rounded-3xl border border-dashed border-celeste-200/70 bg-soft-gray-50/70 p-10 text-center">
@@ -1087,49 +1106,55 @@ export default function EppDashboard() {
                             </p>
                           </div>
                           <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => handleEdit(item)}
-                              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-celeste-200/70 bg-white/80 text-celeste-400 transition hover:border-celeste-300 hover:bg-celeste-50"
-                              aria-label="Editar EPP"
-                              title="Editar"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleToggleDiscontinued(item.id)}
-                              className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition ${
-                                item.discontinued
-                                  ? "border-mint-200/70 bg-white/80 text-mint-500 hover:border-mint-300 hover:bg-mint-50"
-                                  : "border-amber-200/70 bg-white/80 text-amber-500 hover:border-amber-300 hover:bg-amber-50"
-                              }`}
-                              aria-label={
-                                item.discontinued
-                                  ? "Poner en vigencia"
-                                  : "Descontinuar"
-                              }
-                              title={
-                                item.discontinued
-                                  ? "Poner en vigencia"
-                                  : "Descontinuar"
-                              }
-                            >
-                              {item.discontinued ? (
-                                <CheckCircle2 className="h-4 w-4" />
-                              ) : (
-                                <Archive className="h-4 w-4" />
-                              )}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDelete(item.id)}
-                              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-rose-200/70 bg-white/80 text-rose-400 transition hover:border-rose-300 hover:bg-rose-50"
-                              aria-label="Eliminar EPP"
-                              title="Eliminar"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
+                            {canManageEpp ? (
+                              <button
+                                type="button"
+                                onClick={() => handleEdit(item)}
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-celeste-200/70 bg-white/80 text-celeste-400 transition hover:border-celeste-300 hover:bg-celeste-50"
+                                aria-label="Editar EPP"
+                                title="Editar"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                            ) : null}
+                            {canManageEpp ? (
+                              <button
+                                type="button"
+                                onClick={() => handleToggleDiscontinued(item.id)}
+                                className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition ${
+                                  item.discontinued
+                                    ? "border-mint-200/70 bg-white/80 text-mint-500 hover:border-mint-300 hover:bg-mint-50"
+                                    : "border-amber-200/70 bg-white/80 text-amber-500 hover:border-amber-300 hover:bg-amber-50"
+                                }`}
+                                aria-label={
+                                  item.discontinued
+                                    ? "Poner en vigencia"
+                                    : "Descontinuar"
+                                }
+                                title={
+                                  item.discontinued
+                                    ? "Poner en vigencia"
+                                    : "Descontinuar"
+                                }
+                              >
+                                {item.discontinued ? (
+                                  <CheckCircle2 className="h-4 w-4" />
+                                ) : (
+                                  <Archive className="h-4 w-4" />
+                                )}
+                              </button>
+                            ) : null}
+                            {canManageEpp ? (
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(item.id)}
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-rose-200/70 bg-white/80 text-rose-400 transition hover:border-rose-300 hover:bg-rose-50"
+                                aria-label="Eliminar EPP"
+                                title="Eliminar"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            ) : null}
                           </div>
                         </div>
 
@@ -1470,51 +1495,57 @@ export default function EppDashboard() {
                             </td>
                             <td className="px-4 py-4">
                               <div className="flex items-center justify-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => handleEdit(item)}
-                                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-celeste-200/70 bg-white/80 text-celeste-400 transition hover:border-celeste-300 hover:bg-celeste-50 dark:border-dracula-cyan/50 dark:bg-dracula-current dark:text-dracula-cyan dark:hover:bg-dracula-cyan/20"
-                                  aria-label="Editar EPP"
-                                  title="Editar"
-                                >
-                                  <Pencil className="h-3.5 w-3.5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleToggleDiscontinued(item.id)
-                                  }
-                                  className={`inline-flex h-8 w-8 items-center justify-center rounded-full border transition ${
-                                    item.discontinued
-                                      ? "border-mint-200/70 bg-white/80 text-mint-500 hover:border-mint-300 hover:bg-mint-50 dark:border-dracula-green/50 dark:bg-dracula-current dark:text-dracula-green dark:hover:bg-dracula-green/20"
-                                      : "border-amber-200/70 bg-white/80 text-amber-500 hover:border-amber-300 hover:bg-amber-50 dark:border-dracula-orange/50 dark:bg-dracula-current dark:text-dracula-orange dark:hover:bg-dracula-orange/20"
-                                  }`}
-                                  aria-label={
-                                    item.discontinued
-                                      ? "Poner en vigencia"
-                                      : "Descontinuar"
-                                  }
-                                  title={
-                                    item.discontinued
-                                      ? "Poner en vigencia"
-                                      : "Descontinuar"
-                                  }
-                                >
-                                  {item.discontinued ? (
-                                    <CheckCircle2 className="h-3.5 w-3.5" />
-                                  ) : (
-                                    <Archive className="h-3.5 w-3.5" />
-                                  )}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDelete(item.id)}
-                                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-rose-200/70 bg-white/80 text-rose-400 transition hover:border-rose-300 hover:bg-rose-50 dark:border-dracula-red/50 dark:bg-dracula-current dark:text-dracula-red dark:hover:bg-dracula-red/20"
-                                  aria-label="Eliminar EPP"
-                                  title="Eliminar"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
+                                {canManageEpp ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleEdit(item)}
+                                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-celeste-200/70 bg-white/80 text-celeste-400 transition hover:border-celeste-300 hover:bg-celeste-50 dark:border-dracula-cyan/50 dark:bg-dracula-current dark:text-dracula-cyan dark:hover:bg-dracula-cyan/20"
+                                    aria-label="Editar EPP"
+                                    title="Editar"
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </button>
+                                ) : null}
+                                {canManageEpp ? (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleToggleDiscontinued(item.id)
+                                    }
+                                    className={`inline-flex h-8 w-8 items-center justify-center rounded-full border transition ${
+                                      item.discontinued
+                                        ? "border-mint-200/70 bg-white/80 text-mint-500 hover:border-mint-300 hover:bg-mint-50 dark:border-dracula-green/50 dark:bg-dracula-current dark:text-dracula-green dark:hover:bg-dracula-green/20"
+                                        : "border-amber-200/70 bg-white/80 text-amber-500 hover:border-amber-300 hover:bg-amber-50 dark:border-dracula-orange/50 dark:bg-dracula-current dark:text-dracula-orange dark:hover:bg-dracula-orange/20"
+                                    }`}
+                                    aria-label={
+                                      item.discontinued
+                                        ? "Poner en vigencia"
+                                        : "Descontinuar"
+                                    }
+                                    title={
+                                      item.discontinued
+                                        ? "Poner en vigencia"
+                                        : "Descontinuar"
+                                    }
+                                  >
+                                    {item.discontinued ? (
+                                      <CheckCircle2 className="h-3.5 w-3.5" />
+                                    ) : (
+                                      <Archive className="h-3.5 w-3.5" />
+                                    )}
+                                  </button>
+                                ) : null}
+                                {canManageEpp ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDelete(item.id)}
+                                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-rose-200/70 bg-white/80 text-rose-400 transition hover:border-rose-300 hover:bg-rose-50 dark:border-dracula-red/50 dark:bg-dracula-current dark:text-dracula-red dark:hover:bg-dracula-red/20"
+                                    aria-label="Eliminar EPP"
+                                    title="Eliminar"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                ) : null}
                               </div>
                             </td>
                           </tr>
@@ -1584,7 +1615,7 @@ export default function EppDashboard() {
       {isModalOpen ? (
         <div className="fixed inset-0 z-[120] overflow-y-auto bg-slate-900/60 backdrop-blur-sm">
           <div className="flex min-h-screen items-start justify-center px-4 py-10 sm:px-6 lg:py-16">
-            <div className="relative w-full max-w-5xl rounded-[28px] border border-white/70 bg-white/95 px-6 py-8 shadow-[0_40px_80px_-50px_rgba(15,23,42,0.6)] dark:border-dracula-current dark:bg-dracula-bg/95 sm:px-8 lg:px-10 lg:py-10">
+            <div className="relative w-full max-w-5xl rounded-[28px] border border-white/70 bg-white/95 px-6 py-8 shadow-[0_40px_80px_-50px_rgba(15,23,42,0.6)] transition hover:shadow-[0_50px_100px_-50px_rgba(15,23,42,0.6)] dark:border-dracula-current dark:bg-dracula-bg/95 sm:px-8 lg:px-10 lg:py-10">
               <button
                 type="button"
                 className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full border border-soft-gray-200/80 text-slate-500 transition hover:border-celeste-200 hover:text-slate-700 dark:border-dracula-current dark:text-dracula-comment dark:hover:border-dracula-purple dark:hover:text-dracula-foreground sm:right-6 sm:top-6 sm:h-10 sm:w-10"

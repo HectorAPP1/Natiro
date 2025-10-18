@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Navigate, NavLink, Outlet, useLocation } from "react-router-dom";
+import { useState, useEffect, useMemo } from "react";
+import { Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
@@ -22,15 +22,46 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useCompanyMembers } from "../hooks/useCompanyMembers";
+import { createDefaultCompanySettings, type AccessModule, type AccessRole } from "../types/company";
 import ThemeToggle from "../components/ThemeToggle";
 
 export default function ProtectedLayout() {
   const { user, loading, signOutUser } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const [currentTipIndex, setCurrentTipIndex] = useState(0);
   const [eppMenuOpen, setEppMenuOpen] = useState(false);
+  const {
+    members,
+    loading: membersLoading,
+  } = useCompanyMembers();
+
+  const roleDefaults = useMemo(
+    () => createDefaultCompanySettings().access.roleDefaults,
+    []
+  );
+
+  const normalizedEmail = user?.email?.toLowerCase() ?? null;
+
+  const activeMember = useMemo(() => {
+    if (!normalizedEmail) {
+      return undefined;
+    }
+    return members.find(
+      (member) => member.email.toLowerCase() === normalizedEmail
+    );
+  }, [members, normalizedEmail]);
+
+  const resolvedRole: AccessRole = activeMember?.role ?? "Administrador";
+
+  const allowedModules = useMemo<AccessModule[]>(() => {
+    return activeMember?.modules ?? roleDefaults[resolvedRole] ?? [];
+  }, [activeMember, resolvedRole, roleDefaults]);
+
+  const allowedModuleSet = useMemo(() => new Set(allowedModules), [allowedModules]);
 
   // Categorías y contenido HSE - Mezclados para variedad
   const hseContent = [
@@ -300,31 +331,118 @@ export default function ProtectedLayout() {
     icon: LucideIcon;
     to?: string;
     soon?: boolean;
-    subItems?: { label: string; to: string; icon: LucideIcon }[];
+    module?: AccessModule;
+    subItems?: {
+      label: string;
+      to: string;
+      icon: LucideIcon;
+      module?: AccessModule;
+    }[];
   };
 
-  const navigation: NavigationItem[] = [
-    { 
-      label: "EPP", 
-      icon: HardHat,
-      subItems: [
-        { label: "Inventario", to: "/epp", icon: Package },
-        { label: "Entregas", to: "/epp/entregas", icon: Truck },
-      ]
-    },
-    { label: "Trabajadores", to: "/trabajadores", icon: Users },
-    {
-      label: "Inspecciones",
-      to: "/inspecciones",
-      icon: ClipboardCheck,
-      soon: true,
-    },
-    { label: "Capacitaciones", to: "/capacitaciones", icon: Users, soon: true },
-    { label: "Riesgos", to: "/riesgos", icon: AlertTriangle, soon: true },
-    { label: "Protocolos", to: "/protocolos", icon: ShieldCheck, soon: true },
-    { label: "Reportes", to: "/reportes", icon: Layers, soon: true },
-    { label: "Configuración", to: "/configuracion", icon: Settings },
-  ];
+  const navigation: NavigationItem[] = useMemo(
+    () => [
+      {
+        label: "EPP",
+        icon: HardHat,
+        module: "epp",
+        subItems: [
+          { label: "Inventario", to: "/epp", icon: Package, module: "epp" },
+          {
+            label: "Entregas",
+            to: "/epp/entregas",
+            icon: Truck,
+            module: "epp",
+          },
+        ],
+      },
+      {
+        label: "Trabajadores",
+        to: "/trabajadores",
+        icon: Users,
+        module: "trabajadores",
+      },
+      {
+        label: "Inspecciones",
+        to: "/inspecciones",
+        icon: ClipboardCheck,
+        soon: true,
+        module: "inspecciones",
+      },
+      {
+        label: "Capacitaciones",
+        to: "/capacitaciones",
+        icon: Users,
+        soon: true,
+        module: "capacitaciones",
+      },
+      {
+        label: "Riesgos",
+        to: "/riesgos",
+        icon: AlertTriangle,
+        soon: true,
+        module: "riesgos",
+      },
+      {
+        label: "Protocolos",
+        to: "/protocolos",
+        icon: ShieldCheck,
+        soon: true,
+        module: "protocolos",
+      },
+      {
+        label: "Reportes",
+        to: "/reportes",
+        icon: Layers,
+        soon: true,
+        module: "reportes",
+      },
+      {
+        label: "Configuración",
+        to: "/configuracion",
+        icon: Settings,
+        module: "configuracion",
+      },
+    ],
+    []
+  );
+
+  const filteredNavigation = useMemo(() => {
+    const filterItems = (items: NavigationItem[]): NavigationItem[] => {
+      const result: NavigationItem[] = [];
+      items.forEach((item) => {
+        if (item.subItems && item.subItems.length > 0) {
+          const filteredSubItems = item.subItems.filter((subItem) =>
+            allowedModuleSet.has(subItem.module ?? item.module ?? "dashboard")
+          );
+
+          if (filteredSubItems.length > 0) {
+            result.push({ ...item, subItems: filteredSubItems });
+          }
+          return;
+        }
+
+        if (!item.to) {
+          return;
+        }
+
+        const moduleKey = item.module ?? "dashboard";
+        if (allowedModuleSet.has(moduleKey)) {
+          result.push(item);
+        }
+      });
+
+      return result;
+    };
+
+    return filterItems(navigation);
+  }, [navigation, allowedModuleSet]);
+
+  useEffect(() => {
+    if (!filteredNavigation.some((item) => item.label === "EPP")) {
+      setEppMenuOpen(false);
+    }
+  }, [filteredNavigation]);
 
   const getSectionTitle = () => {
     const { pathname } = location;
@@ -364,8 +482,11 @@ export default function ProtectedLayout() {
     return "Panel HSE";
   };
 
-  const renderNavigation = (onNavigate?: () => void) =>
-    navigation.map((item) => {
+  const renderNavigation = (
+    items: NavigationItem[],
+    onNavigate?: () => void
+  ) =>
+    items.map((item) => {
       const Icon = item.icon;
       const hasSubItems = item.subItems && item.subItems.length > 0;
       const isAnySubItemActive = hasSubItems && item.subItems!.some(sub => location.pathname === sub.to);
@@ -489,8 +610,89 @@ export default function ProtectedLayout() {
     );
   }
 
+  if (membersLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-soft-gray-50">
+        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-mint-300" />
+      </div>
+    );
+  }
+
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  const mapPathToModule = (path: string): AccessModule => {
+    if (path.startsWith("/epp")) return "epp";
+    if (path.startsWith("/trabajadores")) return "trabajadores";
+    if (path.startsWith("/configuracion")) return "configuracion";
+    if (path.startsWith("/reportes")) return "reportes";
+    if (path.startsWith("/inspecciones")) return "inspecciones";
+    if (path.startsWith("/capacitaciones")) return "capacitaciones";
+    if (path.startsWith("/riesgos")) return "riesgos";
+    if (path.startsWith("/protocolos")) return "protocolos";
+    return "dashboard";
+  };
+
+  const currentModule = mapPathToModule(location.pathname);
+  const hasAccessToCurrent = allowedModuleSet.has(currentModule);
+
+  const findFirstRoute = (items: NavigationItem[]): string | null => {
+    for (const item of items) {
+      if (item.subItems && item.subItems.length > 0) {
+        const subRoute = item.subItems[0]?.to;
+        if (subRoute) {
+          return subRoute;
+        }
+      } else if (item.to) {
+        return item.to;
+      }
+    }
+    return null;
+  };
+
+  const defaultRoute = findFirstRoute(filteredNavigation) ?? "/epp";
+  const defaultRouteModule = mapPathToModule(defaultRoute);
+  const hasFallbackRoute = allowedModuleSet.has(defaultRouteModule);
+
+  if (!hasAccessToCurrent) {
+    if (hasFallbackRoute && location.pathname !== defaultRoute) {
+      return <Navigate to={defaultRoute} replace />;
+    }
+
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-soft-gray-50">
+        <div className="flex flex-col gap-4 rounded-3xl border border-soft-gray-200 bg-white px-8 py-6 text-center shadow-lg dark:border-dracula-current/60 dark:bg-dracula-bg">
+          <h2 className="text-lg font-semibold text-slate-800 dark:text-dracula-foreground">
+            No tienes permisos para acceder a esta sección
+          </h2>
+          <p className="mt-2 text-sm text-slate-500 dark:text-dracula-comment">
+            Comunícate con un administrador para solicitar acceso.
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            {hasFallbackRoute ? (
+              <button
+                type="button"
+                onClick={() => navigate(defaultRoute, { replace: true })}
+                className="inline-flex items-center gap-2 rounded-full border border-celeste-200/70 bg-white px-4 py-2 text-sm font-semibold text-celeste-500 transition hover:border-celeste-300 hover:bg-celeste-50"
+              >
+                Ir a sección permitida
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={async () => {
+                await signOutUser();
+                navigate("/login", { replace: true });
+              }}
+              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-slate-800 to-slate-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:shadow-md"
+            >
+              Cerrar sesión
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -534,7 +736,7 @@ export default function ProtectedLayout() {
               </>
             )}
           </div>
-          <nav className="space-y-2">{renderNavigation()}</nav>
+          <nav className="space-y-2">{renderNavigation(filteredNavigation)}</nav>
         </div>
         {desktopCollapsed ? null : (
           <div className="rounded-2xl border border-white/70 bg-white/80 px-4 py-3 text-xs text-slate-500 shadow-sm backdrop-blur dark:border-dracula-current/50 dark:bg-dracula-current/30">
@@ -661,7 +863,7 @@ export default function ProtectedLayout() {
               </div>
             </div>
             <nav className="flex-1 space-y-1.5">
-              {renderNavigation(() => setSidebarOpen(false))}
+              {renderNavigation(filteredNavigation, () => setSidebarOpen(false))}
             </nav>
             <div className="mt-8 rounded-2xl border border-soft-gray-200/70 bg-soft-gray-50/80 px-4 py-3 text-xs text-slate-500 shadow-sm dark:border-dracula-current/50 dark:bg-dracula-current/30">
               <div className="flex items-center gap-2 mb-2">

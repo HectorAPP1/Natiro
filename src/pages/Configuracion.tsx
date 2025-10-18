@@ -14,11 +14,18 @@ import {
   Loader2,
   Users,
   BarChart2,
+  FileText,
+  ShieldCheck,
+  Trash2,
+  UserPlus,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { usePushNotifications } from "../hooks/usePushNotifications";
 import { useCompanySettings } from "../hooks/useCompanySettings";
+import { useCompanyMembers } from "../hooks/useCompanyMembers";
 import type {
+  AccessModule,
+  AccessRole,
   CompanyRepresentative,
   CompanySettings,
   CompanySettingsSection,
@@ -69,6 +76,15 @@ export default function Configuracion() {
     error: settingsError,
     save,
   } = useCompanySettings();
+  const {
+    members,
+    loading: membersLoading,
+    error: membersError,
+    inviteMember,
+    updateMemberRole,
+    updateMemberModules,
+    removeMember,
+  } = useCompanyMembers();
   const [companySettings, setCompanySettings] = useState<CompanySettings>(
     () => createDefaultCompanySettings()
   );
@@ -81,12 +97,101 @@ export default function Configuracion() {
   const [message, setMessage] = useState(
     "Tienes 3 equipos con stock bajo. Abre Clodi App para revisar tu inventario."
   );
+  const [inviting, setInviting] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [newMemberEmail, setNewMemberEmail] = useState("");
+  const [newMemberRole, setNewMemberRole] = useState<AccessRole>("Editor");
+  const [newMemberModules, setNewMemberModules] = useState<AccessModule[]>([]);
+
+  const defaultRoleModules = useMemo(
+    () => createDefaultCompanySettings().access.roleDefaults,
+    []
+  );
 
   useEffect(() => {
     if (remoteSettings) {
-      setCompanySettings(remoteSettings);
+      const defaults = createDefaultCompanySettings();
+      setCompanySettings({
+        ...defaults,
+        ...remoteSettings,
+        general: {
+          ...defaults.general,
+          ...remoteSettings.general,
+        },
+        representatives: {
+          ...defaults.representatives,
+          ...remoteSettings.representatives,
+        },
+        healthAndSafety: {
+          ...defaults.healthAndSafety,
+          ...remoteSettings.healthAndSafety,
+        },
+        workforce: {
+          ...defaults.workforce,
+          ...remoteSettings.workforce,
+        },
+        documents: {
+          ...defaults.documents,
+          ...remoteSettings.documents,
+        },
+        access: {
+          ...defaults.access,
+          ...remoteSettings.access,
+          members:
+            remoteSettings.access?.members?.map((member) => ({
+              ...member,
+              modules: member.modules ?? defaults.access.roleDefaults[member.role] ?? [],
+            })) ?? defaults.access.members,
+          roleDefaults:
+            remoteSettings.access?.roleDefaults ?? defaults.access.roleDefaults,
+        },
+      });
+    } else {
+      setCompanySettings((prev) => ({
+        ...prev,
+        access: {
+          ...prev.access,
+          members:
+            prev.access.members.map((member) => ({
+              ...member,
+              modules: member.modules ?? prev.access.roleDefaults[member.role] ?? [],
+            })) ?? [],
+        },
+      }));
     }
   }, [remoteSettings]);
+
+  useEffect(() => {
+    setNewMemberModules(defaultRoleModules[newMemberRole]);
+  }, [defaultRoleModules, newMemberRole]);
+
+  const roleOrder: AccessRole[] = useMemo(
+    () => ["Administrador", "Editor", "Comentarista", "Lector"],
+    []
+  );
+
+  const membersByRole = useMemo(() => {
+    return members.reduce(
+      (acc, member) => {
+        acc[member.role] = (acc[member.role] ?? 0) + 1;
+        return acc;
+      },
+      {} as Record<AccessRole, number>
+    );
+  }, [members]);
+
+  useEffect(() => {
+    setCompanySettings((prev) => ({
+      ...prev,
+      access: {
+        ...prev.access,
+        members: members.map((member) => ({
+          ...member,
+          modules: member.modules ?? defaultRoleModules[member.role] ?? [],
+        })),
+      },
+    }));
+  }, [members, defaultRoleModules]);
 
   const handleGeneralChange = <
     K extends keyof CompanySettings["general"]
@@ -147,6 +252,85 @@ export default function Configuracion() {
         },
       },
     }));
+  };
+
+  const handleDocumentsChange = <K extends keyof CompanySettings["documents"]>(
+    field: K,
+    value: CompanySettings["documents"][K]
+  ) => {
+    setCompanySettings((prev) => ({
+      ...prev,
+      documents: {
+        ...prev.documents,
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleAccessMemberRoleChange = async (
+    memberId: string,
+    role: AccessRole
+  ) => {
+    setActionError(null);
+    try {
+      await updateMemberRole({ id: memberId, role });
+    } catch (error) {
+      console.error("Error al actualizar el rol del miembro", error);
+      setActionError("No se pudo actualizar el rol. Intenta nuevamente.");
+    }
+  };
+
+  const handleAccessMemberModulesToggle = async (
+    memberId: string,
+    module: AccessModule,
+    enabled: boolean
+  ) => {
+    setActionError(null);
+    const member = members.find((item) => item.id === memberId);
+    if (!member) {
+      return;
+    }
+    const modules = enabled
+      ? Array.from(new Set([...member.modules, module]))
+      : member.modules.filter((m) => m !== module);
+    try {
+      await updateMemberModules({ id: memberId, modules });
+    } catch (error) {
+      console.error("Error al actualizar permisos del miembro", error);
+      setActionError("No se pudieron cambiar los permisos. Intenta nuevamente.");
+    }
+  };
+
+  const handleRemoveAccessMember = async (memberId: string) => {
+    setActionError(null);
+    try {
+      await removeMember(memberId);
+    } catch (error) {
+      console.error("Error al eliminar miembro", error);
+      setActionError("No se pudo eliminar el miembro.");
+    }
+  };
+
+  const handleAddAccessMember = async () => {
+    if (!newMemberEmail.trim()) {
+      return;
+    }
+    setInviting(true);
+    setActionError(null);
+    try {
+      await inviteMember({
+        email: newMemberEmail,
+        role: newMemberRole,
+        modules: newMemberModules,
+      });
+      setNewMemberEmail("");
+      setNewMemberModules(defaultRoleModules[newMemberRole]);
+    } catch (error) {
+      console.error("Error al invitar nuevo miembro", error);
+      setActionError("No se pudo enviar la invitación. Verifica el correo.");
+    } finally {
+      setInviting(false);
+    }
   };
 
   const handleISO45001Change = <
@@ -374,6 +558,14 @@ export default function Configuracion() {
       companySettings.workforce.accidentSeverityRate
     )}`;
 
+    const documentsSummary = `📄 Política: ${
+      companySettings.documents.occupationalHealthPolicy
+        ? "Cargada"
+        : "Pendiente"
+    } • 🧯 Emergencia: ${
+      companySettings.documents.emergencyPlan ? "Cargado" : "Pendiente"
+    }`;
+
     return [
       {
         key: "general",
@@ -541,6 +733,46 @@ export default function Configuracion() {
             label: "Editar",
             variant: "primary",
             openSectionKey: "workforce",
+          },
+        ],
+      },
+      {
+        key: "documents",
+        title: "Documentos clave",
+        description: "Planes y políticas esenciales para la operación",
+        icon: FileText,
+        summary: documentsSummary,
+        quickInfo: [
+          {
+            label: "Política SST",
+            icon: "📄",
+            value:
+              companySettings.documents.occupationalHealthPolicy ||
+              "Pendiente",
+          },
+          {
+            label: "Plan emergencia",
+            icon: "🧯",
+            value:
+              companySettings.documents.emergencyPlan ||
+              "Pendiente",
+          },
+          {
+            label: "Matriz riesgos",
+            icon: "⚠️",
+            value: companySettings.documents.riskMatrix || "Pendiente",
+          },
+        ],
+        actions: [
+          {
+            label: "Ver datos",
+            variant: "secondary",
+            openSectionKey: "documents",
+          },
+          {
+            label: "Editar",
+            variant: "primary",
+            openSectionKey: "documents",
           },
         ],
       },
@@ -1291,6 +1523,287 @@ export default function Configuracion() {
       </div>
     );
 
+  const renderDocumentsModal = () =>
+    renderModal(
+      "Documentos clave",
+      "Carga y mantén actualizados tus principales documentos de seguridad y operación.",
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="rounded-xl border border-soft-gray-200/70 bg-white p-4 dark:border-dracula-current dark:bg-dracula-current">
+          <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-comment">
+            Política de SST 📄
+          </label>
+          <p className="text-xs text-slate-500 dark:text-dracula-comment">
+            Describe el compromiso de la empresa con la seguridad y salud en el trabajo (SST).
+          </p>
+          <textarea
+            value={companySettings.documents.occupationalHealthPolicy}
+            onChange={(event) =>
+              handleDocumentsChange(
+                "occupationalHealthPolicy",
+                event.target.value
+              )
+            }
+            rows={4}
+            className="mt-3 w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-selection dark:bg-dracula-bg dark:text-dracula-foreground"
+            placeholder="Indica dónde está almacenada o un enlace directo"
+          />
+        </div>
+        <div className="rounded-xl border border-soft-gray-200/70 bg-white p-4 dark:border-dracula-current dark:bg-dracula-current">
+          <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-comment">
+            Plan de emergencia 🧯
+          </label>
+          <p className="text-xs text-slate-500 dark:text-dracula-comment">
+            Incluye procedimientos para actuar ante incendios, sismos u otras emergencias.
+          </p>
+          <textarea
+            value={companySettings.documents.emergencyPlan}
+            onChange={(event) =>
+              handleDocumentsChange("emergencyPlan", event.target.value)
+            }
+            rows={4}
+            className="mt-3 w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-selection dark:bg-dracula-bg dark:text-dracula-foreground"
+            placeholder="Enlace o ubicación interna del plan"
+          />
+        </div>
+        <div className="rounded-xl border border-soft-gray-200/70 bg-white p-4 dark:border-dracula-current dark:bg-dracula-current">
+          <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-comment">
+            Matriz de riesgos ⚠️
+          </label>
+          <p className="text-xs text-slate-500 dark:text-dracula-comment">
+            Detalla los peligros identificados y las medidas de control vigentes.
+          </p>
+          <textarea
+            value={companySettings.documents.riskMatrix}
+            onChange={(event) =>
+              handleDocumentsChange("riskMatrix", event.target.value)
+            }
+            rows={4}
+            className="mt-3 w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-selection dark:bg-dracula-bg dark:text-dracula-foreground"
+            placeholder="Nombre del archivo o link a la carpeta"
+          />
+        </div>
+        <div className="rounded-xl border border-soft-gray-200/70 bg-white p-4 dark:border-dracula-current dark:bg-dracula-current">
+          <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-comment">
+            Programa de inducción 📘
+          </label>
+          <p className="text-xs text-slate-500 dark:text-dracula-comment">
+            Contiene el material para capacitar a nuevos colaboradores y contratistas.
+          </p>
+          <textarea
+            value={companySettings.documents.inductionProgram}
+            onChange={(event) =>
+              handleDocumentsChange("inductionProgram", event.target.value)
+            }
+            rows={4}
+            className="mt-3 w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-selection dark:bg-dracula-bg dark:text-dracula-foreground"
+            placeholder="Ruta o link de la documentación"
+          />
+        </div>
+        <div className="rounded-xl border border-soft-gray-200/70 bg-white p-4 dark:border-dracula-current dark:bg-dracula-current md:col-span-2">
+          <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-comment">
+            Plan de control de contratistas 🤝
+          </label>
+          <p className="text-xs text-slate-500 dark:text-dracula-comment">
+            Describe los requisitos y seguimiento para empresas contratistas.
+          </p>
+          <textarea
+            value={companySettings.documents.contractorControlPlan}
+            onChange={(event) =>
+              handleDocumentsChange(
+                "contractorControlPlan",
+                event.target.value
+              )
+            }
+            rows={4}
+            className="mt-3 w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark-border-dracula-selection dark:bg-dracula-bg dark-text-dracula-foreground"
+            placeholder="Link a repositorio o carpeta compartida"
+          />
+        </div>
+      </div>
+    );
+
+  const accessModules: { id: AccessModule; label: string; description: string }[] = [
+    { id: "dashboard", label: "Panel", description: "Resumen general y métricas." },
+    { id: "epp", label: "EPP", description: "Gestión de equipos de protección personal." },
+    { id: "trabajadores", label: "Trabajadores", description: "Información y seguimiento del personal." },
+    { id: "configuracion", label: "Configuraciones", description: "Ajustes de la empresa y modales." },
+    { id: "documentos", label: "Documentos", description: "Repositorio de políticas y planes." },
+    { id: "reportes", label: "Reportes", description: "Indicadores y estadísticas avanzadas." },
+    { id: "inspecciones", label: "Inspecciones", description: "Módulo de inspecciones y hallazgos." },
+    { id: "capacitaciones", label: "Capacitaciones", description: "Formaciones y entrenamientos." },
+    { id: "riesgos", label: "Riesgos", description: "Gestión de riesgos y matrices." },
+    { id: "protocolos", label: "Protocolos", description: "Protocolos HSE y procedimientos." },
+    { id: "proximamente", label: "Próximamente", description: "Módulos en desarrollo." },
+  ];
+
+  const renderAccessModal = () =>
+    renderModal(
+      "Gestionar acceso",
+      "Invita colaboradores y asigna permisos por módulo.",
+      <div className="space-y-6">
+        <div className="rounded-xl border border-soft-gray-200/70 bg-white p-4 dark:border-dracula-current dark:bg-dracula-current">
+          <h3 className="text-sm font-semibold text-slate-700 dark:text-dracula-foreground">
+            Invitar nuevo miembro 👤
+          </h3>
+          <p className="mt-1 text-xs text-slate-500 dark:text-dracula-comment">
+            Envía una invitación indicando correo y rol inicial. Podrás ajustar los módulos después.
+          </p>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <input
+              type="email"
+              value={newMemberEmail}
+              onChange={(event) => setNewMemberEmail(event.target.value)}
+              placeholder="correo@empresa.cl"
+              className="md:col-span-2 w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-selection dark:bg-dracula-bg dark:text-dracula-foreground"
+            />
+            <select
+              value={newMemberRole}
+              onChange={(event) => setNewMemberRole(event.target.value as AccessRole)}
+              className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-selection dark:bg-dracula-bg dark:text-dracula-foreground"
+            >
+              <option value="Administrador">Administrador</option>
+              <option value="Editor">Editor</option>
+              <option value="Comentarista">Comentarista</option>
+              <option value="Lector">Lector</option>
+            </select>
+            <div className="md:col-span-3 flex flex-wrap gap-2">
+              {accessModules.map((module) => {
+                const selected = newMemberModules.includes(module.id);
+                const isAdminRole = newMemberRole === "Administrador";
+                return (
+                  <button
+                    key={module.id}
+                    type="button"
+                    onClick={() => {
+                      if (isAdminRole) {
+                        return;
+                      }
+                      setNewMemberModules((prev) => {
+                        const exists = prev.includes(module.id);
+                        if (exists) {
+                          return prev.filter((item) => item !== module.id);
+                        }
+                        return [...prev, module.id];
+                      });
+                    }}
+                    disabled={isAdminRole}
+                    className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                      selected
+                        ? "border-purple-300 bg-purple-100 text-purple-700 dark:border-purple-500/60 dark:bg-purple-500/20 dark:text-purple-200"
+                        : "border-soft-gray-300 text-slate-500 hover:border-purple-200 hover:bg-purple-50"
+                    } ${isAdminRole ? "cursor-not-allowed opacity-60" : ""}`}
+                  >
+                    {module.label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="md:col-span-3 flex justify-end">
+              <button
+                type="button"
+                onClick={handleAddAccessMember}
+                disabled={inviting}
+                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-celeste-500 to-mint-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <UserPlus className="h-4 w-4" />
+                {inviting ? "Invitando..." : "Invitar"}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-soft-gray-200/70 bg-white p-4 dark:border-dracula-current dark:bg-dracula-current">
+          <h3 className="text-sm font-semibold text-slate-700 dark:text-dracula-foreground">
+            Miembros actuales 👥
+          </h3>
+          {membersLoading ? (
+            <p className="mt-3 text-sm text-slate-500 dark:text-dracula-comment">
+              Cargando usuarios...
+            </p>
+          ) : members.length === 0 ? (
+            <p className="mt-3 text-sm text-slate-500 dark:text-dracula-comment">
+              Aún no hay miembros asignados. Invita a tu equipo para empezar.
+            </p>
+          ) : (
+            <div className="mt-4 space-y-4">
+              {members.map((member) => (
+                <div
+                  key={member.id}
+                  className="rounded-lg border border-soft-gray-200/70 bg-white p-3 dark:border-dracula-selection dark:bg-dracula-bg"
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-700 dark:text-dracula-foreground">
+                        {member.displayName}
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-dracula-comment">
+                        {member.email}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={member.role}
+                        onChange={(event) =>
+                          handleAccessMemberRoleChange(member.id, event.target.value as AccessRole)
+                        }
+                        className="rounded-lg border border-soft-gray-200/70 bg-white px-2 py-1 text-xs text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-selection dark:bg-dracula-bg dark:text-dracula-foreground"
+                      >
+                        <option value="Administrador">Administrador</option>
+                        <option value="Editor">Editor</option>
+                        <option value="Comentarista">Comentarista</option>
+                        <option value="Lector">Lector</option>
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveAccessMember(member.id)}
+                        className="rounded-full border border-red-200 p-1 text-red-400 transition hover:bg-red-50 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/10"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {accessModules.map((module) => {
+                      const enabled = member.modules.includes(module.id);
+                      const isAdminMember = member.role === "Administrador";
+                      return (
+                        <label
+                          key={`${member.id}-${module.id}`}
+                          className={`flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-medium ${
+                            enabled
+                              ? "border-celeste-300 bg-celeste-100 text-celeste-700 dark:border-celeste-500/40 dark:bg-celeste-500/15 dark:text-celeste-200"
+                              : "border-soft-gray-300 text-slate-500 dark:border-dracula-selection dark:text-dracula-comment"
+                          } ${isAdminMember ? "opacity-70" : ""}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={enabled}
+                            disabled={isAdminMember}
+                            onChange={(event) =>
+                              handleAccessMemberModulesToggle(
+                                member.id,
+                                module.id,
+                                event.target.checked
+                              )
+                            }
+                            className="h-3 w-3 rounded border-soft-gray-300 text-celeste-500 focus:ring-celeste-200 dark:border-dracula-selection dark:bg-dracula-bg"
+                          />
+                          {module.label}
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-2 text-[11px] text-slate-400 dark:text-dracula-comment">
+                    Invitado el {new Date(member.invitedAt).toLocaleDateString()} por {member.invitedBy || "Administrador"}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+
   const renderWorkforceModal = () =>
     renderModal(
       "Perfil de dotación",
@@ -1767,31 +2280,157 @@ export default function Configuracion() {
               </div>
             </div>
           ))}
+          <div className="rounded-2xl border border-soft-gray-200/70 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-celeste-200 hover:shadow-md dark:border-dracula-current dark:bg-dracula-bg">
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-purple-500/15 to-pink-500/15 text-purple-500 dark:from-purple-500/20 dark:to-pink-500/20 dark:text-purple-300">
+                <Bell className="h-6 w-6" />
+              </div>
+              <div className="flex-1">
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-dracula-foreground">
+                  Notificaciones Push
+                </h2>
+                <p className="mt-1 text-sm text-slate-500 dark:text-dracula-comment">
+                  Envía notificaciones personalizadas a todos los usuarios de la aplicación
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              {quickMessages.slice(0, 3).map((msg) => (
+                <button
+                  key={msg.title}
+                  onClick={() => {
+                    setTitle(msg.title);
+                    setMessage(msg.message);
+                    setShowModal(true);
+                  }}
+                  className="rounded-xl border border-purple-100/70 bg-purple-50/60 p-3 text-left text-xs text-purple-700 transition hover:border-purple-300 hover:bg-purple-100/70 dark:border-purple-500/30 dark:bg-purple-500/10 dark:text-purple-200 dark:hover:border-purple-300/60 dark:hover:bg-purple-500/20"
+                >
+                  <p className="font-semibold">{msg.title}</p>
+                  <p className="mt-1 text-[11px] text-purple-600/80 dark:text-purple-200/80">
+                    {msg.message}
+                  </p>
+                </button>
+              ))}
+            </div>
+            <div className="mt-6 flex sm:justify-end">
+              <button
+                onClick={() => setShowModal(true)}
+                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 px-6 py-3 text-sm font-semibold text-white shadow-md transition hover:shadow-lg"
+              >
+                <Send className="h-4 w-4" />
+                Enviar Notificación
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Sección de Notificaciones */}
       <div className="rounded-2xl border border-soft-gray-200/70 bg-white p-6 shadow-sm dark:border-dracula-current dark:bg-dracula-bg">
-        <div className="flex items-start gap-4">
-          <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-purple-500/20 to-pink-500/20">
-            <Bell className="h-6 w-6 text-purple-500 dark:text-purple-400" />
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-purple-500/20 to-celeste-500/20 text-purple-500 dark:from-purple-500/20 dark:to-celeste-500/20 dark:text-purple-200">
+              <ShieldCheck className="h-6 w-6" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-dracula-foreground">
+                Gestionar acceso
+              </h2>
+              <p className="mt-1 text-sm text-slate-500 dark:text-dracula-comment">
+                Controla roles, invitaciones y permisos por módulo para cada miembro del equipo.
+              </p>
+            </div>
           </div>
-          <div className="flex-1">
-            <h2 className="text-lg font-semibold text-slate-800 dark:text-dracula-foreground">
-              Notificaciones Push
-            </h2>
-            <p className="mt-1 text-sm text-slate-500 dark:text-dracula-comment">
-              Envía notificaciones personalizadas a todos los usuarios de la
-              aplicación
+          <button
+            onClick={() => openSection("access")}
+            className="inline-flex items-center gap-2 self-start rounded-full bg-gradient-to-r from-celeste-500 to-mint-500 px-5 py-2.5 text-sm font-semibold text-white shadow-md transition hover:shadow-lg"
+          >
+            <ShieldCheck className="h-4 w-4" />
+            Administrar
+          </button>
+        </div>
+
+        {membersError && (
+          <p className="mt-3 text-sm text-red-500 dark:text-red-300">
+            {membersError}
+          </p>
+        )}
+        {actionError && (
+          <p className="mt-3 text-sm text-red-500 dark:text-red-300">
+            {actionError}
+          </p>
+        )}
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-4">
+          <div className="rounded-xl border border-soft-gray-200/70 bg-soft-gray-50/70 p-3 dark:border-dracula-selection dark:bg-dracula-bg/60">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-dracula-comment">
+              Total usuarios
             </p>
-            <button
-              onClick={() => setShowModal(true)}
-              className="mt-4 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 px-6 py-3 text-sm font-semibold text-white shadow-md transition hover:shadow-lg"
-            >
-              <Send className="h-4 w-4" />
-              Enviar Notificación
-            </button>
+            <p className="mt-1 text-xl font-semibold text-slate-800 dark:text-dracula-foreground">
+              {members.length}
+            </p>
           </div>
+          {roleOrder.map((role) => (
+            <div
+              key={role}
+              className="rounded-xl border border-soft-gray-200/70 bg-soft-gray-50/70 p-3 dark:border-dracula-selection dark:bg-dracula-bg/60"
+            >
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-dracula-comment">
+                {role}
+              </p>
+              <p className="mt-1 text-xl font-semibold text-slate-800 dark:text-dracula-foreground">
+                {membersByRole[role] ?? 0}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-6">
+          <h3 className="text-sm font-semibold text-slate-700 dark:text-dracula-foreground">
+            Miembros recientes
+          </h3>
+          {membersLoading ? (
+            <p className="mt-2 text-sm text-slate-500 dark:text-dracula-comment">
+              Cargando usuarios...
+            </p>
+          ) : members.length === 0 ? (
+            <p className="mt-2 text-sm text-slate-500 dark:text-dracula-comment">
+              Todavía no hay integrantes registrados. Invita a tu equipo para comenzar.
+            </p>
+          ) : (
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              {members.slice(0, 4).map((member) => (
+                <div
+                  key={member.id}
+                  className="rounded-xl border border-soft-gray-200/70 bg-white p-3 dark:border-dracula-selection dark:bg-dracula-bg"
+                >
+                  <p className="text-sm font-semibold text-slate-700 dark:text-dracula-foreground">
+                    {member.displayName}
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-dracula-comment">
+                    {member.email}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    <span className="inline-flex items-center rounded-full bg-celeste-100 px-2 py-0.5 text-[11px] font-semibold text-celeste-700 dark:bg-celeste-500/20 dark:text-celeste-200">
+                      {member.role}
+                    </span>
+                    {member.modules.slice(0, 3).map((module) => (
+                      <span
+                        key={`${member.id}-${module}`}
+                        className="inline-flex items-center rounded-full border border-soft-gray-200/70 px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:border-dracula-selection dark:text-dracula-comment"
+                      >
+                        {module}
+                      </span>
+                    ))}
+                    {member.modules.length > 3 && (
+                      <span className="inline-flex items-center rounded-full border border-soft-gray-200/70 px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:border-dracula-selection dark:text-dracula-comment">
+                        +{member.modules.length - 3}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -1920,6 +2559,9 @@ export default function Configuracion() {
       {activeSection === "representatives" && renderRepresentativesModal()}
       {activeSection === "healthAndSafety" && renderHealthAndSafetyModal()}
       {activeSection === "workforce" && renderWorkforceModal()}
+      {activeSection === "documents" && renderDocumentsModal()}
+      {activeSection === "access" && renderAccessModal()}
+
     </div>
   );
 }
