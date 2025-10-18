@@ -269,7 +269,7 @@ export default function EppEntregas() {
     updateEntrega,
     deleteEntrega,
   } = useEppEntregasFirestore();
-  const { canManageModule } = useAccessControl();
+  const { canManageModule, role } = useAccessControl();
   const canManageDeliveries = canManageModule("epp");
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -279,7 +279,7 @@ export default function EppEntregas() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
-  const canDeleteDeliveries = canManageDeliveries;
+  const canDeleteDeliveries = canManageDeliveries && role !== "Comentarista";
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formState, setFormState] = useState<FormState>(initialFormState);
