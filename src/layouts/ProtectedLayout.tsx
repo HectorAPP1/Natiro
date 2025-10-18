@@ -5,8 +5,6 @@ import {
   AlertTriangle,
   ClipboardCheck,
   HardHat,
-  ChevronsLeft,
-  ChevronsRight,
   Layers,
   Menu,
   Settings,
@@ -20,6 +18,11 @@ import {
   Truck,
   Package,
   ChevronDown,
+  ShieldQuestion,
+  UserCog,
+  User,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useCompanyMembers } from "../hooks/useCompanyMembers";
@@ -33,7 +36,9 @@ export default function ProtectedLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const [currentTipIndex, setCurrentTipIndex] = useState(0);
-  const [eppMenuOpen, setEppMenuOpen] = useState(false);
+  const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
+  const [roleDialogOpen, setRoleDialogOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const {
     members,
     loading: membersLoading,
@@ -62,6 +67,79 @@ export default function ProtectedLayout() {
   }, [activeMember, resolvedRole, roleDefaults]);
 
   const allowedModuleSet = useMemo(() => new Set(allowedModules), [allowedModules]);
+
+  const roleDescriptions: Record<AccessRole, { title: string; capabilities: string[] }> = {
+    Administrador: {
+      title: "Administrador",
+      capabilities: [
+        "Acceso total a los módulos habilitados",
+        "Puede crear, editar y eliminar registros",
+        "Gestiona configuración y miembros de la empresa",
+      ],
+    },
+    Editor: {
+      title: "Editor",
+      capabilities: [
+        "Puede administrar datos dentro de los módulos asignados",
+        "Puede crear y actualizar registros",
+        "Puede eliminar cuando el módulo lo permite",
+      ],
+    },
+    Comentarista: {
+      title: "Comentarista",
+      capabilities: [
+        "Puede revisar información y dejar comentarios",
+        "No puede eliminar registros",
+        "Dependiendo del módulo, puede editar registros específicos",
+      ],
+    },
+    Lector: {
+      title: "Lector",
+      capabilities: [
+        "Acceso solo de lectura a los módulos asignados",
+        "Puede exportar información cuando el módulo lo permita",
+        "No puede crear ni modificar registros",
+      ],
+    },
+  };
+
+  const roleInfo = roleDescriptions[resolvedRole];
+
+  const defaultRoleAvatars: Record<AccessRole, string> = useMemo(
+    () => ({
+      Administrador: "👷🏻‍♂️",
+      Editor: "👷🏻‍♂️",
+      Comentarista: "👷🏻‍♀️",
+      Lector: "👀",
+    }),
+    []
+  );
+
+  const headerAvatar = useMemo(() => {
+    if (activeMember?.avatarUrl) {
+      return { type: "image" as const, value: activeMember.avatarUrl };
+    }
+    const emoji = activeMember?.avatarEmoji ?? defaultRoleAvatars[resolvedRole] ?? "🙂";
+    return { type: "emoji" as const, value: emoji };
+  }, [activeMember, defaultRoleAvatars, resolvedRole]);
+
+  useEffect(() => {
+    setUserMenuOpen(false);
+  }, [location.pathname]);
+
+  const roleBadge = (
+    <button
+      type="button"
+      onClick={() => setRoleDialogOpen(true)}
+      className="inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/80 px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-celeste-200 hover:text-slate-800 dark:border-dracula-current/70 dark:bg-dracula-current/30 dark:text-dracula-cyan"
+      aria-haspopup="dialog"
+      aria-expanded={roleDialogOpen}
+    >
+      <ShieldQuestion className="h-4 w-4" />
+      <span className="hidden sm:inline">Rol:</span>
+      <span>{roleInfo.title}</span>
+    </button>
+  );
 
   // Categorías y contenido HSE - Mezclados para variedad
   const hseContent = [
@@ -398,6 +476,12 @@ export default function ProtectedLayout() {
         module: "reportes",
       },
       {
+        label: "Ajustes",
+        to: "/ajustes",
+        icon: UserCog,
+        module: "ajustes",
+      },
+      {
         label: "Configuración",
         to: "/configuracion",
         icon: Settings,
@@ -439,10 +523,10 @@ export default function ProtectedLayout() {
   }, [navigation, allowedModuleSet]);
 
   useEffect(() => {
-    if (!filteredNavigation.some((item) => item.label === "EPP")) {
-      setEppMenuOpen(false);
+    if (!filteredNavigation.some((item) => item.label === openSubmenu)) {
+      setOpenSubmenu(null);
     }
-  }, [filteredNavigation]);
+  }, [filteredNavigation, openSubmenu]);
 
   const getSectionTitle = () => {
     const { pathname } = location;
@@ -475,6 +559,10 @@ export default function ProtectedLayout() {
       return "Reportes HSE";
     }
 
+    if (pathname.startsWith("/ajustes")) {
+      return "Ajustes personales";
+    }
+
     if (pathname.startsWith("/configuracion")) {
       return "Configuración";
     }
@@ -493,21 +581,80 @@ export default function ProtectedLayout() {
 
       // Si tiene sub-items, renderizar menú desplegable
       if (hasSubItems) {
+        const isOpen = openSubmenu === item.label;
+
+        const handleParentClick = () => {
+          setOpenSubmenu((prev) => (prev === item.label ? null : item.label));
+        };
+
+        type SubItem = NonNullable<NavigationItem["subItems"]>[number];
+
+        const renderSubItemLink = (subItem: SubItem) => {
+          const SubIcon = subItem.icon;
+          return (
+            <NavLink
+              key={subItem.label}
+              to={subItem.to}
+              onClick={() => {
+                setOpenSubmenu(null);
+                if (onNavigate) {
+                  onNavigate();
+                }
+              }}
+              className={({ isActive }) => {
+                const activeClasses = isActive
+                  ? "border-celeste-200/80 bg-celeste-50/50 text-slate-800 dark:border-dracula-cyan/50 dark:bg-dracula-cyan/10 dark:text-dracula-cyan"
+                  : "border-transparent text-slate-500 hover:border-celeste-100/60 hover:bg-white/60 hover:text-slate-700 dark:text-dracula-comment/70 dark:hover:border-dracula-cyan/20 dark:hover:bg-dracula-current/30 dark:hover:text-dracula-cyan/80";
+                if (desktopCollapsed) {
+                  return `group flex flex-col items-center justify-center gap-1 rounded-xl border px-3 py-2 text-xs font-medium transition-all ${activeClasses}`;
+                }
+                return `group flex items-center gap-3 rounded-xl border py-2 px-4 text-sm font-medium transition-all ${activeClasses}`;
+              }}
+            >
+              {({ isActive }) => (
+                <>
+                  <SubIcon
+                    className={`h-5 w-5 flex-shrink-0 transition-colors duration-200 ${
+                      isActive
+                        ? "text-celeste-400 dark:text-dracula-cyan"
+                        : "text-celeste-300/70 group-hover:text-celeste-400 dark:text-dracula-cyan/50 dark:group-hover:text-dracula-cyan"
+                    }`}
+                  />
+                  {!desktopCollapsed ? (
+                    <span
+                      className={`flex-1 text-left ${
+                        isActive
+                          ? "text-slate-800 dark:text-dracula-cyan"
+                          : "text-slate-700 dark:text-dracula-cyan/70"
+                      }`}
+                    >
+                      {subItem.label}
+                    </span>
+                  ) : null}
+                </>
+              )}
+            </NavLink>
+          );
+        };
+
         return (
-          <div key={item.label} className="space-y-1">
+          <div
+            key={item.label}
+            className={`space-y-1 ${desktopCollapsed ? "relative" : ""}`}
+          >
             <button
-              onClick={() => setEppMenuOpen(!eppMenuOpen)}
+              onClick={handleParentClick}
               className={`group flex w-full items-center rounded-2xl border py-3 text-sm font-semibold transition-all ${
                 desktopCollapsed ? "justify-center px-3" : "gap-4 px-6"
               } ${
-                isAnySubItemActive
+                isAnySubItemActive || isOpen
                   ? "border-mint-200/80 bg-white text-slate-800 shadow-sm dark:border-dracula-purple/50 dark:bg-dracula-current dark:text-dracula-foreground"
                   : "border-transparent text-slate-600 hover:border-celeste-200/60 hover:bg-white/80 hover:text-slate-700 dark:text-dracula-comment dark:hover:border-dracula-purple/30 dark:hover:bg-dracula-current/50 dark:hover:text-dracula-foreground"
               }`}
             >
               <Icon
                 className={`h-6 w-6 flex-shrink-0 transition-colors duration-200 ${
-                  isAnySubItemActive
+                  isAnySubItemActive || isOpen
                     ? "text-celeste-400 dark:text-dracula-cyan"
                     : "text-celeste-300/70 group-hover:text-celeste-400 dark:text-dracula-cyan/50 dark:group-hover:text-dracula-cyan"
                 }`}
@@ -517,7 +664,7 @@ export default function ProtectedLayout() {
                   <span className="flex-1 text-left">{item.label}</span>
                   <ChevronDown
                     className={`h-4 w-4 transition-transform ${
-                      eppMenuOpen ? "rotate-180" : ""
+                      isOpen ? "rotate-180" : ""
                     }`}
                   />
                 </>
@@ -525,30 +672,16 @@ export default function ProtectedLayout() {
             </button>
 
             {/* Sub-items */}
-            {eppMenuOpen && !desktopCollapsed && (
+            {!desktopCollapsed && isOpen ? (
               <div className="ml-6 space-y-1">
-                {item.subItems!.map((subItem) => {
-                  const SubIcon = subItem.icon;
-                  return (
-                    <NavLink
-                      key={subItem.label}
-                      to={subItem.to}
-                      onClick={onNavigate}
-                      className={({ isActive }) =>
-                        `group flex items-center gap-3 rounded-xl border py-2 px-4 text-sm font-medium transition-all ${
-                          isActive
-                            ? "border-celeste-200/80 bg-celeste-50/50 text-slate-800 dark:border-dracula-cyan/50 dark:bg-dracula-cyan/10 dark:text-dracula-cyan"
-                            : "border-transparent text-slate-500 hover:border-celeste-100/60 hover:bg-white/60 hover:text-slate-700 dark:text-dracula-comment/70 dark:hover:border-dracula-cyan/20 dark:hover:bg-dracula-current/30 dark:hover:text-dracula-cyan/80"
-                        }`
-                      }
-                    >
-                      <SubIcon className="h-4 w-4 flex-shrink-0" />
-                      <span>{subItem.label}</span>
-                    </NavLink>
-                  );
-                })}
+                {item.subItems!.map((subItem) => renderSubItemLink(subItem))}
               </div>
-            )}
+            ) : null}
+            {desktopCollapsed && isOpen ? (
+              <div className="absolute left-1/2 top-full z-40 mt-2 flex -translate-x-1/2 flex-col items-center gap-3 rounded-2xl border border-soft-gray-200/70 bg-white/95 px-3 py-3 shadow-xl transition dark:border-dracula-current/40 dark:bg-dracula-bg/95">
+                {item.subItems!.map((subItem) => renderSubItemLink(subItem))}
+              </div>
+            ) : null}
           </div>
         );
       }
@@ -625,6 +758,7 @@ export default function ProtectedLayout() {
   const mapPathToModule = (path: string): AccessModule => {
     if (path.startsWith("/epp")) return "epp";
     if (path.startsWith("/trabajadores")) return "trabajadores";
+    if (path.startsWith("/ajustes")) return "ajustes";
     if (path.startsWith("/configuracion")) return "configuracion";
     if (path.startsWith("/reportes")) return "reportes";
     if (path.startsWith("/inspecciones")) return "inspecciones";
@@ -798,33 +932,104 @@ export default function ProtectedLayout() {
               <ThemeToggle />
               <button
                 type="button"
-                className="hidden h-10 w-10 items-center justify-center rounded-full border border-soft-gray-200/80 text-slate-600 transition hover:border-celeste-200 hover:text-slate-800 dark:border-dracula-current dark:text-dracula-comment dark:hover:border-dracula-purple dark:hover:text-dracula-foreground lg:inline-flex"
-                onClick={() => setDesktopCollapsed((value) => !value)}
-                aria-label={
-                  desktopCollapsed
-                    ? "Expandir panel lateral"
-                    : "Colapsar panel lateral"
-                }
+                onClick={() => setDesktopCollapsed((prev) => !prev)}
+                className="hidden lg:inline-flex h-10 w-10 items-center justify-center rounded-full border border-soft-gray-200/70 bg-white/80 text-slate-600 shadow-sm transition hover:border-celeste-200 hover:bg-celeste-50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-cyan"
+                aria-label={desktopCollapsed ? "Expandir barra lateral" : "Colapsar barra lateral"}
               >
-                {desktopCollapsed ? (
-                  <ChevronsRight className="h-5 w-5" />
-                ) : (
-                  <ChevronsLeft className="h-5 w-5" />
-                )}
+                {desktopCollapsed ? <ChevronsRight className="h-5 w-5" /> : <ChevronsLeft className="h-5 w-5" />}
               </button>
-              <div className="hidden items-center gap-3 rounded-full border border-white/70 bg-soft-gray-100/80 px-4 py-2 text-sm text-slate-600 md:flex">
-                <span className="font-medium">{user?.email}</span>
-              </div>
+              <div className="hidden md:block">{roleBadge}</div>
               <button
-                onClick={signOutUser}
-                className="rounded-full border border-soft-gray-200/80 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-slate-600 transition-colors hover:border-celeste-200 hover:text-slate-800"
+                type="button"
+                onClick={() => setUserMenuOpen((prev) => !prev)}
+                className="inline-flex items-center gap-2 rounded-full border border-soft-gray-200/70 bg-white/80 px-2 py-1 text-sm font-semibold text-slate-600 shadow-sm transition hover:border-celeste-200 hover:bg-celeste-50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-cyan"
+                aria-haspopup="dialog"
+                aria-expanded={userMenuOpen}
               >
-                <span className="hidden sm:inline">Cerrar sesión</span>
-                <span className="sm:hidden">Salir</span>
+                <span className="hidden sm:block max-w-[120px] truncate">Bienvenid@</span>
+                <span className="hidden lg:block max-w-[180px] truncate text-slate-500 dark:text-dracula-comment">
+                  {activeMember?.displayName || user?.displayName || user?.email || "Usuario"}
+                </span>
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-celeste-100 text-base dark:bg-dracula-current/40">
+                  {headerAvatar.type === "image" ? (
+                    <img
+                      src={headerAvatar.value}
+                      alt={activeMember?.displayName ?? user?.displayName ?? "Avatar"}
+                      className="h-8 w-8 rounded-full object-cover"
+                    />
+                  ) : (
+                    headerAvatar.value
+                  )}
+                </span>
               </button>
             </div>
           </div>
         </header>
+
+        {userMenuOpen ? (
+          <div className="fixed inset-0 z-[180] flex items-center justify-center bg-slate-900/40 px-4 py-8 backdrop-blur-sm dark:bg-dracula-bg/70">
+            <div className="w-full max-w-sm rounded-3xl border border-white/70 bg-white/95 p-5 text-center shadow-xl dark:border-dracula-current/60 dark:bg-dracula-bg/95">
+              <button
+                type="button"
+                onClick={() => setUserMenuOpen(false)}
+                className="ml-auto flex h-8 w-8 items-center justify-center rounded-full border border-soft-gray-200/70 text-slate-400 transition hover:border-celeste-200 hover:text-celeste-500 dark:border-dracula-selection dark:text-dracula-comment"
+                aria-label="Cerrar menú de usuario"
+              >
+                <X className="h-4 w-4" />
+              </button>
+              <div className="mt-2 flex flex-col items-center gap-3">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-celeste-100 text-3xl shadow-sm dark:bg-dracula-current/40">
+                  {headerAvatar.type === "image" ? (
+                    <img
+                      src={headerAvatar.value}
+                      alt={activeMember?.displayName ?? user?.displayName ?? "Avatar"}
+                      className="h-16 w-16 rounded-full object-cover"
+                    />
+                  ) : (
+                    headerAvatar.value
+                  )}
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-celeste-400 dark:text-dracula-cyan/70">
+                    Bienvenid@
+                  </p>
+                  <p className="mt-1 text-lg font-semibold text-slate-800 dark:text-dracula-foreground">
+                    {activeMember?.displayName || user?.displayName || user?.email || "Usuario"}
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-dracula-comment">
+                    {activeMember?.email || user?.email || "Sin correo"}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-6 space-y-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUserMenuOpen(false);
+                    navigate("/ajustes");
+                  }}
+                  className="flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-celeste-500 to-mint-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:shadow-md"
+                >
+                  <User className="h-4 w-4" />
+                  Ir a Ajustes
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setUserMenuOpen(false);
+                    await signOutUser();
+                    navigate("/login", { replace: true });
+                  }}
+                  className="flex w-full items-center justify-center gap-2 rounded-full border border-soft-gray-200/70 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-rose-200 hover:text-rose-500 dark:border-dracula-selection dark:bg-dracula-current/40 dark:text-dracula-comment dark:hover:border-dracula-red/50 dark:hover:text-dracula-red"
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  Cerrar sesión
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         <main className="flex-1 px-3 sm:px-6 pb-6 sm:pb-10 pt-3 lg:pt-6 lg:pb-10">
           <Outlet />
         </main>
@@ -889,6 +1094,58 @@ export default function ProtectedLayout() {
                 className="leading-relaxed dark:text-dracula-cyan/60 animate-in fade-in slide-in-from-bottom-2 duration-500"
               >
                 {hseContent[currentTipIndex].text}
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {roleDialogOpen ? (
+        <div className="fixed inset-0 z-[160] flex items-center justify-center px-4 py-8">
+          <div
+            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            onClick={() => setRoleDialogOpen(false)}
+            aria-hidden="true"
+          />
+          <div className="relative w-full max-w-md rounded-3xl border border-white/60 bg-white/95 p-6 shadow-2xl animate-in fade-in zoom-in duration-200 dark:border-dracula-current dark:bg-dracula-bg/95">
+            <button
+              type="button"
+              onClick={() => setRoleDialogOpen(false)}
+              className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full border border-soft-gray-200/80 text-slate-500 transition hover:border-celeste-200 hover:text-slate-700 dark:border-dracula-current dark:text-dracula-comment dark:hover:border-dracula-purple dark:hover:text-dracula-foreground"
+              aria-label="Cerrar información de rol"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-celeste-100 text-celeste-600 dark:bg-dracula-current/40 dark:text-dracula-cyan">
+                <ShieldQuestion className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.25em] text-celeste-300 dark:text-dracula-cyan/70">
+                  Rol actual
+                </p>
+                <h2 className="text-xl font-semibold text-slate-800 dark:text-dracula-foreground">
+                  {roleInfo.title}
+                </h2>
+              </div>
+            </div>
+            <p className="mt-4 text-sm text-slate-600 dark:text-dracula-comment">
+              Estas son las capacidades principales asociadas a tu rol dentro de ClodiApp:
+            </p>
+            <ul className="mt-4 space-y-3 text-sm text-slate-600 dark:text-dracula-comment">
+              {roleInfo.capabilities.map((capability) => (
+                <li
+                  key={capability}
+                  className="flex items-start gap-2 rounded-xl border border-soft-gray-200/70 bg-soft-gray-50/70 px-3 py-2 dark:border-dracula-current/50 dark:bg-dracula-current/20"
+                >
+                  <span className="mt-1 h-2 w-2 flex-shrink-0 rounded-full bg-celeste-400 dark:bg-dracula-cyan" />
+                  <span>{capability}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-5 rounded-2xl border border-celeste-200/70 bg-celeste-50/60 px-4 py-3 text-xs text-celeste-700 dark:border-dracula-purple/50 dark:bg-dracula-current/20 dark:text-dracula-cyan">
+              <p>
+                Para ampliar tus permisos, ponte en contacto con un administrador de tu organización.
               </p>
             </div>
           </div>

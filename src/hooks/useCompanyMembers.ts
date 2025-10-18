@@ -36,6 +36,11 @@ interface UseCompanyMembersResult {
     id: string;
     modules: AccessModule[];
   }) => Promise<void>;
+  updateMemberAvatar: (params: {
+    id: string;
+    avatarEmoji?: string | null;
+    avatarUrl?: string | null;
+  }) => Promise<void>;
   removeMember: (id: string) => Promise<void>;
 }
 
@@ -60,14 +65,35 @@ export function useCompanyMembers(): UseCompanyMembersResult {
             }
             const nextMembers: AccessMember[] = snapshot.docs.map((docSnapshot) => {
               const data = docSnapshot.data();
+
+              const rawInvitedAt = data.invitedAt;
+              let invitedAt: string;
+              if (rawInvitedAt && typeof rawInvitedAt === "object" && "toDate" in rawInvitedAt && typeof rawInvitedAt.toDate === "function") {
+                invitedAt = rawInvitedAt.toDate().toISOString();
+              } else if (typeof rawInvitedAt === "string") {
+                invitedAt = rawInvitedAt;
+              } else {
+                invitedAt = new Date().toISOString();
+              }
+
+              const modulesArray: AccessModule[] = Array.isArray(data.modules)
+                ? data.modules
+                : [];
+              const normalizedModules = modulesArray.filter(
+                (moduleId: AccessModule) =>
+                  data.role === "Administrador" || moduleId !== "configuracion"
+              );
+
               return {
                 id: docSnapshot.id,
                 displayName: data.displayName ?? "",
                 email: data.email ?? "",
                 role: data.role,
-                modules: data.modules ?? [],
+                modules: normalizedModules,
                 invitedBy: data.invitedBy ?? "",
-                invitedAt: data.invitedAt ?? new Date().toISOString(),
+                invitedAt,
+                avatarEmoji: data.avatarEmoji ?? null,
+                avatarUrl: data.avatarUrl ?? null,
               } satisfies AccessMember;
             });
             setMembers(nextMembers);
@@ -117,6 +143,8 @@ export function useCompanyMembers(): UseCompanyMembersResult {
         modules: defaultModules,
         invitedBy: invitedBy ?? "Administrador",
         invitedAt: new Date().toISOString(),
+        avatarEmoji: null,
+        avatarUrl: null,
       });
     },
     [defaults]
@@ -137,8 +165,29 @@ export function useCompanyMembers(): UseCompanyMembersResult {
   const updateMemberModules = useCallback<UseCompanyMembersResult["updateMemberModules"]>(
     async ({ id, modules }) => {
       const memberDoc = doc(db, COLLECTION, id);
+      const member = members.find((item) => item.id === id);
+
+      const moduleSet = new Set<AccessModule>(
+        modules.filter((moduleId) => moduleId !== "configuracion")
+      );
+
+      if (member?.role === "Administrador") {
+        moduleSet.add("configuracion");
+      }
+
       await updateDoc(memberDoc, {
-        modules,
+        modules: Array.from(moduleSet),
+      });
+    },
+    [members]
+  );
+
+  const updateMemberAvatar = useCallback<UseCompanyMembersResult["updateMemberAvatar"]>(
+    async ({ id, avatarEmoji = null, avatarUrl = null }) => {
+      const memberDoc = doc(db, COLLECTION, id);
+      await updateDoc(memberDoc, {
+        avatarEmoji,
+        avatarUrl,
       });
     },
     []
@@ -156,6 +205,7 @@ export function useCompanyMembers(): UseCompanyMembersResult {
     inviteMember,
     updateMemberRole,
     updateMemberModules,
+    updateMemberAvatar,
     removeMember,
   };
 }

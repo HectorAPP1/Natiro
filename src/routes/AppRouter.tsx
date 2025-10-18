@@ -5,6 +5,7 @@ import EppDashboard from '../pages/EppDashboard.tsx'
 import EppEntregas from '../pages/EppEntregas.tsx'
 import Trabajadores from '../pages/Trabajadores.tsx'
 import Configuracion from '../pages/Configuracion.tsx'
+import Ajustes from '../pages/Ajustes.tsx'
 import ComingSoon from '../pages/ComingSoon.tsx'
 
 export default function AppRouter() {
@@ -37,6 +38,7 @@ export default function AppRouter() {
             path="/reportes"
             element={<ComingSoon title="Reportes y analíticas" moduleKey="reportes" />}
           />
+          <Route path="/ajustes" element={<Ajustes />} />
           <Route
             path="/configuracion"
             element={<Configuracion />}

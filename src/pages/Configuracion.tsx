@@ -18,6 +18,13 @@ import {
   ShieldCheck,
   Trash2,
   UserPlus,
+  Crown,
+  Edit3,
+  MessageCircle,
+  Eye,
+  Smile,
+  Image,
+  Camera,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { usePushNotifications } from "../hooks/usePushNotifications";
@@ -26,6 +33,7 @@ import { useCompanyMembers } from "../hooks/useCompanyMembers";
 import type {
   AccessModule,
   AccessRole,
+  AccessMember,
   CompanyRepresentative,
   CompanySettings,
   CompanySettingsSection,
@@ -83,6 +91,7 @@ export default function Configuracion() {
     inviteMember,
     updateMemberRole,
     updateMemberModules,
+    updateMemberAvatar,
     removeMember,
   } = useCompanyMembers();
   const [companySettings, setCompanySettings] = useState<CompanySettings>(
@@ -102,6 +111,11 @@ export default function Configuracion() {
   const [newMemberEmail, setNewMemberEmail] = useState("");
   const [newMemberRole, setNewMemberRole] = useState<AccessRole>("Editor");
   const [newMemberModules, setNewMemberModules] = useState<AccessModule[]>([]);
+  const [avatarEditorMemberId, setAvatarEditorMemberId] = useState<string | null>(
+    null
+  );
+  const [avatarSavingId, setAvatarSavingId] = useState<string | null>(null);
+  const [expandedModulesMemberId, setExpandedModulesMemberId] = useState<string | null>(null);
 
   const defaultRoleModules = useMemo(
     () => createDefaultCompanySettings().access.roleDefaults,
@@ -179,6 +193,175 @@ export default function Configuracion() {
       {} as Record<AccessRole, number>
     );
   }, [members]);
+
+  const defaultRoleEmojis: Record<AccessRole, string> = useMemo(
+    () => ({
+      Administrador: "👷🏻‍♂️",
+      Editor: "👷🏻‍♂️",
+      Comentarista: "👷🏻‍♀️",
+      Lector: "👀",
+    }),
+    []
+  );
+
+  const memberAvatarOptions = useMemo(
+    () => [
+      { label: "Supervisora", emoji: "👩🏻‍💼" },
+      { label: "Supervisor", emoji: "👨🏻‍💼" },
+      { label: "Trabajadora", emoji: "👷🏻‍♀️" },
+      { label: "Trabajador", emoji: "👷🏻‍♂️" },
+      { label: "Seguridad", emoji: "🦺" },
+      { label: "Ingeniería", emoji: "🛠️" },
+    ],
+    []
+  );
+
+  const accessSummaryCards = useMemo(() => {
+    const roleStyles: Record<AccessRole, {
+      icon: LucideIcon;
+      gradient: string;
+      iconBg: string;
+      iconColor: string;
+      valueColor: string;
+      labelColor: string;
+    }> = {
+      Administrador: {
+        icon: Crown,
+        gradient: "from-purple-50/80 via-white/70 to-purple-100/70",
+        iconBg: "bg-purple-100/80",
+        iconColor: "text-purple-600",
+        valueColor: "text-purple-700",
+        labelColor: "text-purple-500",
+      },
+      Editor: {
+        icon: Edit3,
+        gradient: "from-mint-50/80 via-white/70 to-mint-100/70",
+        iconBg: "bg-mint-100/80",
+        iconColor: "text-mint-600",
+        valueColor: "text-mint-700",
+        labelColor: "text-mint-500",
+      },
+      Comentarista: {
+        icon: MessageCircle,
+        gradient: "from-amber-50/80 via-white/70 to-amber-100/70",
+        iconBg: "bg-amber-100/80",
+        iconColor: "text-amber-600",
+        valueColor: "text-amber-700",
+        labelColor: "text-amber-500",
+      },
+      Lector: {
+        icon: Eye,
+        gradient: "from-sky-50/80 via-white/70 to-sky-100/70",
+        iconBg: "bg-sky-100/80",
+        iconColor: "text-sky-600",
+        valueColor: "text-sky-700",
+        labelColor: "text-sky-500",
+      },
+    };
+
+    const totalCard = {
+      key: "total",
+      label: "Total usuarios",
+      value: members.length,
+      icon: Users,
+      gradient: "from-slate-50/80 via-white/70 to-slate-100/70",
+      iconBg: "bg-slate-200/70",
+      iconColor: "text-slate-600",
+      valueColor: "text-slate-800",
+      labelColor: "text-slate-500",
+    } as const;
+
+    const roleCards = roleOrder.map((role) => {
+      const styles = roleStyles[role];
+      return {
+        key: role,
+        label: role,
+        value: membersByRole[role] ?? 0,
+        icon: styles.icon,
+        gradient: styles.gradient,
+        iconBg: styles.iconBg,
+        iconColor: styles.iconColor,
+        valueColor: styles.valueColor,
+        labelColor: styles.labelColor,
+      };
+    });
+
+    return [totalCard, ...roleCards];
+  }, [members.length, membersByRole, roleOrder]);
+
+  const readFileAsDataUrl = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === "string") {
+          resolve(reader.result);
+        } else {
+          reject(new Error("No se pudo leer la imagen"));
+        }
+      };
+      reader.onerror = () => reject(reader.error ?? new Error("Error al leer archivo"));
+      reader.readAsDataURL(file);
+    });
+
+  const handleAvatarEmojiSelect = async (member: AccessMember, emoji: string) => {
+    setActionError(null);
+    setAvatarSavingId(member.id);
+    try {
+      await updateMemberAvatar({ id: member.id, avatarEmoji: emoji, avatarUrl: null });
+    } catch (error) {
+      console.error("Error al actualizar avatar emoji", error);
+      setActionError("No se pudo actualizar el avatar. Intenta nuevamente.");
+    } finally {
+      setAvatarSavingId(null);
+    }
+  };
+
+  const handleAvatarFileChange = async (
+    member: AccessMember,
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setActionError("La imagen debe pesar menos de 2 MB.");
+      return;
+    }
+    setActionError(null);
+    setAvatarSavingId(member.id);
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      await updateMemberAvatar({ id: member.id, avatarEmoji: null, avatarUrl: dataUrl });
+    } catch (error) {
+      console.error("Error al subir avatar", error);
+      setActionError("No se pudo subir la imagen. Intenta nuevamente.");
+    } finally {
+      setAvatarSavingId(null);
+      event.target.value = "";
+    }
+  };
+
+  const handleAvatarReset = async (member: AccessMember) => {
+    setActionError(null);
+    setAvatarSavingId(member.id);
+    try {
+      await updateMemberAvatar({ id: member.id, avatarEmoji: null, avatarUrl: null });
+    } catch (error) {
+      console.error("Error al restablecer avatar", error);
+      setActionError("No se pudo restablecer el avatar. Intenta nuevamente.");
+    } finally {
+      setAvatarSavingId(null);
+    }
+  };
+
+  const getMemberAvatarDisplay = (member: AccessMember) => {
+    if (member.avatarUrl) {
+      return { type: "image" as const, value: member.avatarUrl };
+    }
+    const emoji = member.avatarEmoji ?? defaultRoleEmojis[member.role] ?? "🙂";
+    return { type: "emoji" as const, value: emoji };
+  };
 
   useEffect(() => {
     setCompanySettings((prev) => ({
@@ -1626,6 +1809,7 @@ export default function Configuracion() {
     { id: "dashboard", label: "Panel", description: "Resumen general y métricas." },
     { id: "epp", label: "EPP", description: "Gestión de equipos de protección personal." },
     { id: "trabajadores", label: "Trabajadores", description: "Información y seguimiento del personal." },
+    { id: "ajustes", label: "Ajustes", description: "Preferencias personales del usuario." },
     { id: "configuracion", label: "Configuraciones", description: "Ajustes de la empresa y modales." },
     { id: "documentos", label: "Documentos", description: "Repositorio de políticas y planes." },
     { id: "reportes", label: "Reportes", description: "Indicadores y estadísticas avanzadas." },
@@ -1668,8 +1852,11 @@ export default function Configuracion() {
             </select>
             <div className="md:col-span-3 flex flex-wrap gap-2">
               {accessModules.map((module) => {
-                const selected = newMemberModules.includes(module.id);
                 const isAdminRole = newMemberRole === "Administrador";
+                if (module.id === "configuracion" && !isAdminRole) {
+                  return null;
+                }
+                const selected = newMemberModules.includes(module.id);
                 return (
                   <button
                     key={module.id}
@@ -1766,6 +1953,9 @@ export default function Configuracion() {
                     {accessModules.map((module) => {
                       const enabled = member.modules.includes(module.id);
                       const isAdminMember = member.role === "Administrador";
+                      if (module.id === "configuracion" && !isAdminMember) {
+                        return null;
+                      }
                       return (
                         <label
                           key={`${member.id}-${module.id}`}
@@ -2360,28 +2550,28 @@ export default function Configuracion() {
           </p>
         )}
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-4">
-          <div className="rounded-xl border border-soft-gray-200/70 bg-soft-gray-50/70 p-3 dark:border-dracula-selection dark:bg-dracula-bg/60">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-dracula-comment">
-              Total usuarios
-            </p>
-            <p className="mt-1 text-xl font-semibold text-slate-800 dark:text-dracula-foreground">
-              {members.length}
-            </p>
-          </div>
-          {roleOrder.map((role) => (
-            <div
-              key={role}
-              className="rounded-xl border border-soft-gray-200/70 bg-soft-gray-50/70 p-3 dark:border-dracula-selection dark:bg-dracula-bg/60"
-            >
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-dracula-comment">
-                {role}
-              </p>
-              <p className="mt-1 text-xl font-semibold text-slate-800 dark:text-dracula-foreground">
-                {membersByRole[role] ?? 0}
-              </p>
-            </div>
-          ))}
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          {accessSummaryCards.map((card) => {
+            const Icon = card.icon;
+            return (
+              <div
+                key={card.key}
+                className={`rounded-2xl border border-white/60 bg-gradient-to-br ${card.gradient} p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-dracula-current/40`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className={`text-[11px] font-semibold uppercase tracking-[0.25em] ${card.labelColor} dark:text-dracula-comment`}>{card.label}</p>
+                    <p className={`mt-2 text-2xl font-semibold ${card.valueColor} dark:text-dracula-foreground`}>
+                      {card.value}
+                    </p>
+                  </div>
+                  <div className={`flex h-10 w-10 items-center justify-center rounded-full ${card.iconBg}`}>
+                    <Icon className={`h-5 w-5 ${card.iconColor}`} />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         <div className="mt-6">
@@ -2398,37 +2588,159 @@ export default function Configuracion() {
             </p>
           ) : (
             <div className="mt-3 grid gap-3 md:grid-cols-2">
-              {members.slice(0, 4).map((member) => (
-                <div
-                  key={member.id}
-                  className="rounded-xl border border-soft-gray-200/70 bg-white p-3 dark:border-dracula-selection dark:bg-dracula-bg"
-                >
-                  <p className="text-sm font-semibold text-slate-700 dark:text-dracula-foreground">
-                    {member.displayName}
-                  </p>
-                  <p className="text-xs text-slate-500 dark:text-dracula-comment">
-                    {member.email}
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    <span className="inline-flex items-center rounded-full bg-celeste-100 px-2 py-0.5 text-[11px] font-semibold text-celeste-700 dark:bg-celeste-500/20 dark:text-celeste-200">
-                      {member.role}
-                    </span>
-                    {member.modules.slice(0, 3).map((module) => (
-                      <span
-                        key={`${member.id}-${module}`}
-                        className="inline-flex items-center rounded-full border border-soft-gray-200/70 px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:border-dracula-selection dark:text-dracula-comment"
-                      >
-                        {module}
-                      </span>
-                    ))}
-                    {member.modules.length > 3 && (
-                      <span className="inline-flex items-center rounded-full border border-soft-gray-200/70 px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:border-dracula-selection dark:text-dracula-comment">
-                        +{member.modules.length - 3}
-                      </span>
-                    )}
+              {members.slice(0, 4).map((member) => {
+                const avatar = getMemberAvatarDisplay(member);
+                const uploadInputId = `avatar-upload-${member.id}`;
+                const isSaving = avatarSavingId === member.id;
+                return (
+                  <div
+                    key={member.id}
+                    className="rounded-2xl border border-soft-gray-200/70 bg-white p-4 dark:border-dracula-selection dark:bg-dracula-bg"
+                  >
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                      <div className="flex flex-shrink-0 items-center justify-center">
+                        {avatar.type === "image" ? (
+                          <div className="relative h-14 w-14 overflow-hidden rounded-full border border-soft-gray-200/70 bg-soft-gray-100 shadow-sm">
+                            <img
+                              src={avatar.value}
+                              alt={`Avatar de ${member.displayName}`}
+                              className="h-full w-full object-cover"
+                            />
+                          </div>
+                        ) : (
+                          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-celeste-100 text-2xl shadow-sm dark:bg-celeste-500/20">
+                            {avatar.value}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 space-y-3">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-700 dark:text-dracula-foreground">
+                            {member.displayName}
+                          </p>
+                          <p className="text-xs text-slate-500 dark:text-dracula-comment">
+                            {member.email}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          <span className="inline-flex items-center rounded-full bg-celeste-100 px-2 py-0.5 text-[11px] font-semibold text-celeste-700 dark:bg-celeste-500/20 dark:text-celeste-200">
+                            {member.role}
+                          </span>
+                          {member.modules.slice(0, 3).map((module) => (
+                            <span
+                              key={`${member.id}-${module}`}
+                              className="inline-flex items-center rounded-full border border-soft-gray-200/70 px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:border-dracula-selection dark:text-dracula-comment"
+                            >
+                              {module}
+                            </span>
+                          ))}
+                          {member.modules.length > 3 ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedModulesMemberId((prev) =>
+                                  prev === member.id ? null : member.id
+                                )
+                              }
+                              className="inline-flex items-center rounded-full border border-soft-gray-200/70 px-2 py-0.5 text-[10px] font-semibold text-celeste-600 transition hover:border-celeste-300 hover:bg-celeste-50 dark:border-dracula-selection dark:text-dracula-cyan dark:hover:border-dracula-purple"
+                            >
+                              +{member.modules.length - 3}
+                            </button>
+                          ) : null}
+                        </div>
+                        {member.modules.length > 3 && expandedModulesMemberId === member.id ? (
+                          <div className="mt-2 flex flex-wrap gap-1 rounded-xl border border-soft-gray-200/70 bg-soft-gray-50/80 p-2 text-[10px] text-slate-500 dark:border-dracula-selection dark:bg-dracula-current/20 dark:text-dracula-comment">
+                            {member.modules.slice(3).map((module) => (
+                              <span
+                                key={`${member.id}-extra-${module}`}
+                                className="inline-flex items-center rounded-full border border-soft-gray-200/70 px-2 py-0.5 font-medium dark:border-dracula-selection"
+                              >
+                                {module}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+                        <div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setAvatarEditorMemberId((prev) =>
+                                prev === member.id ? null : member.id
+                              )
+                            }
+                            className="inline-flex items-center gap-2 rounded-full border border-celeste-200/70 px-3 py-1.5 text-xs font-semibold text-celeste-600 transition hover:border-celeste-300 hover:bg-celeste-50 dark:border-dracula-purple/40 dark:text-dracula-cyan dark:hover:border-dracula-purple dark:hover:bg-dracula-cyan/10"
+                          >
+                            <Smile className="h-4 w-4" /> Personalizar avatar
+                          </button>
+                        </div>
+                        {avatarEditorMemberId === member.id ? (
+                          <div className="space-y-3 rounded-xl border border-soft-gray-200/70 bg-soft-gray-50/80 p-3 text-xs dark:border-dracula-selection dark:bg-dracula-current/20">
+                            <div className="flex items-center justify-between">
+                              <p className="font-semibold text-slate-600 dark:text-dracula-comment">
+                                Opciones rápidas
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => setAvatarEditorMemberId(null)}
+                                className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-soft-gray-200/70 text-slate-400 transition hover:border-rose-200 hover:text-rose-500 dark:border-dracula-selection dark:text-dracula-comment dark:hover:border-dracula-red/60 dark:hover:text-dracula-red"
+                                aria-label="Cerrar panel de avatar"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2">
+                              {memberAvatarOptions.map((option) => (
+                                <button
+                                  key={option.emoji}
+                                  type="button"
+                                  onClick={() => handleAvatarEmojiSelect(member, option.emoji)}
+                                  disabled={isSaving}
+                                  className={`flex flex-col items-center justify-center rounded-xl border px-2 py-2 text-[11px] font-medium transition ${
+                                    option.emoji === member.avatarEmoji
+                                      ? "border-celeste-300 bg-white text-celeste-600 shadow-sm"
+                                      : "border-soft-gray-200 bg-white/70 text-slate-500 hover:border-celeste-200 hover:text-celeste-600"
+                                  } disabled:opacity-60`}
+                                >
+                                  <span className="text-xl">{option.emoji}</span>
+                                  <span className="mt-1 line-clamp-1">{option.label}</span>
+                                </button>
+                              ))}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => document.getElementById(uploadInputId)?.click()}
+                                disabled={isSaving}
+                                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-celeste-500 to-mint-500 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:shadow-md disabled:opacity-60"
+                              >
+                                <Camera className="h-4 w-4" /> {isSaving ? "Guardando..." : "Subir foto"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleAvatarReset(member)}
+                                disabled={isSaving}
+                                className="inline-flex items-center gap-2 rounded-full border border-soft-gray-300 px-3 py-1.5 text-xs font-semibold text-slate-500 transition hover:border-celeste-200 hover:text-celeste-600 disabled:opacity-60 dark:border-dracula-selection dark:text-dracula-comment dark:hover:border-dracula-purple dark:hover:text-dracula-cyan"
+                              >
+                                <Image className="h-4 w-4" /> Restablecer
+                              </button>
+                              <input
+                                id={uploadInputId}
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(event) => handleAvatarFileChange(member, event)}
+                              />
+                            </div>
+                          </div>
+                        ) : null}
+                        <p className="text-[11px] text-slate-400 dark:text-dracula-comment">
+                          Invitado el {new Date(member.invitedAt).toLocaleDateString()} por {member.invitedBy || "Administrador"}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

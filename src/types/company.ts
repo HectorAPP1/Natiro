@@ -104,6 +104,7 @@ export type AccessModule =
   | 'epp'
   | 'trabajadores'
   | 'configuracion'
+  | 'ajustes'
   | 'reportes'
   | 'documentos'
   | 'inspecciones'
@@ -120,6 +121,8 @@ export interface AccessMember {
   modules: AccessModule[]
   invitedBy: string
   invitedAt: string
+  avatarEmoji?: string | null
+  avatarUrl?: string | null
 }
 
 export interface AccessSettings {
@@ -274,22 +277,10 @@ export const createDefaultCompanySettings = (): CompanySettings => ({
   access: {
     members: [],
     roleDefaults: {
-      Administrador: [
-        'dashboard',
-        'epp',
-        'trabajadores',
-        'configuracion',
-        'documentos',
-        'reportes',
-        'inspecciones',
-        'capacitaciones',
-        'riesgos',
-        'protocolos',
-        'proximamente',
-      ],
-      Editor: ['dashboard', 'epp', 'trabajadores', 'documentos'],
-      Comentarista: ['dashboard', 'trabajadores', 'documentos'],
-      Lector: ['dashboard'],
+      Administrador: ['dashboard', 'epp', 'trabajadores', 'configuracion', 'ajustes', 'reportes', 'documentos', 'inspecciones', 'capacitaciones', 'riesgos', 'protocolos', 'proximamente'],
+      Editor: ['dashboard', 'epp', 'trabajadores', 'ajustes', 'reportes', 'documentos', 'inspecciones', 'capacitaciones', 'riesgos', 'protocolos', 'proximamente'],
+      Comentarista: ['dashboard', 'epp', 'trabajadores', 'ajustes', 'reportes', 'documentos', 'proximamente'],
+      Lector: ['dashboard', 'epp', 'trabajadores', 'ajustes', 'documentos', 'proximamente'],
     },
   },
 })
