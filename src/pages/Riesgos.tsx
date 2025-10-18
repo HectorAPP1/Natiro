@@ -17,6 +17,8 @@ const formatDate = (iso: string) => {
   });
 };
 
+const ROWS_PER_PAGE = 15;
+
 type RiskMatrixRowEditorProps = {
   row: RiskMatrixRow;
   descriptors: RiskClassificationDescriptor[];
@@ -123,7 +125,8 @@ const RiskMatrixRowEditor = ({
         {(["femenino", "masculino", "otros"] as const).map((key) => (
           <label key={key} className="flex flex-col gap-1">
             <span className="text-xs font-semibold uppercase text-slate-500">
-              👥 Trabajadores {key === "femenino" ? "F" : key === "masculino" ? "M" : "Otros"}
+              👥 Trabajadores{" "}
+              {key === "femenino" ? "F" : key === "masculino" ? "M" : "Otros"}
             </span>
             <span className="text-[11px] font-medium text-slate-400 dark:text-dracula-comment">
               Cantidad expuesta habitual en la actividad.
@@ -383,7 +386,7 @@ const RiskMatrixEditorModal = ({
   }
 
   return (
-    <div className="fixed inset-0 z-[140] flex items-start justify-center overflow-y-auto bg-slate-900/60 px-4 py-8 backdrop-blur-sm sm:px-6 lg:py-14">
+    <div className="fixed inset-0 z-[140] hidden items-start justify-center overflow-y-auto bg-slate-900/60 px-4 py-8 backdrop-blur-sm sm:px-6 lg:flex lg:py-14">
       <div className="relative w-full max-w-5xl rounded-[28px] border border-white/70 bg-white/95 px-5 py-6 shadow-[0_40px_80px_-50px_rgba(15,23,42,0.6)] dark:border-dracula-current dark:bg-dracula-bg/95 sm:px-8 sm:py-8">
         <button
           type="button"
@@ -402,7 +405,8 @@ const RiskMatrixEditorModal = ({
             {row.actividad || "Actividad sin nombre"}
           </h2>
           <p className="text-sm text-slate-500 dark:text-dracula-comment">
-            Actualiza los campos de la matriz para mantener trazabilidad y control del riesgo.
+            Actualiza los campos de la matriz para mantener trazabilidad y
+            control del riesgo.
           </p>
         </header>
 
@@ -452,7 +456,11 @@ type RiskCriteriaModalProps = {
   criteria: RiskEvaluationCriteria;
 };
 
-const RiskCriteriaModal = ({ open, onClose, criteria }: RiskCriteriaModalProps) => {
+const RiskCriteriaModal = ({
+  open,
+  onClose,
+  criteria,
+}: RiskCriteriaModalProps) => {
   if (!open) {
     return null;
   }
@@ -460,7 +468,7 @@ const RiskCriteriaModal = ({ open, onClose, criteria }: RiskCriteriaModalProps) 
   const { probability, consequence, classification } = criteria;
 
   return (
-    <div className="fixed inset-0 z-[130] flex items-start justify-center overflow-y-auto bg-slate-900/60 px-4 py-10 backdrop-blur-sm sm:px-6 lg:py-16">
+    <div className="fixed inset-0 z-[130] hidden items-start justify-center overflow-y-auto bg-slate-900/60 px-4 py-10 backdrop-blur-sm sm:px-6 lg:flex lg:py-16">
       <div className="relative w-full max-w-5xl rounded-[28px] border border-white/70 bg-white/95 px-5 py-6 shadow-[0_40px_80px_-50px_rgba(15,23,42,0.6)] dark:border-dracula-current dark:bg-dracula-bg/95 sm:px-8 sm:py-8">
         <button
           type="button"
@@ -479,7 +487,8 @@ const RiskCriteriaModal = ({ open, onClose, criteria }: RiskCriteriaModalProps) 
             Criterios de evaluación de riesgos
           </h2>
           <p className="text-sm text-slate-500 dark:text-dracula-comment">
-            Consulta los criterios oficiales de probabilidad, consecuencia y clasificación antes de registrar o actualizar riesgos.
+            Consulta los criterios oficiales de probabilidad, consecuencia y
+            clasificación antes de registrar o actualizar riesgos.
           </p>
         </header>
 
@@ -601,6 +610,7 @@ const Riesgos = () => {
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [pendingNewRowId, setPendingNewRowId] = useState<string | null>(null);
   const [showCriteriaModal, setShowCriteriaModal] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const isAnyModalOpen = useMemo(
     () => Boolean(editingRowId) || showCriteriaModal,
@@ -698,7 +708,11 @@ const Riesgos = () => {
 
   const handleAddRow = () => {
     const newRow = buildRiskRow({});
-    setRows((prev) => [...prev, newRow]);
+    setRows((prev) => {
+      const updated = [...prev, newRow];
+      setCurrentPage(Math.ceil(updated.length / ROWS_PER_PAGE));
+      return updated;
+    });
     setEditingRowId(newRow.id);
     setPendingNewRowId(newRow.id);
   };
@@ -722,12 +736,30 @@ const Riesgos = () => {
   };
 
   const handleDeleteRow = (rowId: string) => {
-    setRows((prev) => prev.filter((row) => row.id !== rowId));
+    setRows((prev) => {
+      const updated = prev.filter((row) => row.id !== rowId);
+      const nextTotalPages =
+        updated.length > 0 ? Math.ceil(updated.length / ROWS_PER_PAGE) : 1;
+      setCurrentPage((prevPage) => Math.min(prevPage, nextTotalPages));
+      return updated;
+    });
     if (editingRowId === rowId) {
       setEditingRowId(null);
       setPendingNewRowId(null);
     }
   };
+
+  const totalPages =
+    rows.length > 0 ? Math.ceil(rows.length / ROWS_PER_PAGE) : 1;
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+    if (currentPage < 1) {
+      setCurrentPage(1);
+    }
+  }, [currentPage, totalPages]);
 
   if (loading) {
     return (
@@ -741,20 +773,29 @@ const Riesgos = () => {
     ? rows.find((row) => row.id === editingRowId)
     : null;
 
+  const startIndex = rows.length === 0 ? 0 : (currentPage - 1) * ROWS_PER_PAGE;
+  const paginatedRows = rows.slice(startIndex, startIndex + ROWS_PER_PAGE);
+  const pageStartNumber = rows.length === 0 ? 0 : startIndex + 1;
+  const pageEndNumber =
+    rows.length === 0 ? 0 : startIndex + paginatedRows.length;
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-soft-gray-50 via-white to-white px-4 py-8 dark:from-dracula-bg dark:via-dracula-secondary dark:to-dracula-bg">
-      <div className="flex w-full flex-col gap-8">
+      <div className="hidden w-full flex-col gap-8 lg:flex">
         <header className="rounded-4xl border border-white/70 bg-white/95 p-4 sm:p-6 lg:p-8 shadow-[0_30px_60px_-40px_rgba(15,23,42,0.45)] backdrop-blur dark:border-dracula-current dark:bg-dracula-bg/95">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.3em] text-celeste-300 dark:text-dracula-cyan">
-                Anexo DS 44
+                Matrices elaboradas bajo el modelo de la guía del ISP 2025, para
+                dar cumplimiento al DS44
               </p>
               <h1 className="mt-2 text-xl sm:text-2xl font-semibold text-slate-800 dark:text-dracula-foreground">
                 Matriz de identificación de peligros y evaluación de riesgos
               </h1>
               <p className="mt-2 max-w-3xl text-sm text-slate-500 dark:text-dracula-comment">
-                Identifica actividades críticas, evalúa su probabilidad y consecuencia, y documenta las medidas de control para mantener la trazabilidad de la gestión de riesgos.
+                Identifica actividades críticas, evalúa su probabilidad y
+                consecuencia, y documenta las medidas de control para mantener
+                la trazabilidad de la gestión de riesgos.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2 sm:gap-3">
@@ -835,6 +876,7 @@ const Riesgos = () => {
               <table className="w-full min-w-[1200px] table-auto divide-y divide-soft-gray-200 text-sm dark:divide-dracula-selection">
                 <thead className="bg-soft-gray-100 text-xs font-semibold uppercase text-slate-500 dark:bg-dracula-current/40 dark:text-dracula-comment">
                   <tr>
+                    <th className="px-4 py-3 text-center">#</th>
                     <th className="px-4 py-3 text-left">Actividad</th>
                     <th className="px-4 py-3 text-left">Tarea</th>
                     <th className="px-4 py-3 text-left">Puesto</th>
@@ -857,17 +899,19 @@ const Riesgos = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-soft-gray-100 text-slate-600 dark:divide-dracula-selection dark:text-dracula-foreground">
-                  {rows.length === 0 ? (
+                  {paginatedRows.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={19}
+                        colSpan={20}
                         className="px-4 py-6 text-center text-sm text-slate-400 dark:text-dracula-comment"
                       >
-                        No hay registros. Usa “Agregar fila” para comenzar.
+                        {rows.length === 0
+                          ? "No hay registros. Usa “Agregar fila” para comenzar."
+                          : "No hay registros en esta página."}
                       </td>
                     </tr>
                   ) : (
-                    rows.map((row) => {
+                    paginatedRows.map((row, index) => {
                       const { descriptor } = getScoreDetails(
                         row.probabilidad,
                         row.consecuencia
@@ -881,6 +925,9 @@ const Riesgos = () => {
                               : ""
                           }
                         >
+                          <td className="px-4 py-3 text-center text-sm font-semibold text-slate-500 dark:text-dracula-comment">
+                            {startIndex + index + 1}
+                          </td>
                           <td className="px-4 py-3">{row.actividad || "—"}</td>
                           <td className="px-4 py-3">{row.tarea || "—"}</td>
                           <td className="px-4 py-3">
@@ -963,8 +1010,61 @@ const Riesgos = () => {
                 </tbody>
               </table>
             </div>
+
+            {rows.length > 0 ? (
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                <p className="text-xs font-medium text-slate-500 dark:text-dracula-comment">
+                  Mostrando {pageStartNumber}-{pageEndNumber} de {rows.length}{" "}
+                  registros
+                </p>
+                <div className="inline-flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.max(1, prev - 1))
+                    }
+                    disabled={currentPage <= 1}
+                    className="inline-flex items-center gap-1 rounded-full border border-soft-gray-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-celeste-300 hover:text-celeste-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-dracula-selection dark:text-dracula-comment"
+                  >
+                    Anterior
+                  </button>
+                  <span className="text-xs font-semibold text-slate-500 dark:text-dracula-comment">
+                    {currentPage} / {totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+                    }
+                    disabled={currentPage >= totalPages}
+                    className="inline-flex items-center gap-1 rounded-full border border-soft-gray-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-celeste-300 hover:text-celeste-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-dracula-selection dark:text-dracula-comment"
+                  >
+                    Siguiente
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </section>
         </main>
+      </div>
+
+      <div className="flex flex-col items-center justify-center gap-5 rounded-4xl border border-white/70 bg-white/95 p-6 text-center shadow-[0_20px_40px_-30px_rgba(15,23,42,0.4)] backdrop-blur dark:border-dracula-current dark:bg-dracula-bg/95 lg:hidden">
+        <div className="space-y-2">
+          <p className="text-sm font-semibold uppercase tracking-[0.3em] text-celeste-300 dark:text-dracula-cyan">
+            Gestión de riesgos
+          </p>
+          <h2 className="text-lg font-semibold text-slate-800 dark:text-dracula-foreground">
+            Visualiza la matriz desde un dispositivo con pantalla más grande
+          </h2>
+          <p className="text-sm text-slate-500 dark:text-dracula-comment">
+            Para editar, evaluar o registrar riesgos utiliza la versión de
+            escritorio. Desde aquí puedes descargar la última matriz disponible.
+          </p>
+        </div>
+        <button className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-mint-200/80 via-white to-celeste-200/70 px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-md transition hover:shadow-lg dark:from-dracula-purple dark:via-dracula-pink dark:to-dracula-cyan dark:text-dracula-bg">
+          <Download className="h-4 w-4" />
+          Exportar matriz
+        </button>
       </div>
 
       <RiskMatrixEditorModal
