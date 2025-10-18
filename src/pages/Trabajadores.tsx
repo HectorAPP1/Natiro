@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { useTrabajadoresFirestore, type TrabajadorFormData } from "../hooks/useTrabajadoresFirestore";
+import { useAccessControl } from "../hooks/useAccessControl";
 
 const AREAS_TRABAJO = [
   "Producción",
@@ -118,6 +119,9 @@ export default function Trabajadores() {
     updateTrabajador,
     deleteTrabajador,
   } = useTrabajadoresFirestore();
+  const { canManageModule, role } = useAccessControl();
+  const canManageWorkers = canManageModule("trabajadores") && role !== "Comentarista";
+  const canDeleteWorkers = canManageWorkers;
 
   const [searchQuery, setSearchQuery] = useState("");
   const [areaFilter, setAreaFilter] = useState("all");
@@ -192,6 +196,10 @@ export default function Trabajadores() {
   }, [trabajadores, searchQuery, areaFilter, subAreaFilter, statusFilter]);
 
   const handleOpenModal = (trabajadorId?: string) => {
+    if (!canManageWorkers) {
+      setFormError("Tu rol no permite gestionar trabajadores.");
+      return;
+    }
     if (trabajadorId) {
       const trabajador = trabajadores.find((t) => t.id === trabajadorId);
       if (trabajador) {
@@ -237,6 +245,10 @@ export default function Trabajadores() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canManageWorkers) {
+      setFormError("Tu rol no permite gestionar trabajadores.");
+      return;
+    }
     setSaving(true);
     setFormError(null);
 
@@ -263,6 +275,10 @@ export default function Trabajadores() {
   };
 
   const handleDelete = async (id: string) => {
+    if (!canDeleteWorkers) {
+      alert("Tu rol no permite eliminar trabajadores.");
+      return;
+    }
     if (window.confirm("¿Estás seguro de eliminar este trabajador?")) {
       try {
         await deleteTrabajador(id);
@@ -273,6 +289,9 @@ export default function Trabajadores() {
   };
 
   const handleToggleVigente = async (trabajadorId: string, vigenteActual: boolean) => {
+    if (!canManageWorkers) {
+      return;
+    }
     try {
       await updateTrabajador(trabajadorId, { vigente: !vigenteActual });
     } catch (err) {
@@ -281,6 +300,9 @@ export default function Trabajadores() {
   };
 
   const handleExportToExcel = () => {
+    if (!canManageWorkers) {
+      return;
+    }
     if (filteredTrabajadores.length === 0) return;
 
     const exportData = filteredTrabajadores.map((trabajador) => ({
@@ -396,15 +418,17 @@ export default function Trabajadores() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-            <button
-              onClick={handleExportToExcel}
-              disabled={filteredTrabajadores.length === 0}
-              className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full border border-mint-200/70 bg-white/80 px-3 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-slate-600 shadow-sm transition hover:border-mint-300 hover:bg-mint-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-green dark:hover:border-dracula-green dark:hover:bg-dracula-bg"
-            >
-              <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              <span className="hidden sm:inline">Exportar Excel</span>
-              <span className="sm:hidden">Excel</span>
-            </button>
+            {canManageWorkers ? (
+              <button
+                onClick={handleExportToExcel}
+                disabled={filteredTrabajadores.length === 0}
+                className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full border border-mint-200/70 bg-white/80 px-3 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-slate-600 shadow-sm transition hover:border-mint-300 hover:bg-mint-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-green dark:hover:border-dracula-green dark:hover:bg-dracula-bg"
+              >
+                <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Exportar Excel</span>
+                <span className="sm:hidden">Excel</span>
+              </button>
+            ) : null}
             <div className="flex items-center gap-2 rounded-full border border-soft-gray-200/70 bg-white p-1 shadow-sm dark:border-dracula-current dark:bg-dracula-current">
               <button
                 type="button"
@@ -433,14 +457,16 @@ export default function Trabajadores() {
                 </button>
               )}
             </div>
-            <button
-              onClick={() => handleOpenModal()}
-              className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full bg-gradient-to-r from-mint-200/80 via-white to-celeste-200/70 px-4 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-slate-700 shadow-md transition hover:shadow-lg dark:from-dracula-purple dark:via-dracula-pink dark:to-dracula-cyan dark:text-dracula-bg"
-            >
-              <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              <span className="hidden sm:inline">Nuevo Trabajador</span>
-              <span className="sm:hidden">Nuevo</span>
-            </button>
+            {canManageWorkers ? (
+              <button
+                onClick={() => handleOpenModal()}
+                className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full bg-gradient-to-r from-mint-200/80 via-white to-celeste-200/70 px-4 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-slate-700 shadow-md transition hover:shadow-lg dark:from-dracula-purple dark:via-dracula-pink dark:to-dracula-cyan dark:text-dracula-bg"
+              >
+                <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Nuevo Trabajador</span>
+                <span className="sm:hidden">Nuevo</span>
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -602,37 +628,41 @@ export default function Trabajadores() {
                             : "Faena"}
                         </span>
                       </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleToggleVigente(trabajador.id, trabajador.vigente)}
-                          className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition ${
-                            trabajador.vigente
-                              ? "border-amber-200/70 bg-white text-amber-500 hover:border-amber-300 hover:bg-amber-50 dark:border-dracula-orange/40 dark:bg-dracula-current dark:text-dracula-orange dark:hover:border-dracula-orange dark:hover:bg-dracula-orange/10"
-                              : "border-mint-200/70 bg-white text-mint-500 hover:border-mint-300 hover:bg-mint-50 dark:border-dracula-green/40 dark:bg-dracula-current dark:text-dracula-green dark:hover:border-dracula-green dark:hover:bg-dracula-green/10"
-                          }`}
-                          aria-label={trabajador.vigente ? "Marcar como no vigente" : "Marcar como vigente"}
-                        >
-                          {trabajador.vigente ? (
-                            <ShieldOff className="h-4 w-4" />
-                          ) : (
-                            <ShieldCheck className="h-4 w-4" />
-                          )}
-                        </button>
-                        <button
-                          onClick={() => handleOpenModal(trabajador.id)}
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-celeste-200/70 bg-white text-celeste-500 transition hover:border-celeste-300 hover:bg-celeste-50 dark:border-dracula-purple/40 dark:bg-dracula-current dark:text-dracula-cyan dark:hover:border-dracula-purple dark:hover:bg-dracula-cyan/10"
-                          aria-label="Editar trabajador"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(trabajador.id)}
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-rose-200/70 bg-white text-rose-500 transition hover:border-rose-300 hover:bg-rose-50 dark:border-dracula-red/40 dark:bg-dracula-current dark:text-dracula-red dark:hover:border-dracula-red dark:hover:bg-dracula-red/10"
-                          aria-label="Eliminar trabajador"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
+                      {canManageWorkers ? (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleToggleVigente(trabajador.id, trabajador.vigente)}
+                            className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition ${
+                              trabajador.vigente
+                                ? "border-amber-200/70 bg-white text-amber-500 hover:border-amber-300 hover:bg-amber-50 dark:border-dracula-orange/40 dark:bg-dracula-current dark:text-dracula-orange dark:hover:border-dracula-orange dark:hover:bg-dracula-orange/10"
+                                : "border-mint-200/70 bg-white text-mint-500 hover:border-mint-300 hover:bg-mint-50 dark:border-dracula-green/40 dark:bg-dracula-current dark:text-dracula-green dark:hover:border-dracula-green dark:hover:bg-dracula-green/10"
+                            }`}
+                            aria-label={trabajador.vigente ? "Marcar como no vigente" : "Marcar como vigente"}
+                          >
+                            {trabajador.vigente ? (
+                              <ShieldOff className="h-4 w-4" />
+                            ) : (
+                              <ShieldCheck className="h-4 w-4" />
+                            )}
+                          </button>
+                          <button
+                            onClick={() => handleOpenModal(trabajador.id)}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-celeste-200/70 bg-white text-celeste-500 transition hover:border-celeste-300 hover:bg-celeste-50 dark:border-dracula-purple/40 dark:bg-dracula-current dark:text-dracula-cyan dark:hover:border-dracula-purple dark:hover:bg-dracula-cyan/10"
+                            aria-label="Editar trabajador"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                          {canDeleteWorkers ? (
+                            <button
+                              onClick={() => handleDelete(trabajador.id)}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-rose-200/70 bg-white text-rose-500 transition hover:border-rose-300 hover:bg-rose-50 dark:border-dracula-red/40 dark:bg-dracula-current dark:text-dracula-red dark:hover:border-dracula-red dark:hover:bg-dracula-red/10"
+                              aria-label="Eliminar trabajador"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -713,37 +743,41 @@ export default function Trabajadores() {
                         </span>
                       </td>
                       <td className="px-4 py-4 text-right">
-                        <div className="inline-flex gap-2">
-                          <button
-                            onClick={() => handleToggleVigente(trabajador.id, trabajador.vigente)}
-                            className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition ${
-                              trabajador.vigente
-                                ? "border-amber-200/70 bg-white text-amber-500 hover:border-amber-300 hover:bg-amber-50 dark:border-dracula-orange/40 dark:bg-dracula-current dark:text-dracula-orange dark:hover:border-dracula-orange dark:hover:bg-dracula-orange/10"
-                                : "border-mint-200/70 bg-white text-mint-500 hover:border-mint-300 hover:bg-mint-50 dark:border-dracula-green/40 dark:bg-dracula-current dark:text-dracula-green dark:hover:border-dracula-green dark:hover:bg-dracula-green/10"
-                            }`}
-                            aria-label={trabajador.vigente ? "Marcar como no vigente" : "Marcar como vigente"}
-                          >
-                            {trabajador.vigente ? (
-                              <ShieldOff className="h-4 w-4" />
-                            ) : (
-                              <ShieldCheck className="h-4 w-4" />
-                            )}
-                          </button>
-                          <button
-                            onClick={() => handleOpenModal(trabajador.id)}
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-celeste-200/70 bg-white text-celeste-500 transition hover:border-celeste-300 hover:bg-celeste-50 dark:border-dracula-purple/40 dark:bg-dracula-current dark:text-dracula-cyan dark:hover:border-dracula-purple dark:hover:bg-dracula-cyan/10"
-                            aria-label="Editar trabajador"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(trabajador.id)}
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-rose-200/70 bg-white text-rose-500 transition hover:border-rose-300 hover:bg-rose-50 dark:border-dracula-red/40 dark:bg-dracula-current dark:text-dracula-red dark:hover:border-dracula-red dark:hover:bg-dracula-red/10"
-                            aria-label="Eliminar trabajador"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
+                        {canManageWorkers ? (
+                          <div className="inline-flex gap-2">
+                            <button
+                              onClick={() => handleToggleVigente(trabajador.id, trabajador.vigente)}
+                              className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition ${
+                                trabajador.vigente
+                                  ? "border-amber-200/70 bg-white text-amber-500 hover:border-amber-300 hover:bg-amber-50 dark:border-dracula-orange/40 dark:bg-dracula-current dark:text-dracula-orange dark:hover:border-dracula-orange dark:hover:bg-dracula-orange/10"
+                                  : "border-mint-200/70 bg-white text-mint-500 hover:border-mint-300 hover:bg-mint-50 dark:border-dracula-green/40 dark:bg-dracula-current dark:text-dracula-green dark:hover:border-dracula-green dark:hover:bg-dracula-green/10"
+                              }`}
+                              aria-label={trabajador.vigente ? "Marcar como no vigente" : "Marcar como vigente"}
+                            >
+                              {trabajador.vigente ? (
+                                <ShieldOff className="h-4 w-4" />
+                              ) : (
+                                <ShieldCheck className="h-4 w-4" />
+                              )}
+                            </button>
+                            <button
+                              onClick={() => handleOpenModal(trabajador.id)}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-celeste-200/70 bg-white text-celeste-500 transition hover:border-celeste-300 hover:bg-celeste-50 dark:border-dracula-purple/40 dark:bg-dracula-current dark:text-dracula-cyan dark:hover:border-dracula-purple dark:hover:bg-dracula-cyan/10"
+                              aria-label="Editar trabajador"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            {canDeleteWorkers ? (
+                              <button
+                                onClick={() => handleDelete(trabajador.id)}
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-rose-200/70 bg-white text-rose-500 transition hover:border-rose-300 hover:bg-rose-50 dark:border-dracula-red/40 dark:bg-dracula-current dark:text-dracula-red dark:hover:border-dracula-red dark:hover:bg-dracula-red/10"
+                                aria-label="Eliminar trabajador"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            ) : null}
+                          </div>
+                        ) : null}
                       </td>
                     </tr>
                   ))}
