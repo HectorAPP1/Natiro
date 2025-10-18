@@ -7,6 +7,7 @@ import Trabajadores from '../pages/Trabajadores.tsx'
 import Configuracion from '../pages/Configuracion.tsx'
 import Ajustes from '../pages/Ajustes.tsx'
 import ComingSoon from '../pages/ComingSoon.tsx'
+import Riesgos from '../pages/Riesgos.tsx'
 
 export default function AppRouter() {
   return (
@@ -26,10 +27,7 @@ export default function AppRouter() {
             path="/capacitaciones"
             element={<ComingSoon title="Capacitaciones" moduleKey="capacitaciones" />}
           />
-          <Route
-            path="/riesgos"
-            element={<ComingSoon title="Gestión de riesgos" moduleKey="riesgos" />}
-          />
+          <Route path="/riesgos" element={<Riesgos />} />
           <Route
             path="/protocolos"
             element={<ComingSoon title="Protocolos HSE" moduleKey="protocolos" />}
