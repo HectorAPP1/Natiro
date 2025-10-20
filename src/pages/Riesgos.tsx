@@ -1,12 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { BookOpen, Download, Edit, Plus, Trash2, X } from "lucide-react";
+import { useLayoutState } from "../layouts/LayoutStateContext";
 import * as XLSX from "xlsx";
 import { useRiskMatrix } from "../hooks/useRiskMatrix";
 import { useAuth } from "../context/AuthContext";
+import FullScreenLoader from "../components/FullScreenLoader";
 import type {
   RiskMatrixRow,
   RiskClassificationDescriptor,
   RiskEvaluationCriteria,
+  RiskClassification,
+  RiskConsequenceLevel,
+  RiskProbabilityLevel,
+  TaskRoutineType,
 } from "../types/riskMatrix";
 
 const formatDate = (iso: string) => {
@@ -19,7 +26,40 @@ const formatDate = (iso: string) => {
   });
 };
 
+type ControlledFilterValue = "all" | "si" | "no";
+
+type FilterState = {
+  search: string;
+  classification: RiskClassification | "all";
+  probability: RiskProbabilityLevel | "all";
+  consequence: RiskConsequenceLevel | "all";
+  routine: TaskRoutineType | "all";
+  controlled: ControlledFilterValue;
+};
+
+const ROUTINE_OPTIONS: TaskRoutineType[] = ["Rutina", "No Rutina"];
+
+const CONTROLLED_OPTIONS: { label: string; value: ControlledFilterValue }[] = [
+  { label: "Todos", value: "all" },
+  { label: "Sí", value: "si" },
+  { label: "No", value: "no" },
+];
+
 const ROWS_PER_PAGE = 15;
+
+const TEXT_FIELD_MAX_LENGTH = 120;
+const MAX_CELL_PREVIEW_LENGTH = 25;
+
+const FIELD_LABELS: Record<string, string> = {
+  actividad: "Actividad",
+  tarea: "Tarea",
+  puestoTrabajo: "Puesto de trabajo",
+  lugarEspecifico: "Lugar específico",
+  factorDeRiesgo: "Peligro / factor de riesgo",
+  riesgo: "Riesgo",
+  danoProbable: "Daño probable",
+  responsable: "Evaluador",
+};
 
 type RiskMatrixRowEditorProps = {
   row: RiskMatrixRow;
@@ -68,6 +108,7 @@ const RiskMatrixRowEditor = ({
           <input
             className="rounded-xl border border-soft-gray-200 px-3 py-2 text-slate-700 outline-none transition focus:border-celeste-300 focus:ring-2 focus:ring-celeste-200 dark:border-dracula-selection dark:bg-dracula-current/40 dark:text-dracula-foreground"
             value={row.actividad}
+            maxLength={TEXT_FIELD_MAX_LENGTH}
             onChange={(event) =>
               onChange(row.id, { actividad: event.target.value })
             }
@@ -83,6 +124,7 @@ const RiskMatrixRowEditor = ({
           <input
             className="rounded-xl border border-soft-gray-200 px-3 py-2 text-slate-700 outline-none transition focus:border-celeste-300 focus:ring-2 focus:ring-celeste-200 dark:border-dracula-selection dark:bg-dracula-current/40 dark:text-dracula-foreground"
             value={row.tarea}
+            maxLength={TEXT_FIELD_MAX_LENGTH}
             onChange={(event) =>
               onChange(row.id, { tarea: event.target.value })
             }
@@ -101,6 +143,7 @@ const RiskMatrixRowEditor = ({
           <input
             className="rounded-xl border border-soft-gray-200 px-3 py-2 text-slate-700 outline-none transition focus:border-celeste-300 focus:ring-2 focus:ring-celeste-200 dark:border-dracula-selection dark:bg-dracula-current/40 dark:text-dracula-foreground"
             value={row.puestoTrabajo}
+            maxLength={TEXT_FIELD_MAX_LENGTH}
             onChange={(event) =>
               onChange(row.id, { puestoTrabajo: event.target.value })
             }
@@ -116,6 +159,7 @@ const RiskMatrixRowEditor = ({
           <input
             className="rounded-xl border border-soft-gray-200 px-3 py-2 text-slate-700 outline-none transition focus:border-celeste-300 focus:ring-2 focus:ring-celeste-200 dark:border-dracula-selection dark:bg-dracula-current/40 dark:text-dracula-foreground"
             value={row.lugarEspecifico}
+            maxLength={TEXT_FIELD_MAX_LENGTH}
             onChange={(event) =>
               onChange(row.id, { lugarEspecifico: event.target.value })
             }
@@ -183,6 +227,7 @@ const RiskMatrixRowEditor = ({
           <input
             className="rounded-xl border border-soft-gray-200 px-3 py-2 text-slate-700 outline-none transition focus:border-celeste-300 focus:ring-2 focus:ring-celeste-200 dark:border-dracula-selection dark:bg-dracula-current/40 dark:text-dracula-foreground"
             value={row.factorDeRiesgo}
+            maxLength={TEXT_FIELD_MAX_LENGTH}
             onChange={(event) =>
               onChange(row.id, { factorDeRiesgo: event.target.value })
             }
@@ -199,6 +244,7 @@ const RiskMatrixRowEditor = ({
           <input
             className="rounded-xl border border-soft-gray-200 px-3 py-2 text-slate-700 outline-none transition focus:border-celeste-300 focus:ring-2 focus:ring-celeste-200 dark:border-dracula-selection dark:bg-dracula-current/40 dark:text-dracula-foreground"
             value={row.riesgo}
+            maxLength={TEXT_FIELD_MAX_LENGTH}
             onChange={(event) =>
               onChange(row.id, { riesgo: event.target.value })
             }
@@ -217,31 +263,13 @@ const RiskMatrixRowEditor = ({
           <input
             className="rounded-xl border border-soft-gray-200 px-3 py-2 text-slate-700 outline-none transition focus:border-celeste-300 focus:ring-2 focus:ring-celeste-200 dark:border-dracula-selection dark:bg-dracula-current/40 dark:text-dracula-foreground"
             value={row.danoProbable}
+            maxLength={TEXT_FIELD_MAX_LENGTH}
             onChange={(event) =>
               onChange(row.id, { danoProbable: event.target.value })
             }
           />
         </label>
 
-        <label className="flex flex-col gap-1">
-          <span className="text-xs font-semibold uppercase text-slate-500">
-            🛡️ Medidas de control
-          </span>
-          <span className="text-[11px] font-medium text-slate-400 dark:text-dracula-comment">
-            Lista controles aplicados o por implementar para reducir el riesgo.
-          </span>
-          <textarea
-            rows={3}
-            className="rounded-xl border border-soft-gray-200 px-3 py-2 text-slate-700 outline-none transition focus:border-celeste-300 focus:ring-2 focus:ring-celeste-200 dark:border-dracula-selection dark:bg-dracula-current/40 dark:text-dracula-foreground"
-            value={row.medidasDeControl}
-            onChange={(event) =>
-              onChange(row.id, { medidasDeControl: event.target.value })
-            }
-          />
-        </label>
-      </div>
-
-      <div className="grid gap-2 md:grid-cols-3">
         <label className="flex flex-col gap-1">
           <span className="text-xs font-semibold uppercase text-slate-500">
             🎯 Probabilidad
@@ -320,26 +348,12 @@ const RiskMatrixRowEditor = ({
       </div>
 
       <div className="grid gap-2 md:grid-cols-2">
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            className="h-4 w-4 rounded border-soft-gray-200 text-celeste-500 focus:ring-celeste-300"
-            checked={row.estaControlado}
-            onChange={(event) =>
-              onChange(row.id, { estaControlado: event.target.checked })
-            }
-          />
-          <span className="text-xs font-semibold uppercase text-slate-500">
-            🧰 Riesgo controlado
-          </span>
-        </label>
-
         <label className="flex flex-col gap-1">
           <span className="text-xs font-semibold uppercase text-slate-500">
-            👤 Responsable
+            👤 Evaluador
           </span>
           <span className="text-[11px] font-medium text-slate-400 dark:text-dracula-comment">
-            Persona que implementará o supervisará las medidas.
+            Persona encargada de revisar y evaluar este riesgo.
           </span>
           <input
             className="rounded-xl border border-soft-gray-200 px-3 py-2 text-slate-700 outline-none transition focus:border-celeste-300 focus:ring-2 focus:ring-celeste-200 dark:border-dracula-selection dark:bg-dracula-current/40 dark:text-dracula-foreground"
@@ -350,10 +364,10 @@ const RiskMatrixRowEditor = ({
 
         <label className="flex flex-col gap-1">
           <span className="text-xs font-semibold uppercase text-slate-500">
-            📅 Plazo
+            📅 Fecha de evaluación
           </span>
           <span className="text-[11px] font-medium text-slate-400 dark:text-dracula-comment">
-            Fecha comprometida para cerrar la acción de control.
+            Indica la fecha en la que se evalúa el riesgo.
           </span>
           <input
             type="date"
@@ -612,7 +626,70 @@ const Riesgos = () => {
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [pendingNewRowId, setPendingNewRowId] = useState<string | null>(null);
   const [showCriteriaModal, setShowCriteriaModal] = useState(false);
+  const [previewModal, setPreviewModal] = useState<{
+    fieldKey: string;
+    label: string;
+    value: string;
+  } | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [filters, setFilters] = useState<FilterState>({
+    search: "",
+    classification: "all",
+    probability: "all",
+    consequence: "all",
+    routine: "all",
+    controlled: "all",
+  });
+
+  const renderTruncatedText = useCallback<
+    (rowId: string, fieldKey: string, rawValue?: string | null) => ReactNode
+  >(
+    (rowId: string, fieldKey: string, rawValue?: string | null) => {
+      if (!rawValue) {
+        return "—";
+      }
+
+      const value = rawValue.trim();
+      if (!value) {
+        return "—";
+      }
+
+      const words = value.split(/\s+/);
+      const wordPreview = words.length > 1 ? words.slice(0, 2).join(" ") : "";
+      const charPreview = value.slice(0, MAX_CELL_PREVIEW_LENGTH);
+      const previewBase = wordPreview || charPreview;
+      const preview = previewBase.trim();
+      const needsEllipsis = value.length > preview.length;
+
+      const label = FIELD_LABELS[fieldKey] ?? "Detalle";
+
+      return (
+        <div className="flex flex-wrap items-center gap-1">
+          <span>{needsEllipsis ? `${preview}…` : preview}</span>
+          {needsEllipsis ? (
+            <button
+              type="button"
+              className="text-[10px] font-semibold uppercase tracking-wider text-celeste-500 hover:text-celeste-600"
+              onClick={() =>
+                setPreviewModal({
+                  fieldKey: `${rowId}-${fieldKey}`,
+                  label,
+                  value,
+                })
+              }
+            >
+              Ver más
+            </button>
+          ) : null}
+        </div>
+      );
+    },
+    [setPreviewModal]
+  );
+
+  const closePreviewModal = useCallback(() => {
+    setPreviewModal(null);
+  }, []);
 
   const responsibleName = useMemo(() => {
     const lowerEmail = user?.email?.toLowerCase() ?? "";
@@ -620,13 +697,16 @@ const Riesgos = () => {
       (candidate) => candidate.email.toLowerCase() === lowerEmail
     );
     return (
-      member?.displayName || user?.displayName || user?.email || "Sin responsable"
+      member?.displayName ||
+      user?.displayName ||
+      user?.email ||
+      "Sin responsable"
     );
   }, [members, user?.displayName, user?.email]);
 
   const isAnyModalOpen = useMemo(
-    () => Boolean(editingRowId) || showCriteriaModal,
-    [editingRowId, showCriteriaModal]
+    () => Boolean(editingRowId) || showCriteriaModal || Boolean(previewModal),
+    [editingRowId, showCriteriaModal, previewModal]
   );
 
   useEffect(() => {
@@ -767,8 +847,28 @@ const Riesgos = () => {
     }
   };
 
-  const totalPages =
-    rows.length > 0 ? Math.ceil(rows.length / ROWS_PER_PAGE) : 1;
+  const updateFilter = useCallback(
+    <K extends keyof FilterState>(key: K, value: FilterState[K]) => {
+      setFilters((prev) => ({
+        ...prev,
+        [key]: value,
+      }));
+      setCurrentPage(1);
+    },
+    []
+  );
+
+  const clearFilters = useCallback(() => {
+    setFilters({
+      search: "",
+      classification: "all",
+      probability: "all",
+      consequence: "all",
+      routine: "all",
+      controlled: "all",
+    });
+    setCurrentPage(1);
+  }, []);
 
   const handleExportMatrix = useCallback(() => {
     const workbook = XLSX.utils.book_new();
@@ -777,10 +877,7 @@ const Riesgos = () => {
       ["Empresa", matrixDocument.header.nombreEmpresa || ""],
       ["RUT", matrixDocument.header.rutEmpleador || ""],
       ["Centro de trabajo", matrixDocument.header.nombreCentroTrabajo || ""],
-      [
-        "Dirección centro",
-        matrixDocument.header.direccionCentroTrabajo || "",
-      ],
+      ["Dirección centro", matrixDocument.header.direccionCentroTrabajo || ""],
       [
         "Fecha de actualización",
         formatDate(matrixDocument.header.fechaActualizacion || ""),
@@ -806,9 +903,9 @@ const Riesgos = () => {
       "Consecuencia",
       "Puntaje",
       "Clasificación",
+      "Evaluador",
+      "Fecha de evaluación",
       "Riesgo controlado",
-      "Responsable",
-      "Plazo",
     ];
 
     const tableRows = rows.map((row, index) => [
@@ -848,6 +945,82 @@ const Riesgos = () => {
     XLSX.writeFile(workbook, `matriz-riesgos-${companySlug}.xlsx`);
   }, [matrixDocument.header, rows]);
 
+  const filtersActive = useMemo(() => {
+    return (
+      filters.search.trim().length > 0 ||
+      filters.classification !== "all" ||
+      filters.probability !== "all" ||
+      filters.consequence !== "all" ||
+      filters.routine !== "all" ||
+      filters.controlled !== "all"
+    );
+  }, [filters]);
+
+  const filteredRows = useMemo(() => {
+    const normalizedSearch = filters.search.trim().toLowerCase();
+
+    return rows.filter((row) => {
+      if (normalizedSearch.length > 0) {
+        const haystack = [
+          row.actividad,
+          row.tarea,
+          row.puestoTrabajo,
+          row.lugarEspecifico,
+          row.peligro,
+          row.factorDeRiesgo,
+          row.riesgo,
+          row.danoProbable,
+          row.responsable,
+        ]
+          .join(" ")
+          .toLowerCase();
+
+        if (!haystack.includes(normalizedSearch)) {
+          return false;
+        }
+      }
+
+      if (
+        filters.classification !== "all" &&
+        row.clasificacion !== filters.classification
+      ) {
+        return false;
+      }
+
+      if (
+        filters.probability !== "all" &&
+        row.probabilidad !== filters.probability
+      ) {
+        return false;
+      }
+
+      if (
+        filters.consequence !== "all" &&
+        row.consecuencia !== filters.consequence
+      ) {
+        return false;
+      }
+
+      if (filters.routine !== "all" && row.rutina !== filters.routine) {
+        return false;
+      }
+
+      if (filters.controlled !== "all") {
+        const shouldBeControlled = filters.controlled === "si";
+        if (row.estaControlado !== shouldBeControlled) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [filters, rows]);
+
+  const totalPages =
+    filteredRows.length > 0
+      ? Math.ceil(filteredRows.length / ROWS_PER_PAGE)
+      : 1;
+
   useEffect(() => {
     if (currentPage > totalPages) {
       setCurrentPage(totalPages);
@@ -859,9 +1032,10 @@ const Riesgos = () => {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-soft-gray-50 dark:bg-dracula-bg">
-        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-celeste-400" />
-      </div>
+      <FullScreenLoader
+        message="Cargando matriz de riesgos..."
+        textClassName="text-slate-600 dark:text-dracula-comment"
+      />
     );
   }
 
@@ -869,18 +1043,29 @@ const Riesgos = () => {
     ? rows.find((row) => row.id === editingRowId)
     : null;
 
-  const startIndex = rows.length === 0 ? 0 : (currentPage - 1) * ROWS_PER_PAGE;
-  const paginatedRows = rows.slice(startIndex, startIndex + ROWS_PER_PAGE);
-  const pageStartNumber = rows.length === 0 ? 0 : startIndex + 1;
+  const startIndex =
+    filteredRows.length === 0 ? 0 : (currentPage - 1) * ROWS_PER_PAGE;
+  const paginatedRows = filteredRows.slice(
+    startIndex,
+    startIndex + ROWS_PER_PAGE
+  );
+  const pageStartNumber = filteredRows.length === 0 ? 0 : startIndex + 1;
   const pageEndNumber =
-    rows.length === 0 ? 0 : startIndex + paginatedRows.length;
+    filteredRows.length === 0 ? 0 : startIndex + paginatedRows.length;
+  const { desktopCollapsed } = useLayoutState();
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-soft-gray-50 via-white to-white px-4 py-8 dark:from-dracula-bg dark:via-dracula-secondary dark:to-dracula-bg">
-      <div className="hidden w-full flex-col gap-8 lg:flex">
+      <div
+        className={`hidden w-full flex-col gap-8 lg:flex lg:px-6 ${
+          desktopCollapsed
+            ? "xl:px-0 xl:max-w-[1920px] xl:mx-auto"
+            : "xl:px-0 xl:max-w-[1648px] xl:mx-auto"
+        }`}
+      >
         <header className="rounded-4xl border border-white/70 bg-white/95 p-4 sm:p-6 lg:p-8 shadow-[0_30px_60px_-40px_rgba(15,23,42,0.45)] backdrop-blur dark:border-dracula-current dark:bg-dracula-bg/95">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-[0.3em] text-celeste-300 dark:text-dracula-cyan">
                 Matrices elaboradas bajo el modelo de la guía del ISP 2025, para
                 dar cumplimiento al DS44
@@ -894,7 +1079,7 @@ const Riesgos = () => {
                 la trazabilidad de la gestión de riesgos.
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 lg:justify-end">
               <button
                 className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full border border-celeste-200/70 bg-white/80 px-3 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-slate-600 shadow-sm transition hover:border-celeste-300 hover:bg-celeste-50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-cyan dark:hover:border-dracula-purple dark:hover:bg-dracula-bg"
                 onClick={() => setShowCriteriaModal(true)}
@@ -955,7 +1140,7 @@ const Riesgos = () => {
           </div>
         </header>
 
-        <main className="space-y-8">
+        <main className="space-y-8 min-w-0">
           <section className="rounded-4xl border border-white/70 bg-white/95 p-4 sm:p-6 lg:p-8 shadow-[0_30px_60px_-40px_rgba(15,23,42,0.35)] backdrop-blur dark:border-dracula-current dark:bg-dracula-bg/90">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-lg font-semibold text-slate-800 dark:text-dracula-foreground">
@@ -970,31 +1155,216 @@ const Riesgos = () => {
                 <span className="sm:hidden">Agregar</span>
               </button>
             </div>
+            <div className="mb-6 space-y-3 rounded-3xl border border-soft-gray-200/70 bg-white/80 p-4 text-xs shadow-sm dark:border-dracula-selection dark:bg-dracula-current/30">
+              <div className="flex flex-nowrap items-end gap-3 overflow-x-auto pb-1">
+                <label className="flex min-w-[220px] flex-col gap-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-slate-400 dark:text-dracula-comment">
+                    Buscar
+                  </span>
+                  <input
+                    type="text"
+                    value={filters.search}
+                    onChange={(event) =>
+                      updateFilter("search", event.target.value)
+                    }
+                    placeholder="Actividad, riesgo, responsable..."
+                    className="rounded-2xl border border-soft-gray-200 px-3 py-2 text-sm text-slate-600 placeholder-slate-400 outline-none transition focus:border-celeste-300 focus:ring-2 focus:ring-celeste-200 dark:border-dracula-selection dark:bg-dracula-current/40 dark:text-dracula-foreground"
+                  />
+                </label>
 
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[1200px] table-auto divide-y divide-soft-gray-200 text-sm dark:divide-dracula-selection">
-                <thead className="bg-soft-gray-100 text-xs font-semibold uppercase text-slate-500 dark:bg-dracula-current/40 dark:text-dracula-comment">
+                <label className="flex min-w-[180px] flex-col gap-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-slate-400 dark:text-dracula-comment">
+                    Clasificación
+                  </span>
+                  <select
+                    value={filters.classification}
+                    onChange={(event) =>
+                      updateFilter(
+                        "classification",
+                        event.target.value === "all"
+                          ? "all"
+                          : (event.target.value as RiskClassification | "all")
+                      )
+                    }
+                    className="rounded-2xl border border-soft-gray-200 px-3 py-2 text-sm text-slate-600 outline-none transition focus:border-celeste-300 focus:ring-2 focus:ring-celeste-200 dark:border-dracula-selection dark:bg-dracula-current/40 dark:text-dracula-foreground"
+                  >
+                    <option value="all">Todas</option>
+                    {evaluationCriteria.classification.map((descriptor) => (
+                      <option
+                        key={descriptor.classification}
+                        value={descriptor.classification}
+                      >
+                        {descriptor.classification}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="flex min-w-[180px] flex-col gap-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-slate-400 dark:text-dracula-comment">
+                    Probabilidad
+                  </span>
+                  <select
+                    value={filters.probability}
+                    onChange={(event) =>
+                      updateFilter(
+                        "probability",
+                        event.target.value === "all"
+                          ? "all"
+                          : (event.target.value as RiskProbabilityLevel | "all")
+                      )
+                    }
+                    className="rounded-2xl border border-soft-gray-200 px-3 py-2 text-sm text-slate-600 outline-none transition focus:border-celeste-300 focus:ring-2 focus:ring-celeste-200 dark:border-dracula-selection dark:bg-dracula-current/40 dark:text-dracula-foreground"
+                  >
+                    <option value="all">Todas</option>
+                    {evaluationCriteria.probability.map((option) => (
+                      <option key={option.level} value={option.level}>
+                        {option.level} ({option.value})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="flex min-w-[180px] flex-col gap-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-slate-400 dark:text-dracula-comment">
+                    Consecuencia
+                  </span>
+                  <select
+                    value={filters.consequence}
+                    onChange={(event) =>
+                      updateFilter(
+                        "consequence",
+                        event.target.value === "all"
+                          ? "all"
+                          : (event.target.value as RiskConsequenceLevel | "all")
+                      )
+                    }
+                    className="rounded-2xl border border-soft-gray-200 px-3 py-2 text-sm text-slate-600 outline-none transition focus:border-celeste-300 focus:ring-2 focus:ring-celeste-200 dark:border-dracula-selection dark:bg-dracula-current/40 dark:text-dracula-foreground"
+                  >
+                    <option value="all">Todas</option>
+                    {evaluationCriteria.consequence.map((option) => (
+                      <option key={option.level} value={option.level}>
+                        {option.level} ({option.value})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="flex min-w-[160px] flex-col gap-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-slate-400 dark:text-dracula-comment">
+                    Rutina
+                  </span>
+                  <select
+                    value={filters.routine}
+                    onChange={(event) =>
+                      updateFilter(
+                        "routine",
+                        event.target.value === "all"
+                          ? "all"
+                          : (event.target.value as TaskRoutineType | "all")
+                      )
+                    }
+                    className="rounded-2xl border border-soft-gray-200 px-3 py-2 text-sm text-slate-600 outline-none transition focus:border-celeste-300 focus:ring-2 focus:ring-celeste-200 dark:border-dracula-selection dark:bg-dracula-current/40 dark:text-dracula-foreground"
+                  >
+                    <option value="all">Todas</option>
+                    {ROUTINE_OPTIONS.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="flex min-w-[160px] flex-col gap-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-slate-400 dark:text-dracula-comment">
+                    Controlado
+                  </span>
+                  <select
+                    value={filters.controlled}
+                    onChange={(event) =>
+                      updateFilter(
+                        "controlled",
+                        event.target.value as ControlledFilterValue
+                      )
+                    }
+                    className="rounded-2xl border border-soft-gray-200 px-3 py-2 text-sm text-slate-600 outline-none transition focus:border-celeste-300 focus:ring-2 focus:ring-celeste-200 dark:border-dracula-selection dark:bg-dracula-current/40 dark:text-dracula-foreground"
+                  >
+                    {CONTROLLED_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="inline-flex min-w-[150px] items-center justify-center gap-1 rounded-full border border-celeste-200/70 bg-white/80 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-celeste-500 transition hover:border-celeste-300 hover:bg-celeste-50 hover:text-celeste-600 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-cyan"
+                  disabled={!filtersActive}
+                >
+                  Limpiar filtros
+                </button>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-dracula-comment">
+                <span>Coincidencias: {filteredRows.length}</span>
+              </div>
+            </div>
+
+            <div className="w-full max-h-[520px] overflow-y-auto overflow-x-auto">
+              <table className="w-full min-w-[1280px] table-auto divide-y divide-soft-gray-200 text-sm dark:divide-dracula-selection">
+                <thead className="sticky top-0 z-10 bg-soft-gray-100 text-xs font-semibold uppercase text-slate-500 dark:bg-dracula-current/80 dark:text-dracula-comment">
                   <tr>
-                    <th className="px-4 py-3 text-center">#</th>
-                    <th className="px-4 py-3 text-left">Actividad</th>
-                    <th className="px-4 py-3 text-left">Tarea</th>
-                    <th className="px-4 py-3 text-left">Puesto</th>
-                    <th className="px-4 py-3 text-left">Lugar específico</th>
-                    <th className="px-4 py-3 text-center">F</th>
-                    <th className="px-4 py-3 text-center">M</th>
-                    <th className="px-4 py-3 text-center">Otros</th>
-                    <th className="px-4 py-3 text-center">Rutina</th>
-                    <th className="px-4 py-3 text-left">Peligro</th>
-                    <th className="px-4 py-3 text-left">Riesgo</th>
-                    <th className="px-4 py-3 text-left">Daño probable</th>
-                    <th className="px-4 py-3 text-center">Prob.</th>
-                    <th className="px-4 py-3 text-center">Cons.</th>
-                    <th className="px-4 py-3 text-center">Puntaje</th>
-                    <th className="px-4 py-3 text-center">Clasificación</th>
-                    <th className="px-4 py-3 text-center">Controlado</th>
-                    <th className="px-4 py-3 text-left">Responsable</th>
-                    <th className="px-4 py-3 text-center">Plazo</th>
-                    <th className="px-4 py-3 text-center">Acciones</th>
+                    <th className="w-12 px-3 py-3 text-center whitespace-nowrap">
+                      #
+                    </th>
+                    <th className="min-w-[200px] px-4 py-3 text-left whitespace-nowrap">
+                      Actividad
+                    </th>
+                    <th className="min-w-[200px] px-4 py-3 text-left whitespace-nowrap">
+                      Tarea
+                    </th>
+                    <th className="min-w-[180px] px-4 py-3 text-left whitespace-nowrap">
+                      Puesto
+                    </th>
+                    <th className="min-w-[200px] px-4 py-3 text-left whitespace-nowrap">
+                      Lugar específico
+                    </th>
+                    <th className="w-14 px-3 py-3 text-center">F</th>
+                    <th className="w-14 px-3 py-3 text-center">M</th>
+                    <th className="w-16 px-3 py-3 text-center">Otros</th>
+                    <th className="w-24 px-3 py-3 text-center whitespace-nowrap">
+                      Rutina
+                    </th>
+                    <th className="min-w-[160px] px-4 py-3 text-left whitespace-nowrap">
+                      Peligro
+                    </th>
+                    <th className="min-w-[160px] px-4 py-3 text-left whitespace-nowrap">
+                      Riesgo
+                    </th>
+                    <th className="min-w-[160px] px-4 py-3 text-left whitespace-nowrap">
+                      Daño probable
+                    </th>
+                    <th className="w-16 px-3 py-3 text-center whitespace-nowrap">
+                      Prob.
+                    </th>
+                    <th className="w-16 px-3 py-3 text-center whitespace-nowrap">
+                      Cons.
+                    </th>
+                    <th className="w-16 px-3 py-3 text-center whitespace-nowrap">
+                      Puntaje
+                    </th>
+                    <th className="w-32 px-4 py-3 text-center whitespace-nowrap">
+                      Clasificación
+                    </th>
+                    <th className="min-w-[180px] px-4 py-3 text-left">
+                      Evaluador
+                    </th>
+                    <th className="w-40 px-4 py-3 text-center">
+                      Fecha de evaluación
+                    </th>
+                    <th className="w-24 px-3 py-3 text-center">Controlado</th>
+                    <th className="w-28 px-3 py-3 text-center">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-soft-gray-100 text-slate-600 dark:divide-dracula-selection dark:text-dracula-foreground">
@@ -1006,6 +1376,8 @@ const Riesgos = () => {
                       >
                         {rows.length === 0
                           ? "No hay registros. Usa “Agregar fila” para comenzar."
+                          : filtersActive
+                          ? "No hay registros que coincidan con los filtros actuales."
                           : "No hay registros en esta página."}
                       </td>
                     </tr>
@@ -1024,46 +1396,72 @@ const Riesgos = () => {
                               : ""
                           }
                         >
-                          <td className="px-4 py-3 text-center text-sm font-semibold text-slate-500 dark:text-dracula-comment">
+                          <td className="w-12 px-3 py-3 text-center text-sm font-semibold text-slate-500 dark:text-dracula-comment align-top whitespace-nowrap">
                             {startIndex + index + 1}
                           </td>
-                          <td className="px-4 py-3">{row.actividad || "—"}</td>
-                          <td className="px-4 py-3">{row.tarea || "—"}</td>
-                          <td className="px-4 py-3">
-                            {row.puestoTrabajo || "—"}
+                          <td className="px-4 py-3 align-top whitespace-normal break-words">
+                            {renderTruncatedText(
+                              row.id,
+                              "actividad",
+                              row.actividad
+                            )}
                           </td>
-                          <td className="px-4 py-3">
-                            {row.lugarEspecifico || "—"}
+                          <td className="px-4 py-3 align-top whitespace-normal break-words">
+                            {renderTruncatedText(row.id, "tarea", row.tarea)}
                           </td>
-                          <td className="px-4 py-3 text-center">
+                          <td className="px-4 py-3 align-top whitespace-normal break-words">
+                            {renderTruncatedText(
+                              row.id,
+                              "puestoTrabajo",
+                              row.puestoTrabajo
+                            )}
+                          </td>
+                          <td className="px-4 py-3 align-top whitespace-normal break-words">
+                            {renderTruncatedText(
+                              row.id,
+                              "lugarEspecifico",
+                              row.lugarEspecifico
+                            )}
+                          </td>
+                          <td className="w-14 px-3 py-3 text-center align-top whitespace-nowrap">
                             {row.numeroTrabajadores.femenino}
                           </td>
-                          <td className="px-4 py-3 text-center">
+                          <td className="w-14 px-3 py-3 text-center align-top whitespace-nowrap">
                             {row.numeroTrabajadores.masculino}
                           </td>
-                          <td className="px-4 py-3 text-center">
+                          <td className="w-16 px-3 py-3 text-center align-top whitespace-nowrap">
                             {row.numeroTrabajadores.otros}
                           </td>
-                          <td className="px-4 py-3 text-center">
+                          <td className="w-24 px-3 py-3 text-center align-top whitespace-nowrap">
                             {row.rutina}
                           </td>
-                          <td className="px-4 py-3">
-                            {row.factorDeRiesgo || "—"}
+                          <td className="px-4 py-3 align-top whitespace-normal break-words">
+                            {renderTruncatedText(
+                              row.id,
+                              "factorDeRiesgo",
+                              row.factorDeRiesgo
+                            )}
                           </td>
-                          <td className="px-4 py-3">{row.riesgo || "—"}</td>
-                          <td className="px-4 py-3">
-                            {row.danoProbable || "—"}
+                          <td className="px-4 py-3 align-top whitespace-normal break-words">
+                            {renderTruncatedText(row.id, "riesgo", row.riesgo)}
                           </td>
-                          <td className="px-4 py-3 text-center">
+                          <td className="px-4 py-3 align-top whitespace-normal break-words">
+                            {renderTruncatedText(
+                              row.id,
+                              "danoProbable",
+                              row.danoProbable
+                            )}
+                          </td>
+                          <td className="w-16 px-3 py-3 text-center align-top whitespace-nowrap">
                             {probabilityValueMap[row.probabilidad]}
                           </td>
-                          <td className="px-4 py-3 text-center">
+                          <td className="w-16 px-3 py-3 text-center align-top whitespace-nowrap">
                             {consequenceValueMap[row.consecuencia]}
                           </td>
-                          <td className="px-4 py-3 text-center">
+                          <td className="w-16 px-3 py-3 text-center align-top whitespace-nowrap">
                             {row.puntuacion}
                           </td>
-                          <td className="px-4 py-3 text-center">
+                          <td className="w-32 px-4 py-3 text-center align-top whitespace-nowrap">
                             <span
                               className="rounded-full px-3 py-1 text-xs font-semibold uppercase text-white"
                               style={{ backgroundColor: descriptor.color }}
@@ -1071,16 +1469,20 @@ const Riesgos = () => {
                               {descriptor.classification}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-center">
-                            {row.estaControlado ? "Sí" : "No"}
+                          <td className="px-4 py-3 align-top whitespace-normal break-words">
+                            {renderTruncatedText(
+                              row.id,
+                              "responsable",
+                              row.responsable
+                            )}
                           </td>
-                          <td className="px-4 py-3">
-                            {row.responsable || "—"}
-                          </td>
-                          <td className="px-4 py-3 text-center">
+                          <td className="w-40 px-4 py-3 text-center align-top whitespace-nowrap">
                             {row.plazo ? formatDate(row.plazo) : "—"}
                           </td>
-                          <td className="px-4 py-3 text-center">
+                          <td className="w-24 px-3 py-3 text-center align-top whitespace-nowrap">
+                            {row.estaControlado ? "Sí" : "No"}
+                          </td>
+                          <td className="w-28 px-3 py-3 text-center align-top whitespace-nowrap">
                             <div className="flex items-center justify-center gap-2">
                               <button
                                 type="button"
@@ -1113,8 +1515,8 @@ const Riesgos = () => {
             {rows.length > 0 ? (
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
                 <p className="text-xs font-medium text-slate-500 dark:text-dracula-comment">
-                  Mostrando {pageStartNumber}-{pageEndNumber} de {rows.length}{" "}
-                  registros
+                  Mostrando {pageStartNumber}-{pageEndNumber} de{" "}
+                  {filteredRows.length} registros
                 </p>
                 <div className="inline-flex items-center gap-2">
                   <button
@@ -1185,6 +1587,50 @@ const Riesgos = () => {
         }
         isNew={editingRow ? pendingNewRowId === editingRow.id : false}
       />
+
+      {previewModal ? (
+        <div
+          className="fixed inset-0 z-[200] flex items-start justify-center bg-slate-900/60 px-4 py-8 backdrop-blur-sm sm:px-6"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="relative w-full max-w-2xl rounded-[24px] border border-white/80 bg-white px-6 py-6 shadow-[0_40px_80px_-50px_rgba(15,23,42,0.6)] dark:border-dracula-current dark:bg-dracula-bg">
+            <button
+              type="button"
+              onClick={closePreviewModal}
+              className="absolute right-5 top-5 inline-flex h-9 w-9 items-center justify-center rounded-full border border-soft-gray-200/80 text-slate-500 transition hover:border-celeste-200 hover:text-slate-700 dark:border-dracula-selection dark:text-dracula-comment dark:hover:border-dracula-purple dark:hover:text-dracula-foreground"
+              aria-label="Cerrar vista completa"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <header className="mb-4 space-y-1">
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-celeste-400 dark:text-dracula-cyan">
+                Vista completa
+              </p>
+              <h3 className="text-lg font-semibold text-slate-800 dark:text-dracula-foreground">
+                {previewModal.label}
+              </h3>
+            </header>
+
+            <div className="rounded-2xl border border-soft-gray-200/80 bg-soft-gray-50/60 p-4 text-sm text-slate-700 dark:border-dracula-selection dark:bg-dracula-current/30 dark:text-dracula-foreground">
+              <p className="whitespace-pre-wrap break-words leading-relaxed">
+                {previewModal.value}
+              </p>
+            </div>
+
+            <footer className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={closePreviewModal}
+                className="inline-flex items-center gap-2 rounded-full border border-soft-gray-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-celeste-300 hover:text-celeste-600 dark:border-dracula-selection dark:text-dracula-comment dark:hover:border-dracula-cyan"
+              >
+                Cerrar
+              </button>
+            </footer>
+          </div>
+        </div>
+      ) : null}
 
       <RiskCriteriaModal
         open={showCriteriaModal}

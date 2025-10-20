@@ -28,6 +28,8 @@ import { useAuth } from "../context/AuthContext";
 import { useCompanyMembers } from "../hooks/useCompanyMembers";
 import { createDefaultCompanySettings, type AccessModule, type AccessRole } from "../types/company";
 import ThemeToggle from "../components/ThemeToggle";
+import { LayoutStateProvider } from "./LayoutStateContext";
+import FullScreenLoader from "../components/FullScreenLoader";
 
 export default function ProtectedLayout() {
   const { user, loading, signOutUser } = useAuth();
@@ -126,6 +128,24 @@ export default function ProtectedLayout() {
   useEffect(() => {
     setUserMenuOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const handleResponsiveSidebar = () => {
+      const width = window.innerWidth;
+      setDesktopCollapsed(width < 1440);
+    };
+
+    handleResponsiveSidebar();
+    window.addEventListener("resize", handleResponsiveSidebar);
+
+    return () => {
+      window.removeEventListener("resize", handleResponsiveSidebar);
+    };
+  }, []);
 
   const roleBadge = (
     <button
@@ -736,19 +756,11 @@ export default function ProtectedLayout() {
     });
 
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-soft-gray-50">
-        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-mint-300" />
-      </div>
-    );
+    return <FullScreenLoader message="" />;
   }
 
   if (membersLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-soft-gray-50">
-        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-mint-300" />
-      </div>
-    );
+    return <FullScreenLoader message="" />;
   }
 
   if (!user) {
@@ -830,275 +842,277 @@ export default function ProtectedLayout() {
   }
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-soft-gray-50 via-celeste-100/30 to-soft-gray-50 dark:from-dracula-bg dark:via-dracula-current/50 dark:to-dracula-bg">
-      <aside
-        className={`fixed left-0 top-0 hidden h-screen flex-col justify-between border-r border-soft-gray-200/70 bg-gradient-to-br from-celeste-50/50 via-white/70 to-mint-50/50 py-10 shadow-sm backdrop-blur-2xl dark:border-dracula-current dark:bg-gradient-to-br dark:from-dracula-current/40 dark:via-dracula-bg/60 dark:to-dracula-current/40 lg:flex overflow-y-auto ${
-          desktopCollapsed ? "w-24 px-4" : "w-80 px-8 xl:w-[23rem]"
-        }`}
-      >
-        <div className="space-y-8">
-          <div className="flex flex-col items-center text-center">
-            {desktopCollapsed ? (
-              <div className="flex justify-center">
-                <img
-                  src="/Logo Clodi Light.png"
-                  alt="Clodi App"
-                  className="h-12 w-auto dark:hidden"
-                />
-                <img
-                  src="/Logo Clodi Dark.png"
-                  alt="Clodi App"
-                  className="hidden h-12 w-auto dark:block"
-                />
-              </div>
-            ) : (
-              <>
-                <img
-                  src="/IsoLogo Clodi Light.png"
-                  alt="Clodi App"
-                  className="h-16 w-auto dark:hidden"
-                />
-                <img
-                  src="/IsoLogo Clodi Dark.png"
-                  alt="Clodi App"
-                  className="hidden h-16 w-auto dark:block"
-                />
-                <p className="mt-4 text-sm text-slate-500 dark:text-dracula-cyan/60">
-                  Gestión integral de seguridad, salud ocupacional y
-                  medioambiente.
-                </p>
-              </>
-            )}
-          </div>
-          <nav className="space-y-2">{renderNavigation(filteredNavigation)}</nav>
-        </div>
-        {desktopCollapsed ? null : (
-          <div className="rounded-2xl border border-white/70 bg-white/80 px-4 py-3 text-xs text-slate-500 shadow-sm backdrop-blur dark:border-dracula-current/50 dark:bg-dracula-current/30">
-            <div className="flex items-center gap-2 mb-2">
-              {(() => {
-                const Icon = hseContent[currentTipIndex].icon;
-                const color = hseContent[currentTipIndex].color;
-                return (
-                  <Icon
-                    className={`h-4 w-4 ${color} animate-pulse`}
-                    key={`icon-${currentTipIndex}`}
+    <LayoutStateProvider value={{ desktopCollapsed }}>
+      <div className="flex min-h-screen bg-gradient-to-br from-soft-gray-50 via-celeste-100/30 to-soft-gray-50 dark:from-dracula-bg dark:via-dracula-current/50 dark:to-dracula-bg">
+        <aside
+          className={`fixed left-0 top-0 hidden h-screen flex-col justify-between border-r border-soft-gray-200/70 bg-gradient-to-br from-celeste-50/50 via-white/70 to-mint-50/50 py-10 shadow-sm backdrop-blur-2xl dark:border-dracula-current dark:bg-gradient-to-br dark:from-dracula-current/40 dark:via-dracula-bg/60 dark:to-dracula-current/40 lg:flex overflow-y-auto ${
+            desktopCollapsed ? "w-24 px-4" : "w-80 px-8 xl:w-[23rem]"
+          }`}
+        >
+          <div className="space-y-8">
+            <div className="flex flex-col items-center text-center">
+              {desktopCollapsed ? (
+                <div className="flex justify-center">
+                  <img
+                    src="/Logo Clodi Light.png"
+                    alt="Clodi App"
+                    className="h-12 w-auto dark:hidden"
                   />
-                );
-              })()}
-              <p
-                key={`category-${currentTipIndex}`}
-                className="font-semibold text-slate-600 dark:text-dracula-cyan animate-in fade-in duration-300"
-              >
-                {hseContent[currentTipIndex].category}
-              </p>
-            </div>
-            <p
-              key={`text-${currentTipIndex}`}
-              className="leading-relaxed dark:text-dracula-cyan/60 animate-in fade-in slide-in-from-bottom-2 duration-500"
-            >
-              {hseContent[currentTipIndex].text}
-            </p>
-          </div>
-        )}
-      </aside>
-
-      <div
-        className={`flex flex-1 flex-col ${
-          desktopCollapsed ? "lg:ml-24" : "lg:ml-80 xl:ml-[23rem]"
-        }`}
-      >
-        <header className="fixed lg:sticky top-0 left-0 right-0 z-30 border-b border-soft-gray-200/70 bg-gradient-to-r from-celeste-100/40 via-white/80 to-mint-100/40 shadow-md backdrop-blur-xl dark:border-dracula-current dark:bg-gradient-to-r dark:from-dracula-current/40 dark:via-dracula-bg/80 dark:to-dracula-current/40 lg:left-auto pt-12 pb-3 lg:py-6 flex items-center">
-          <div
-            className="flex items-center justify-between px-4 sm:px-6 w-full"
-            style={{
-              paddingLeft: "max(1rem, env(safe-area-inset-left))",
-              paddingRight: "max(1rem, env(safe-area-inset-right))",
-            }}
-          >
-            <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-              <button
-                type="button"
-                className="inline-flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full border border-soft-gray-200/80 text-slate-600 transition hover:border-celeste-200 hover:text-slate-800 lg:hidden flex-shrink-0"
-                onClick={() => setSidebarOpen(true)}
-                aria-label="Abrir menú de navegación"
-              >
-                <Menu className="h-5 w-5" />
-              </button>
-              <h1 className="text-base sm:text-lg font-semibold text-slate-700 dark:text-dracula-foreground truncate">
-                {getSectionTitle()}
-              </h1>
-            </div>
-            <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
-              <ThemeToggle />
-              <button
-                type="button"
-                onClick={() => setDesktopCollapsed((prev) => !prev)}
-                className="hidden lg:inline-flex h-10 w-10 items-center justify-center rounded-full border border-soft-gray-200/70 bg-white/80 text-slate-600 shadow-sm transition hover:border-celeste-200 hover:bg-celeste-50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-cyan"
-                aria-label={desktopCollapsed ? "Expandir barra lateral" : "Colapsar barra lateral"}
-              >
-                {desktopCollapsed ? <ChevronsRight className="h-5 w-5" /> : <ChevronsLeft className="h-5 w-5" />}
-              </button>
-              <div className="hidden md:block">{roleBadge}</div>
-              <button
-                type="button"
-                onClick={() => setUserMenuOpen((prev) => !prev)}
-                className="inline-flex items-center gap-2 rounded-full border border-soft-gray-200/70 bg-white/80 px-2 py-1 text-sm font-semibold text-slate-600 shadow-sm transition hover:border-celeste-200 hover:bg-celeste-50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-cyan"
-                aria-haspopup="dialog"
-                aria-expanded={userMenuOpen}
-              >
-                <span className="hidden sm:block max-w-[120px] truncate">Bienvenid@</span>
-                <span className="hidden lg:block max-w-[180px] truncate text-slate-500 dark:text-dracula-comment">
-                  {activeMember?.displayName || user?.displayName || user?.email || "Usuario"}
-                </span>
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-celeste-100 text-base dark:bg-dracula-current/40">
-                  {headerAvatar.type === "image" ? (
-                    <img
-                      src={headerAvatar.value}
-                      alt={activeMember?.displayName ?? user?.displayName ?? "Avatar"}
-                      className="h-8 w-8 rounded-full object-cover"
-                    />
-                  ) : (
-                    headerAvatar.value
-                  )}
-                </span>
-              </button>
-            </div>
-          </div>
-        </header>
-
-        {userMenuOpen ? (
-          <div className="fixed inset-0 z-[180] flex items-center justify-center bg-slate-900/40 px-4 py-8 backdrop-blur-sm dark:bg-dracula-bg/70">
-            <div className="w-full max-w-sm rounded-3xl border border-white/70 bg-white/95 p-5 text-center shadow-xl dark:border-dracula-current/60 dark:bg-dracula-bg/95">
-              <button
-                type="button"
-                onClick={() => setUserMenuOpen(false)}
-                className="ml-auto flex h-8 w-8 items-center justify-center rounded-full border border-soft-gray-200/70 text-slate-400 transition hover:border-celeste-200 hover:text-celeste-500 dark:border-dracula-selection dark:text-dracula-comment"
-                aria-label="Cerrar menú de usuario"
-              >
-                <X className="h-4 w-4" />
-              </button>
-              <div className="mt-2 flex flex-col items-center gap-3">
-                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-celeste-100 text-3xl shadow-sm dark:bg-dracula-current/40">
-                  {headerAvatar.type === "image" ? (
-                    <img
-                      src={headerAvatar.value}
-                      alt={activeMember?.displayName ?? user?.displayName ?? "Avatar"}
-                      className="h-16 w-16 rounded-full object-cover"
-                    />
-                  ) : (
-                    headerAvatar.value
-                  )}
+                  <img
+                    src="/Logo Clodi Dark.png"
+                    alt="Clodi App"
+                    className="hidden h-12 w-auto dark:block"
+                  />
                 </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-celeste-400 dark:text-dracula-cyan/70">
-                    Bienvenid@
+              ) : (
+                <>
+                  <img
+                    src="/IsoLogo Clodi Light.png"
+                    alt="Clodi App"
+                    className="h-16 w-auto dark:hidden"
+                  />
+                  <img
+                    src="/IsoLogo Clodi Dark.png"
+                    alt="Clodi App"
+                    className="hidden h-16 w-auto dark:block"
+                  />
+                  <p className="mt-4 text-sm text-slate-500 dark:text-dracula-cyan/60">
+                    Gestión integral de seguridad, salud ocupacional y
+                    medioambiente.
                   </p>
-                  <p className="mt-1 text-lg font-semibold text-slate-800 dark:text-dracula-foreground">
-                    {activeMember?.displayName || user?.displayName || user?.email || "Usuario"}
-                  </p>
-                  <p className="text-xs text-slate-500 dark:text-dracula-comment">
-                    {activeMember?.email || user?.email || "Sin correo"}
-                  </p>
-                </div>
-              </div>
-              <div className="mt-6 space-y-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUserMenuOpen(false);
-                    navigate("/ajustes");
-                  }}
-                  className="flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-celeste-500 to-mint-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:shadow-md"
-                >
-                  <User className="h-4 w-4" />
-                  Ir a Ajustes
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    setUserMenuOpen(false);
-                    await signOutUser();
-                    navigate("/login", { replace: true });
-                  }}
-                  className="flex w-full items-center justify-center gap-2 rounded-full border border-soft-gray-200/70 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-rose-200 hover:text-rose-500 dark:border-dracula-selection dark:bg-dracula-current/40 dark:text-dracula-comment dark:hover:border-dracula-red/50 dark:hover:text-dracula-red"
-                >
-                  <ShieldCheck className="h-4 w-4" />
-                  Cerrar sesión
-                </button>
-              </div>
+                </>
+              )}
             </div>
+            <nav className="space-y-2">{renderNavigation(filteredNavigation)}</nav>
           </div>
-        ) : null}
-
-        <main className="flex-1 px-3 sm:px-6 pb-6 sm:pb-10 pt-3 lg:pt-6 lg:pb-10">
-          <Outlet />
-        </main>
-      </div>
-
-      {sidebarOpen ? (
-        <div className="fixed inset-0 z-50 flex lg:hidden">
-          <div
-            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
-            onClick={() => setSidebarOpen(false)}
-            aria-hidden="true"
-          />
-          <div className="relative flex h-full w-80 max-w-[85vw] flex-col overflow-y-auto border-r border-soft-gray-200/70 bg-white/95 px-5 py-8 shadow-xl backdrop-blur-xl sm:w-96 sm:px-7 sm:py-10 dark:border-dracula-current dark:bg-dracula-bg/95">
-            <div className="mb-8">
-              <div className="flex justify-end mb-4">
-                <button
-                  type="button"
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-soft-gray-200/80 bg-white text-slate-600 shadow-sm transition hover:border-celeste-200 hover:text-slate-800 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-comment dark:hover:border-dracula-purple dark:hover:text-dracula-foreground"
-                  onClick={() => setSidebarOpen(false)}
-                  aria-label="Cerrar menú de navegación"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-              <div className="flex justify-center">
-                <img
-                  src="/IsoLogo Clodi Light.png"
-                  alt="Clodi App"
-                  className="h-14 w-auto dark:hidden"
-                />
-                <img
-                  src="/IsoLogo Clodi Dark.png"
-                  alt="Clodi App"
-                  className="hidden h-14 w-auto dark:block"
-                />
-              </div>
-            </div>
-            <nav className="flex-1 space-y-1.5">
-              {renderNavigation(filteredNavigation, () => setSidebarOpen(false))}
-            </nav>
-            <div className="mt-8 rounded-2xl border border-soft-gray-200/70 bg-soft-gray-50/80 px-4 py-3 text-xs text-slate-500 shadow-sm dark:border-dracula-current/50 dark:bg-dracula-current/30">
-              <div className="flex items-center gap-2 mb-2">
+          {desktopCollapsed ? null : (
+            <div className="rounded-2xl border border-white/70 bg-white/80 px-4 py-3 text-xs text-slate-500 shadow-sm backdrop-blur dark:border-dracula-current/50 dark:bg-dracula-current/30">
+              <div className="mb-2 flex items-center gap-2">
                 {(() => {
                   const Icon = hseContent[currentTipIndex].icon;
                   const color = hseContent[currentTipIndex].color;
                   return (
                     <Icon
                       className={`h-4 w-4 ${color} animate-pulse`}
-                      key={`icon-mobile-${currentTipIndex}`}
+                      key={`icon-${currentTipIndex}`}
                     />
                   );
                 })()}
                 <p
-                  key={`category-mobile-${currentTipIndex}`}
+                  key={`category-${currentTipIndex}`}
                   className="font-semibold text-slate-600 dark:text-dracula-cyan animate-in fade-in duration-300"
                 >
                   {hseContent[currentTipIndex].category}
                 </p>
               </div>
               <p
-                key={`text-mobile-${currentTipIndex}`}
+                key={`text-${currentTipIndex}`}
                 className="leading-relaxed dark:text-dracula-cyan/60 animate-in fade-in slide-in-from-bottom-2 duration-500"
               >
                 {hseContent[currentTipIndex].text}
               </p>
             </div>
-          </div>
+          )}
+        </aside>
+
+        <div
+          className={`flex flex-1 flex-col ${
+            desktopCollapsed ? "lg:ml-24" : "lg:ml-80 xl:ml-[23rem]"
+          }`}
+        >
+          <header className="fixed lg:sticky top-0 left-0 right-0 z-30 border-b border-soft-gray-200/70 bg-gradient-to-r from-celeste-100/40 via-white/80 to-mint-100/40 shadow-md backdrop-blur-xl dark:border-dracula-current dark:bg-gradient-to-r dark:from-dracula-current/40 dark:via-dracula-bg/80 dark:to-dracula-current/40 lg:left-auto pt-12 pb-3 lg:py-6 flex items-center">
+            <div
+              className="flex w-full items-center justify-between px-4 sm:px-6"
+              style={{
+                paddingLeft: "max(1rem, env(safe-area-inset-left))",
+                paddingRight: "max(1rem, env(safe-area-inset-right))",
+              }}
+            >
+              <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+                <button
+                  type="button"
+                  className="inline-flex h-9 w-9 sm:h-10 sm:w-10 flex-shrink-0 items-center justify-center rounded-full border border-soft-gray-200/80 text-slate-600 transition hover:border-celeste-200 hover:text-slate-800 lg:hidden"
+                  onClick={() => setSidebarOpen(true)}
+                  aria-label="Abrir menú de navegación"
+                >
+                  <Menu className="h-5 w-5" />
+                </button>
+                <h1 className="truncate text-base font-semibold text-slate-700 dark:text-dracula-foreground sm:text-lg">
+                  {getSectionTitle()}
+                </h1>
+              </div>
+              <div className="flex flex-shrink-0 items-center gap-2 sm:gap-4">
+                <ThemeToggle />
+                <button
+                  type="button"
+                  onClick={() => setDesktopCollapsed((prev) => !prev)}
+                  className="hidden h-10 w-10 items-center justify-center rounded-full border border-soft-gray-200/70 bg-white/80 text-slate-600 shadow-sm transition hover:border-celeste-200 hover:bg-celeste-50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-cyan lg:inline-flex"
+                  aria-label={desktopCollapsed ? "Expandir barra lateral" : "Colapsar barra lateral"}
+                >
+                  {desktopCollapsed ? <ChevronsRight className="h-5 w-5" /> : <ChevronsLeft className="h-5 w-5" />}
+                </button>
+                <div className="hidden md:block">{roleBadge}</div>
+                <button
+                  type="button"
+                  onClick={() => setUserMenuOpen((prev) => !prev)}
+                  className="inline-flex items-center gap-2 rounded-full border border-soft-gray-200/70 bg-white/80 px-2 py-1 text-sm font-semibold text-slate-600 shadow-sm transition hover:border-celeste-200 hover:bg-celeste-50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-cyan"
+                  aria-haspopup="dialog"
+                  aria-expanded={userMenuOpen}
+                >
+                  <span className="hidden max-w-[120px] truncate sm:block">Bienvenid@</span>
+                  <span className="hidden max-w-[180px] truncate text-slate-500 dark:text-dracula-comment lg:block">
+                    {activeMember?.displayName || user?.displayName || user?.email || "Usuario"}
+                  </span>
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-celeste-100 text-base dark:bg-dracula-current/40">
+                    {headerAvatar.type === "image" ? (
+                      <img
+                        src={headerAvatar.value}
+                        alt={activeMember?.displayName ?? user?.displayName ?? "Avatar"}
+                        className="h-8 w-8 rounded-full object-cover"
+                      />
+                    ) : (
+                      headerAvatar.value
+                    )}
+                  </span>
+                </button>
+              </div>
+            </div>
+          </header>
+
+          {userMenuOpen ? (
+            <div className="fixed inset-0 z-[180] flex items-center justify-center bg-slate-900/40 px-4 py-8 backdrop-blur-sm dark:bg-dracula-bg/70">
+              <div className="w-full max-w-sm rounded-3xl border border-white/70 bg-white/95 p-5 text-center shadow-xl dark:border-dracula-current/60 dark:bg-dracula-bg/95">
+                <button
+                  type="button"
+                  onClick={() => setUserMenuOpen(false)}
+                  className="ml-auto flex h-8 w-8 items-center justify-center rounded-full border border-soft-gray-200/70 text-slate-400 transition hover:border-celeste-200 hover:text-celeste-500 dark:border-dracula-selection dark:text-dracula-comment"
+                  aria-label="Cerrar menú de usuario"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+                <div className="mt-2 flex flex-col items-center gap-3">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-celeste-100 text-3xl shadow-sm dark:bg-dracula-current/40">
+                    {headerAvatar.type === "image" ? (
+                      <img
+                        src={headerAvatar.value}
+                        alt={activeMember?.displayName ?? user?.displayName ?? "Avatar"}
+                        className="h-16 w-16 rounded-full object-cover"
+                      />
+                    ) : (
+                      headerAvatar.value
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.3em] text-celeste-400 dark:text-dracula-cyan/70">
+                      Bienvenid@
+                    </p>
+                    <p className="mt-1 text-lg font-semibold text-slate-800 dark:text-dracula-foreground">
+                      {activeMember?.displayName || user?.displayName || user?.email || "Usuario"}
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-dracula-comment">
+                      {activeMember?.email || user?.email || "Sin correo"}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-6 space-y-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      navigate("/ajustes");
+                    }}
+                    className="flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-celeste-500 to-mint-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:shadow-md"
+                  >
+                    <User className="h-4 w-4" />
+                    Ir a Ajustes
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setUserMenuOpen(false);
+                      await signOutUser();
+                      navigate("/login", { replace: true });
+                    }}
+                    className="flex w-full items-center justify-center gap-2 rounded-full border border-soft-gray-200/70 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-rose-200 hover:text-rose-500 dark:border-dracula-selection dark:bg-dracula-current/40 dark:text-dracula-comment dark:hover:border-dracula-red/50 dark:hover:text-dracula-red"
+                  >
+                    <ShieldCheck className="h-4 w-4" />
+                    Cerrar sesión
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          <main className="flex-1 px-3 pt-3 pb-6 sm:px-6 sm:pb-10 lg:pt-6 lg:pb-10">
+            <Outlet />
+          </main>
         </div>
-      ) : null}
+
+        {sidebarOpen ? (
+          <div className="fixed inset-0 z-[190] flex justify-end lg:hidden">
+            <div
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+              onClick={() => setSidebarOpen(false)}
+              aria-hidden="true"
+            />
+            <div className="relative flex h-full w-80 max-w-[85vw] flex-col overflow-y-auto border-r border-soft-gray-200/70 bg-white/95 px-5 py-8 shadow-xl backdrop-blur-xl sm:w-96 sm:px-7 sm:py-10 dark:border-dracula-current dark:bg-dracula-bg/95">
+              <div className="mb-8">
+                <div className="mb-4 flex justify-end">
+                  <button
+                    type="button"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-soft-gray-200/80 bg-white text-slate-600 shadow-sm transition hover:border-celeste-200 hover:text-slate-800 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-comment dark:hover:border-dracula-purple dark:hover:text-dracula-foreground"
+                    onClick={() => setSidebarOpen(false)}
+                    aria-label="Cerrar menú de navegación"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="flex justify-center">
+                  <img
+                    src="/IsoLogo Clodi Light.png"
+                    alt="Clodi App"
+                    className="h-14 w-auto dark:hidden"
+                  />
+                  <img
+                    src="/IsoLogo Clodi Dark.png"
+                    alt="Clodi App"
+                    className="hidden h-14 w-auto dark:block"
+                  />
+                </div>
+              </div>
+              <nav className="flex-1 space-y-1.5">
+                {renderNavigation(filteredNavigation, () => setSidebarOpen(false))}
+              </nav>
+              <div className="mt-8 rounded-2xl border border-soft-gray-200/70 bg-soft-gray-50/80 px-4 py-3 text-xs text-slate-500 shadow-sm dark:border-dracula-current/50 dark:bg-dracula-current/30">
+                <div className="mb-2 flex items-center gap-2">
+                  {(() => {
+                    const Icon = hseContent[currentTipIndex].icon;
+                    const color = hseContent[currentTipIndex].color;
+                    return (
+                      <Icon
+                        className={`h-4 w-4 ${color} animate-pulse`}
+                        key={`icon-mobile-${currentTipIndex}`}
+                      />
+                    );
+                  })()}
+                  <p
+                    key={`category-mobile-${currentTipIndex}`}
+                    className="font-semibold text-slate-600 dark:text-dracula-cyan animate-in fade-in duration-300"
+                  >
+                    {hseContent[currentTipIndex].category}
+                  </p>
+                </div>
+                <p
+                  key={`text-mobile-${currentTipIndex}`}
+                  className="leading-relaxed dark:text-dracula-cyan/60 animate-in fade-in slide-in-from-bottom-2 duration-500"
+                >
+                  {hseContent[currentTipIndex].text}
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </div>
 
       {roleDialogOpen ? (
         <div className="fixed inset-0 z-[160] flex items-center justify-center px-4 py-8">
@@ -1151,6 +1165,6 @@ export default function ProtectedLayout() {
           </div>
         </div>
       ) : null}
-    </div>
+    </LayoutStateProvider>
   );
 }

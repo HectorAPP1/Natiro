@@ -21,6 +21,7 @@ import { useEppFirestore } from "../hooks/useEppFirestore";
 import * as XLSX from "xlsx";
 import QRManager from "./QRManager";
 import { useAccessControl } from "../hooks/useAccessControl";
+import FullScreenLoader from "../components/FullScreenLoader";
 import {
   PieChart,
   Pie,
@@ -717,14 +718,7 @@ export default function EppDashboard() {
   };
 
   if (firestoreLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-celeste-300 border-r-transparent"></div>
-          <p className="mt-4 text-sm text-slate-500">Cargando EPP...</p>
-        </div>
-      </div>
-    );
+    return <FullScreenLoader message="Cargando EPP..." backgroundClassName="" />;
   }
 
   if (firestoreError) {

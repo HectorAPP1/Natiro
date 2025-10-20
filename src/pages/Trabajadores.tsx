@@ -21,6 +21,7 @@ import {
 import * as XLSX from "xlsx";
 import { useTrabajadoresFirestore, type TrabajadorFormData } from "../hooks/useTrabajadoresFirestore";
 import { useAccessControl } from "../hooks/useAccessControl";
+import FullScreenLoader from "../components/FullScreenLoader";
 
 const AREAS_TRABAJO = [
   "Producción",
@@ -381,14 +382,11 @@ export default function Trabajadores() {
 
   if (firestoreLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-celeste-300 border-r-transparent"></div>
-          <p className="mt-4 text-sm text-slate-600 dark:text-dracula-comment">
-            Cargando trabajadores...
-          </p>
-        </div>
-      </div>
+      <FullScreenLoader
+        message="Cargando trabajadores..."
+        backgroundClassName=""
+        textClassName="text-slate-600 dark:text-dracula-comment"
+      />
     );
   }
 
