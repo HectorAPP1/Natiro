@@ -705,16 +705,17 @@ export default function ProtectedLayout() {
             </button>
 
            {/* Sub-items */}
-            {/*!(desktopCollapsed && !forceExpanded) && isOpen ? (
-              <div className="ml-6 space-y-1">
-                {item.subItems!.map((subItem) => renderSubItemLink(subItem))}
-              </div>
-            ) : null}
-            {(desktopCollapsed && !forceExpanded) && isOpen ? (
-              <div className="absolute left-1/2 top-full z-40 mt-2 flex -translate-x-1/2 flex-col items-center gap-3 rounded-2xl border border-soft-gray-200/70 bg-white/95 px-3 py-3 shadow-xl transition dark:border-dracula-current/40 dark:bg-dracula-bg/95">
-                {item.subItems!.map((subItem) => renderSubItemLink(subItem))}
-              </div>
-            ) : null}
+{/*!(desktopCollapsed && !forceExpanded) && isOpen ? (
+  <div className="ml-6 space-y-1">
+    {item.subItems!.map((subItem) => renderSubItemLink(subItem))}
+  </div>
+) : null}
+
+{(desktopCollapsed && !forceExpanded) && isOpen ? (
+  <div className="absolute left-1/2 top-full z-40 mt-2 flex -translate-x-1/2 flex-col items-center gap-3 rounded-2xl border border-soft-gray-200/70 bg-white/95 px-3 py-3 shadow-xl transition dark:border-dracula-current/40 dark:bg-dracula-bg/95">
+    {item.subItems!.map((subItem) => renderSubItemLink(subItem))}
+  </div>
+) : null}
           </div>
         );
       }
