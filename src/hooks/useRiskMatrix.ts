@@ -24,25 +24,36 @@ const scoreToDescriptor = (
   score: number,
   descriptors: RiskClassificationDescriptor[]
 ) =>
-  descriptors.find(({ minScore, maxScore }) => score >= minScore && score <= maxScore) ??
-  descriptors[0];
+  descriptors.find(
+    ({ minScore, maxScore }) => score >= minScore && score <= maxScore
+  ) ?? descriptors[0];
 
 const getProbabilityValue = (level: RiskMatrixRow["probabilidad"]) =>
-  DEFAULT_RISK_EVALUATION_CRITERIA.probability.find((opt) => opt.level === level)?.value ?? 1;
+  DEFAULT_RISK_EVALUATION_CRITERIA.probability.find(
+    (opt) => opt.level === level
+  )?.value ?? 1;
 
 const getConsequenceValue = (level: RiskMatrixRow["consecuencia"]) =>
-  DEFAULT_RISK_EVALUATION_CRITERIA.consequence.find((opt) => opt.level === level)?.value ?? 1;
+  DEFAULT_RISK_EVALUATION_CRITERIA.consequence.find(
+    (opt) => opt.level === level
+  )?.value ?? 1;
 
 export const useRiskMatrix = () => {
   const { data: settings, loading: settingsLoading } = useCompanySettings();
   const { members, loading: membersLoading } = useCompanyMembers();
 
   const getScoreDetails = useCallback(
-    (probabilidad: RiskMatrixRow["probabilidad"], consecuencia: RiskMatrixRow["consecuencia"]) => {
+    (
+      probabilidad: RiskMatrixRow["probabilidad"],
+      consecuencia: RiskMatrixRow["consecuencia"]
+    ) => {
       const probValue = getProbabilityValue(probabilidad);
       const consValue = getConsequenceValue(consecuencia);
       const score = probValue * consValue;
-      const descriptor = scoreToDescriptor(score, DEFAULT_RISK_EVALUATION_CRITERIA.classification);
+      const descriptor = scoreToDescriptor(
+        score,
+        DEFAULT_RISK_EVALUATION_CRITERIA.classification
+      );
       return {
         score,
         classification: descriptor.classification,
@@ -70,7 +81,8 @@ export const useRiskMatrix = () => {
       comuna: general.address.commune,
       codigoActividadEconomica: general.businessActivity,
       nombreCentroTrabajo: general.tradeName || general.legalName,
-      direccionCentroTrabajo: `${general.address.street} ${general.address.number}`.trim(),
+      direccionCentroTrabajo:
+        `${general.address.street} ${general.address.number}`.trim(),
       jornadaCentroTrabajo: "",
       nTotalTrabajadores: workforce.totalEmployees,
       nTrabajadoras: workforce.femaleEmployees,

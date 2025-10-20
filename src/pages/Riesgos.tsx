@@ -44,6 +44,12 @@ const CONTROLLED_OPTIONS: { label: string; value: ControlledFilterValue }[] = [
   { label: "No", value: "no" },
 ];
 
+const WORKFORCE_LABELS: Record<keyof RiskMatrixRow["numeroTrabajadores"], string> = {
+  femenino: "Personas mujeres",
+  masculino: "Personas hombres",
+  otros: "Otras identidades",
+};
+
 const ROWS_PER_PAGE = 15;
 
 const TEXT_FIELD_MAX_LENGTH = 120;
@@ -170,8 +176,7 @@ const RiskMatrixRowEditor = ({
         {(["femenino", "masculino", "otros"] as const).map((key) => (
           <label key={key} className="flex flex-col gap-1">
             <span className="text-xs font-semibold uppercase text-slate-500">
-              👥 Trabajadores{" "}
-              {key === "femenino" ? "F" : key === "masculino" ? "M" : "Otros"}
+              👥 {WORKFORCE_LABELS[key]}
             </span>
             <span className="text-[11px] font-medium text-slate-400 dark:text-dracula-comment">
               Cantidad expuesta habitual en la actividad.
@@ -891,9 +896,9 @@ const Riesgos = () => {
       "Tarea",
       "Puesto",
       "Lugar específico",
-      "Trabajadores F",
-      "Trabajadores M",
-      "Trabajadores otros",
+      "Personas mujeres",
+      "Personas hombres",
+      "Otras identidades",
       "Rutina",
       "Peligro / factor",
       "Riesgo",
@@ -904,7 +909,7 @@ const Riesgos = () => {
       "Clasificación",
       "Evaluador",
       "Fecha de evaluación",
-      "Riesgo controlado",
+      "Estado",
     ];
 
     const tableRows = rows.map((row, index) => [
@@ -1270,7 +1275,7 @@ const Riesgos = () => {
 
                 <label className="flex min-w-[160px] flex-col gap-1">
                   <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-slate-400 dark:text-dracula-comment">
-                    Controlado
+                    Estado
                   </span>
                   <select
                     value={filters.controlled}
@@ -1321,9 +1326,9 @@ const Riesgos = () => {
                     <th className="min-w-[200px] px-4 py-3 text-left whitespace-nowrap">
                       Lugar específico
                     </th>
-                    <th className="w-14 px-3 py-3 text-center">F</th>
-                    <th className="w-14 px-3 py-3 text-center">M</th>
-                    <th className="w-16 px-3 py-3 text-center">Otros</th>
+                    <th className="w-14 px-3 py-3 text-center">Mujeres</th>
+                    <th className="w-14 px-3 py-3 text-center">Hombres</th>
+                    <th className="w-16 px-3 py-3 text-center">Otras identidades</th>
                     <th className="w-24 px-3 py-3 text-center whitespace-nowrap">
                       Rutina
                     </th>
@@ -1354,7 +1359,7 @@ const Riesgos = () => {
                     <th className="w-40 px-4 py-3 text-center">
                       Fecha de evaluación
                     </th>
-                    <th className="w-24 px-3 py-3 text-center">Controlado</th>
+                    <th className="w-24 px-3 py-3 text-center">Estado</th>
                     <th className="w-28 px-3 py-3 text-center">Acciones</th>
                   </tr>
                 </thead>

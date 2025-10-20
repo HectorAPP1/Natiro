@@ -6,7 +6,11 @@ export type RiskProbabilityLevel = "Baja" | "Media" | "Alta";
 
 export type RiskConsequenceLevel = "Leve" | "Moderada" | "Grave";
 
-export type RiskClassification = "Tolerable" | "Moderado" | "Importante" | "Intolerable";
+export type RiskClassification =
+  | "Tolerable"
+  | "Moderado"
+  | "Importante"
+  | "Intolerable";
 
 export type RiskControlStatus = "Controlado" | "En Progreso" | "No Controlado";
 
