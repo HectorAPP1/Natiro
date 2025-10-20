@@ -12,7 +12,15 @@ export type RiskClassification =
   | "Importante"
   | "Intolerable";
 
-export type RiskControlStatus = "Controlado" | "En Progreso" | "No Controlado";
+export type RiskControlStatus = "Sin controlar" | "En proceso" | "Controlado";
+
+export type RiskControlType =
+  | "Eliminar"
+  | "Sustituir"
+  | "Ingenieril"
+  | "Administrativa"
+  | "EPP"
+  | "Otra";
 
 export interface RiskProbabilityOption {
   level: RiskProbabilityLevel;
@@ -60,11 +68,12 @@ export interface RiskMatrixHeader {
 }
 
 export interface RiskMatrixControl {
+  id: string;
   controlDescription: string;
-  controlType: string;
+  controlType: RiskControlType;
   implementer: string;
   dueDate: string;
-  status: RiskControlStatus;
+  applied: boolean;
 }
 
 export interface RiskMatrixRow {
@@ -88,7 +97,7 @@ export interface RiskMatrixRow {
   puntuacion: number;
   clasificacion: RiskClassification;
   medidasDeControl: string;
-  estaControlado: boolean;
+  estadoControl: RiskControlStatus;
   responsable: string;
   plazo: string;
   controles?: RiskMatrixControl[];

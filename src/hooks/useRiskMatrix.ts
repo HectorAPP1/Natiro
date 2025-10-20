@@ -3,6 +3,7 @@ import { DEFAULT_RISK_EVALUATION_CRITERIA } from "../constants/riskMatrix";
 import type {
   RiskClassification,
   RiskClassificationDescriptor,
+  RiskControlStatus,
   RiskMatrixDocument,
   RiskMatrixHeader,
   RiskMatrixRow,
@@ -100,6 +101,16 @@ export const useRiskMatrix = () => {
       row.consecuencia ?? "Leve"
     );
 
+    const defaultEstado: RiskControlStatus = row.estadoControl ?? "Sin controlar";
+    const controlesNormalizados = (row.controles ?? []).map((control) => ({
+      id: control.id ?? crypto.randomUUID(),
+      controlDescription: control.controlDescription ?? "",
+      controlType: control.controlType,
+      implementer: control.implementer ?? "",
+      dueDate: control.dueDate ?? "",
+      applied: control.applied ?? false,
+    }));
+
     return {
       id: row.id ?? crypto.randomUUID(),
       actividad: row.actividad ?? "",
@@ -121,10 +132,10 @@ export const useRiskMatrix = () => {
       puntuacion: score,
       clasificacion: classification,
       medidasDeControl: row.medidasDeControl ?? "",
-      estaControlado: row.estaControlado ?? false,
+      estadoControl: defaultEstado,
       responsable: row.responsable ?? "",
       plazo: row.plazo ?? "",
-      controles: row.controles ?? [],
+      controles: controlesNormalizados,
     };
   };
 

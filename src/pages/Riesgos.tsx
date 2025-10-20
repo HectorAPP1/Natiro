@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { BookOpen, Download, Edit, Plus, Trash2, X } from "lucide-react";
+import { BookOpen, Check, Download, Edit, Plus, Trash2, X } from "lucide-react";
 import * as XLSX from "xlsx";
 import { useRiskMatrix } from "../hooks/useRiskMatrix";
 import { useAuth } from "../context/AuthContext";
@@ -12,6 +12,9 @@ import type {
   RiskClassification,
   RiskConsequenceLevel,
   RiskProbabilityLevel,
+  RiskControlStatus,
+  RiskControlType,
+  RiskMatrixControl,
   TaskRoutineType,
 } from "../types/riskMatrix";
 
@@ -25,7 +28,7 @@ const formatDate = (iso: string) => {
   });
 };
 
-type ControlledFilterValue = "all" | "si" | "no";
+type ControlledFilterValue = "all" | RiskControlStatus;
 
 type FilterState = {
   search: string;
@@ -38,10 +41,61 @@ type FilterState = {
 
 const ROUTINE_OPTIONS: TaskRoutineType[] = ["Rutina", "No Rutina"];
 
+const CONTROL_STATUS_OPTIONS: Array<{
+  value: RiskControlStatus;
+  label: string;
+  color: string;
+  background: string;
+}> = [
+  {
+    value: "Sin controlar",
+    label: "Sin controlar",
+    color: "#ef4444",
+    background: "rgba(239,68,68,0.12)",
+  },
+  {
+    value: "En proceso",
+    label: "En proceso",
+    color: "#f59e0b",
+    background: "rgba(245,158,11,0.15)",
+  },
+  {
+    value: "Controlado",
+    label: "Controlado",
+    color: "#22c55e",
+    background: "rgba(34,197,94,0.15)",
+  },
+];
+
+const CONTROL_STATUS_META = CONTROL_STATUS_OPTIONS.reduce(
+  (acc, option) => {
+    acc[option.value] = option;
+    return acc;
+  },
+  {} as Record<RiskControlStatus, (typeof CONTROL_STATUS_OPTIONS)[number]>
+);
+
 const CONTROLLED_OPTIONS: { label: string; value: ControlledFilterValue }[] = [
   { label: "Todos", value: "all" },
-  { label: "Sí", value: "si" },
-  { label: "No", value: "no" },
+  ...CONTROL_STATUS_OPTIONS.map((option) => ({
+    label: option.label,
+    value: option.value,
+  })),
+];
+
+type ControlTypeOption = {
+  value: RiskControlType;
+  label: string;
+  color: string;
+};
+
+const CONTROL_TYPE_OPTIONS: ControlTypeOption[] = [
+  { value: "Eliminar", label: "Eliminar", color: "#ef4444" },
+  { value: "Sustituir", label: "Sustituir", color: "#f97316" },
+  { value: "Ingenieril", label: "Ingenieril", color: "#2563eb" },
+  { value: "Administrativa", label: "Administrativa", color: "#7c3aed" },
+  { value: "EPP", label: "EPP", color: "#0891b2" },
+  { value: "Otra", label: "Otra", color: "#6366f1" },
 ];
 
 const WORKFORCE_LABELS: Record<keyof RiskMatrixRow["numeroTrabajadores"], string> = {
@@ -49,6 +103,30 @@ const WORKFORCE_LABELS: Record<keyof RiskMatrixRow["numeroTrabajadores"], string
   masculino: "Personas hombres",
   otros: "Otras identidades",
 };
+
+type ControlModalState = {
+  rowId: string;
+  actividad: string;
+  riesgo: string;
+  responsable: string;
+  controles: RiskMatrixControl[];
+};
+
+const generateControlId = () => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return Math.random().toString(36).slice(2);
+};
+
+const createEmptyControl = (implementer?: string): RiskMatrixControl => ({
+  id: generateControlId(),
+  controlDescription: "",
+  controlType: CONTROL_TYPE_OPTIONS[0]?.value ?? "Eliminar",
+  implementer: implementer ?? "",
+  dueDate: "",
+  applied: false,
+});
 
 const ROWS_PER_PAGE = 15;
 
@@ -85,6 +163,18 @@ type RiskMatrixEditorModalProps = {
   onSave: () => void;
   onDelete?: () => void;
   isNew: boolean;
+};
+
+type RiskControlModalProps = {
+  open: boolean;
+  state: ControlModalState | null;
+  onClose: () => void;
+  onSave: () => void;
+  onAddControl: () => void;
+  onControlChange: (controlId: string, patch: Partial<RiskMatrixControl>) => void;
+  onRemoveControl: (controlId: string) => void;
+  onToggleApplied: (controlId: string) => void;
+  deriveStatus: (controles: RiskMatrixControl[]) => RiskControlStatus;
 };
 
 const RiskMatrixRowEditor = ({
@@ -387,6 +477,253 @@ const RiskMatrixRowEditor = ({
   );
 };
 
+const RiskControlModal = ({
+  open,
+  state,
+  onClose,
+  onSave,
+  onAddControl,
+  onControlChange,
+  onRemoveControl,
+  onToggleApplied,
+  deriveStatus,
+}: RiskControlModalProps) => {
+  if (!open || !state) {
+    return null;
+  }
+
+  const resolvedStatus = useMemo(
+    () => deriveStatus(state.controles),
+    [deriveStatus, state.controles]
+  );
+
+  return (
+    <div className="fixed inset-0 z-[170] flex items-center justify-center overflow-y-auto bg-slate-900/60 px-4 py-8 backdrop-blur-sm sm:px-6 lg:px-10">
+      <div className="relative w-full max-w-4xl sm:max-w-5xl rounded-[32px] border border-white/70 bg-white/95 px-5 py-6 shadow-[0_40px_80px_-50px_rgba(15,23,42,0.6)] dark:border-dracula-current dark:bg-dracula-bg/95 sm:px-8 sm:py-8 lg:px-12 lg:py-10">
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-5 top-5 inline-flex h-10 w-10 items-center justify-center rounded-full border border-soft-gray-200/80 text-slate-500 transition hover:border-celeste-200 hover:text-slate-700 dark:border-dracula-selection dark:text-dracula-comment dark:hover:border-dracula-purple dark:hover:text-dracula-foreground"
+          aria-label="Cerrar control del riesgo"
+        >
+          <X className="h-5 w-5" />
+        </button>
+
+        <header className="mb-6 space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-celeste-400 dark:text-dracula-cyan">
+            Gestión de controles
+          </p>
+          <h2 className="text-2xl font-semibold text-slate-800 dark:text-dracula-foreground">
+            {state.actividad || "Actividad sin nombre"}
+          </h2>
+          {state.riesgo ? (
+            <p className="text-sm text-slate-500 dark:text-dracula-comment">
+              Riesgo evaluado: {state.riesgo}
+            </p>
+          ) : null}
+        </header>
+
+        <section className="mb-6 space-y-3">
+          <p className="text-xs font-semibold uppercase text-slate-500">
+            Estado del riesgo
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {CONTROL_STATUS_OPTIONS.map((option) => {
+              const isActive = resolvedStatus === option.value;
+              return (
+                <span
+                  key={option.value}
+                  className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.15em] shadow-sm ${
+                    isActive
+                      ? "text-white"
+                      : "border border-soft-gray-200 text-slate-500"
+                  }`}
+                  style={
+                    isActive
+                      ? {
+                          background: option.color,
+                          borderColor: option.color,
+                        }
+                      : {
+                          background: option.background,
+                          borderColor: option.color,
+                          color: option.color,
+                        }
+                  }
+                >
+                  {option.label}
+                </span>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="space-y-4 rounded-3xl border border-soft-gray-200/70 bg-white/80 p-4 shadow-sm dark:border-dracula-selection dark:bg-dracula-current/30">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <span className="text-xs font-semibold uppercase text-slate-500">
+                Medidas de control
+              </span>
+              <p className="text-[11px] font-medium text-slate-400 dark:text-dracula-comment">
+                Registra acciones correctivas, su jerarquía y responsables.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onAddControl}
+              className="inline-flex items-center gap-2 rounded-full border border-celeste-200/70 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-celeste-500 transition hover:border-celeste-300 hover:bg-celeste-50 hover:text-celeste-600 dark:border-dracula-current dark:text-dracula-cyan"
+            >
+              <Plus className="h-4 w-4" /> Agregar medida
+            </button>
+          </div>
+          {state.controles.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-soft-gray-200 px-4 py-6 text-center text-[12px] text-slate-400 dark:border-dracula-selection dark:text-dracula-comment">
+              Aún no se han registrado medidas de control.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {state.controles.map((control) => {
+                const typeMeta =
+                  CONTROL_TYPE_OPTIONS.find(
+                    (option) => option.value === control.controlType
+                  ) ?? CONTROL_TYPE_OPTIONS[0];
+                return (
+                  <div
+                    key={control.id}
+                    className="space-y-3 rounded-2xl border border-soft-gray-200 px-4 py-4 shadow-sm transition hover:border-celeste-200 dark:border-dracula-selection dark:bg-dracula-current/40"
+                  >
+                    <div className="flex items-start gap-3">
+                      <button
+                        type="button"
+                        aria-pressed={control.applied}
+                        onClick={() => onToggleApplied(control.id)}
+                        className={`inline-flex h-9 w-9 items-center justify-center rounded-full border text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-emerald-300 ${
+                          control.applied
+                            ? "border-emerald-300 bg-emerald-500 text-white"
+                            : "border-soft-gray-300 text-slate-400 hover:border-celeste-300 hover:text-celeste-500"
+                        }`}
+                      >
+                        {control.applied ? <Check className="h-4 w-4" /> : null}
+                      </button>
+                      <label className="flex w-full flex-col gap-1">
+                        <span className="text-xs font-semibold uppercase text-slate-500">
+                          Medida preventiva aplicada
+                        </span>
+                        <span className="text-[11px] font-medium text-slate-400 dark:text-dracula-comment">
+                          Describe la acción implementada.
+                        </span>
+                        <textarea
+                          rows={2}
+                          className="rounded-xl border border-soft-gray-200 px-3 py-2 text-slate-700 outline-none transition focus:border-celeste-300 focus:ring-2 focus:ring-celeste-200 dark:border-dracula-selection dark:bg-dracula-current/40 dark:text-dracula-foreground"
+                          value={control.controlDescription}
+                          onChange={(event) =>
+                            onControlChange(control.id, {
+                              controlDescription: event.target.value,
+                            })
+                          }
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => onRemoveControl(control.id)}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-rose-200/70 text-rose-500 transition hover:border-rose-300 hover:text-rose-600 dark:border-dracula-red/40 dark:text-dracula-red"
+                        aria-label="Eliminar medida"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                      <label className="flex flex-col gap-1">
+                        <span className="text-xs font-semibold uppercase text-slate-500">
+                          Tipo de medida
+                        </span>
+                        <span className="flex items-center gap-2 text-[11px] font-medium text-slate-400 dark:text-dracula-comment">
+                          <span
+                            className="inline-block h-3 w-3 rounded-full"
+                            style={{ backgroundColor: typeMeta?.color ?? "#94a3b8" }}
+                          />
+                          Jerarquía aplicada al riesgo.
+                        </span>
+                        <select
+                          className="rounded-xl border border-soft-gray-200 px-3 py-2 text-slate-700 outline-none transition focus:border-celeste-300 focus:ring-2 focus:ring-celeste-200 dark:border-dracula-selection dark:bg-dracula-current/40 dark:text-dracula-foreground"
+                          value={control.controlType}
+                          onChange={(event) =>
+                            onControlChange(control.id, {
+                              controlType: event.target.value as RiskControlType,
+                            })
+                          }
+                        >
+                          {CONTROL_TYPE_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="flex flex-col gap-1">
+                        <span className="text-xs font-semibold uppercase text-slate-500">
+                          Fecha aplicada
+                        </span>
+                        <span className="text-[11px] font-medium text-slate-400 dark:text-dracula-comment">
+                          Día en que se implementó la medida.
+                        </span>
+                        <input
+                          type="date"
+                          className="rounded-xl border border-soft-gray-200 px-3 py-2 text-slate-700 outline-none transition focus:border-celeste-300 focus:ring-2 focus:ring-celeste-200 dark:border-dracula-selection dark:bg-dracula-current/40 dark:text-dracula-foreground"
+                          value={control.dueDate}
+                          onChange={(event) =>
+                            onControlChange(control.id, {
+                              dueDate: event.target.value,
+                            })
+                          }
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1">
+                        <span className="text-xs font-semibold uppercase text-slate-500">
+                          Responsable
+                        </span>
+                        <span className="text-[11px] font-medium text-slate-400 dark:text-dracula-comment">
+                          Persona encargada de ejecutar la medida.
+                        </span>
+                        <input
+                          className="rounded-xl border border-soft-gray-200 px-3 py-2 text-slate-700 outline-none transition focus:border-celeste-300 focus:ring-2 focus:ring-celeste-200 dark:border-dracula-selection dark:bg-dracula-current/40 dark:text-dracula-foreground"
+                          value={control.implementer}
+                          onChange={(event) =>
+                            onControlChange(control.id, {
+                              implementer: event.target.value,
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        <footer className="mt-6 flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex items-center gap-2 rounded-full border border-soft-gray-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-celeste-300 hover:text-celeste-600 dark:border-dracula-selection dark:text-dracula-comment"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={onSave}
+            className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-mint-200/80 via-white to-celeste-200/70 px-5 py-2 text-sm font-semibold text-slate-700 shadow-md transition hover:shadow-lg dark:from-dracula-purple dark:via-dracula-pink dark:to-dracula-cyan dark:text-dracula-bg"
+          >
+            Guardar cambios
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
+};
+
 const RiskMatrixEditorModal = ({
   open,
   row,
@@ -635,6 +972,8 @@ const Riesgos = () => {
     label: string;
     value: string;
   } | null>(null);
+  const [controlModalState, setControlModalState] =
+    useState<ControlModalState | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [filters, setFilters] = useState<FilterState>({
     search: "",
@@ -709,8 +1048,12 @@ const Riesgos = () => {
   }, [members, user?.displayName, user?.email]);
 
   const isAnyModalOpen = useMemo(
-    () => Boolean(editingRowId) || showCriteriaModal || Boolean(previewModal),
-    [editingRowId, showCriteriaModal, previewModal]
+    () =>
+      Boolean(editingRowId) ||
+      showCriteriaModal ||
+      Boolean(previewModal) ||
+      Boolean(controlModalState),
+    [editingRowId, showCriteriaModal, previewModal, controlModalState]
   );
 
   useEffect(() => {
@@ -764,6 +1107,29 @@ const Riesgos = () => {
     });
     return map;
   }, [evaluationCriteria.consequence]);
+
+  const deriveControlStatus = useCallback(
+    (controles: RiskMatrixControl[]) => {
+      if (!controles || controles.length === 0) {
+        return "Sin controlar";
+      }
+      return controles.every((control) => control.applied)
+        ? "Controlado"
+        : "En proceso";
+    },
+    []
+  );
+
+  const resolveRowControlStatus = useCallback(
+    (row: RiskMatrixRow): RiskControlStatus => {
+      const controles = row.controles ?? [];
+      if (controles.length > 0) {
+        return deriveControlStatus(controles);
+      }
+      return row.estadoControl ?? "Sin controlar";
+    },
+    [deriveControlStatus]
+  );
 
   const handleRowChange = useCallback(
     (id: string, patch: Partial<RiskMatrixRow>) => {
@@ -851,6 +1217,109 @@ const Riesgos = () => {
     }
   };
 
+  const openControlModal = useCallback((row: RiskMatrixRow) => {
+    const controles = (row.controles ?? []).map((control) => ({ ...control }));
+    setControlModalState({
+      rowId: row.id,
+      actividad: row.actividad,
+      riesgo: row.riesgo,
+      responsable: row.responsable,
+      controles,
+    });
+  }, []);
+
+  const closeControlModal = useCallback(() => {
+    setControlModalState(null);
+  }, []);
+
+  const addControlToModal = useCallback(() => {
+    setControlModalState((prev) => {
+      if (!prev) {
+        return prev;
+      }
+      const defaultImplementer = prev.responsable || responsibleName;
+      const updatedControls = [
+        ...prev.controles,
+        createEmptyControl(defaultImplementer),
+      ];
+      return {
+        ...prev,
+        controles: updatedControls,
+      };
+    });
+  }, [responsibleName]);
+
+  const updateControlInModal = useCallback(
+    (controlId: string, patch: Partial<RiskMatrixControl>) => {
+      setControlModalState((prev) => {
+        if (!prev) {
+          return prev;
+        }
+        const updatedControls = prev.controles.map((control) =>
+          control.id === controlId ? { ...control, ...patch } : control
+        );
+        return {
+          ...prev,
+          controles: updatedControls,
+        };
+      });
+    },
+    []
+  );
+
+  const removeControlFromModal = useCallback((controlId: string) => {
+    setControlModalState((prev) => {
+      if (!prev) {
+        return prev;
+      }
+      const updatedControls = prev.controles.filter(
+        (control) => control.id !== controlId
+      );
+      return {
+        ...prev,
+        controles: updatedControls,
+      };
+    });
+  }, []);
+
+  const toggleControlAppliedInModal = useCallback((controlId: string) => {
+    setControlModalState((prev) => {
+      if (!prev) {
+        return prev;
+      }
+      const updatedControls = prev.controles.map((control) =>
+        control.id === controlId
+          ? { ...control, applied: !control.applied }
+          : control
+      );
+      return {
+        ...prev,
+        controles: updatedControls,
+      };
+    });
+  }, []);
+
+  const handleSaveControlModal = useCallback(() => {
+    setControlModalState((current) => {
+      if (!current) {
+        return current;
+      }
+      const finalStatus = deriveControlStatus(current.controles);
+      setRows((prevRows) =>
+        prevRows.map((row) =>
+          row.id === current.rowId
+            ? {
+                ...row,
+                estadoControl: finalStatus,
+                controles: current.controles,
+              }
+            : row
+        )
+      );
+      return null;
+    });
+  }, [deriveControlStatus]);
+
   const updateFilter = useCallback(
     <K extends keyof FilterState>(key: K, value: FilterState[K]) => {
       setFilters((prev) => ({
@@ -912,27 +1381,30 @@ const Riesgos = () => {
       "Estado",
     ];
 
-    const tableRows = rows.map((row, index) => [
-      index + 1,
-      row.actividad,
-      row.tarea,
-      row.puestoTrabajo,
-      row.lugarEspecifico,
-      row.numeroTrabajadores.femenino,
-      row.numeroTrabajadores.masculino,
-      row.numeroTrabajadores.otros,
-      row.rutina,
-      row.factorDeRiesgo || row.peligro,
-      row.riesgo,
-      row.danoProbable,
-      row.probabilidad,
-      row.consecuencia,
-      row.puntuacion,
-      row.clasificacion,
-      row.estaControlado ? "Sí" : "No",
-      row.responsable,
-      row.plazo ? formatDate(row.plazo) : "",
-    ]);
+    const tableRows = rows.map((row, index) => {
+      const exportStatus = resolveRowControlStatus(row);
+      return [
+        index + 1,
+        row.actividad,
+        row.tarea,
+        row.puestoTrabajo,
+        row.lugarEspecifico,
+        row.numeroTrabajadores.femenino,
+        row.numeroTrabajadores.masculino,
+        row.numeroTrabajadores.otros,
+        row.rutina,
+        row.factorDeRiesgo || row.peligro,
+        row.riesgo,
+        row.danoProbable,
+        row.probabilidad,
+        row.consecuencia,
+        row.puntuacion,
+        row.clasificacion,
+        exportStatus,
+        row.responsable,
+        row.plazo ? formatDate(row.plazo) : "",
+      ];
+    });
 
     const worksheet = XLSX.utils.aoa_to_sheet([
       ...headerInfo,
@@ -947,7 +1419,7 @@ const Riesgos = () => {
       .replace(/[^a-z0-9-_]+/g, "_");
 
     XLSX.writeFile(workbook, `matriz-riesgos-${companySlug}.xlsx`);
-  }, [matrixDocument.header, rows]);
+  }, [matrixDocument.header, rows, resolveRowControlStatus]);
 
   const filtersActive = useMemo(() => {
     return (
@@ -964,6 +1436,8 @@ const Riesgos = () => {
     const normalizedSearch = filters.search.trim().toLowerCase();
 
     return rows.filter((row) => {
+      const rowStatus = resolveRowControlStatus(row);
+
       if (normalizedSearch.length > 0) {
         const haystack = [
           row.actividad,
@@ -1009,16 +1483,13 @@ const Riesgos = () => {
         return false;
       }
 
-      if (filters.controlled !== "all") {
-        const shouldBeControlled = filters.controlled === "si";
-        if (row.estaControlado !== shouldBeControlled) {
-          return false;
-        }
+      if (filters.controlled !== "all" && rowStatus !== filters.controlled) {
+        return false;
       }
 
       return true;
     });
-  }, [filters, rows]);
+  }, [filters, resolveRowControlStatus, rows]);
 
   const totalPages =
     filteredRows.length > 0
@@ -1079,14 +1550,14 @@ const Riesgos = () => {
             </div>
             <div className="flex flex-wrap items-center gap-2 sm:gap-3 lg:justify-end">
               <button
-                className="inline-flex items-center gap-1.5 rounded-full border border-celeste-200/70 bg-white/80 px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-celeste-300 hover:bg-celeste-50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-cyan dark:hover:border-dracula-purple dark:hover:bg-dracula-bg sm:gap-2 sm:px-5 sm:py-2.5 sm:text-sm"
+                className="inline-flex items-center gap-1.5 rounded-full border border-celeste-200/70 bg-white/80 px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-celeste-300 hover:bg-celeste-50 hover:text-celeste-600 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-cyan dark:hover:border-dracula-purple dark:hover:bg-dracula-bg sm:gap-2 sm:px-5 sm:py-2.5 sm:text-sm"
                 onClick={() => setShowCriteriaModal(true)}
               >
                 <BookOpen className="h-4 w-4" />
                 <span className="hidden sm:inline">Ver criterios</span>
                 <span className="sm:hidden">Criterios</span>
               </button>
-              <button className="inline-flex items-center gap-1.5 rounded-full border border-soft-gray-200/70 bg-white/80 px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-celeste-300 hover:bg-celeste-50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-comment dark:hover:border-dracula-purple dark:hover:bg-dracula-bg sm:gap-2 sm:px-5 sm:py-2.5 sm:text-sm">
+              <button className="inline-flex items-center gap-1.5 rounded-full border border-soft-gray-200/70 bg-white/80 px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-celeste-300 hover:bg-celeste-50 hover:text-celeste-600 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-comment dark:hover:border-dracula-purple dark:hover:bg-dracula-bg sm:gap-2 sm:px-5 sm:py-2.5 sm:text-sm">
                 <Edit className="h-4 w-4" />
                 Editar cabecera
               </button>
@@ -1383,6 +1854,11 @@ const Riesgos = () => {
                         row.probabilidad,
                         row.consecuencia
                       );
+                      const rowStatus = resolveRowControlStatus(row);
+                      const statusMeta =
+                        CONTROL_STATUS_META[rowStatus] ??
+                        CONTROL_STATUS_OPTIONS[0];
+                      const controlsCount = row.controles?.length ?? 0;
                       return (
                         <tr
                           key={row.id}
@@ -1475,8 +1951,26 @@ const Riesgos = () => {
                           <td className="w-40 px-4 py-3 text-center align-top whitespace-nowrap">
                             {row.plazo ? formatDate(row.plazo) : "—"}
                           </td>
-                          <td className="w-24 px-3 py-3 text-center align-top whitespace-nowrap">
-                            {row.estaControlado ? "Sí" : "No"}
+                          <td className="w-32 px-3 py-3 text-center align-top whitespace-nowrap">
+                            <div className="flex flex-col items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => openControlModal(row)}
+                                className="inline-flex items-center justify-center rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.15em] transition focus:outline-none focus:ring-2 focus:ring-celeste-300"
+                                style={{
+                                  backgroundColor: statusMeta.background,
+                                  borderColor: statusMeta.color,
+                                  color: statusMeta.color,
+                                }}
+                              >
+                                {statusMeta.label}
+                              </button>
+                              <span className="text-[10px] font-medium text-slate-400 dark:text-dracula-comment">
+                                {controlsCount === 1
+                                  ? "1 medida"
+                                  : `${controlsCount} medidas`}
+                              </span>
+                            </div>
                           </td>
                           <td className="w-28 px-3 py-3 text-center align-top whitespace-nowrap">
                             <div className="flex items-center justify-center gap-2">
@@ -1584,6 +2078,18 @@ const Riesgos = () => {
             : undefined
         }
         isNew={editingRow ? pendingNewRowId === editingRow.id : false}
+      />
+
+      <RiskControlModal
+        open={Boolean(controlModalState)}
+        state={controlModalState}
+        onClose={closeControlModal}
+        onSave={handleSaveControlModal}
+        onAddControl={addControlToModal}
+        onControlChange={updateControlInModal}
+        onRemoveControl={removeControlFromModal}
+        onToggleApplied={toggleControlAppliedInModal}
+        deriveStatus={deriveControlStatus}
       />
 
       {previewModal ? (
