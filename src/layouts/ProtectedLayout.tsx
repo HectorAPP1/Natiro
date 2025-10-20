@@ -1,5 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
-import { Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import {
+  Navigate,
+  NavLink,
+  Outlet,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
@@ -26,7 +32,11 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useCompanyMembers } from "../hooks/useCompanyMembers";
-import { createDefaultCompanySettings, type AccessModule, type AccessRole } from "../types/company";
+import {
+  createDefaultCompanySettings,
+  type AccessModule,
+  type AccessRole,
+} from "../types/company";
 import ThemeToggle from "../components/ThemeToggle";
 import { LayoutStateProvider } from "./LayoutStateContext";
 import FullScreenLoader from "../components/FullScreenLoader";
@@ -41,10 +51,7 @@ export default function ProtectedLayout() {
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const {
-    members,
-    loading: membersLoading,
-  } = useCompanyMembers();
+  const { members, loading: membersLoading } = useCompanyMembers();
 
   const roleDefaults = useMemo(
     () => createDefaultCompanySettings().access.roleDefaults,
@@ -68,9 +75,15 @@ export default function ProtectedLayout() {
     return activeMember?.modules ?? roleDefaults[resolvedRole] ?? [];
   }, [activeMember, resolvedRole, roleDefaults]);
 
-  const allowedModuleSet = useMemo(() => new Set(allowedModules), [allowedModules]);
+  const allowedModuleSet = useMemo(
+    () => new Set(allowedModules),
+    [allowedModules]
+  );
 
-  const roleDescriptions: Record<AccessRole, { title: string; capabilities: string[] }> = {
+  const roleDescriptions: Record<
+    AccessRole,
+    { title: string; capabilities: string[] }
+  > = {
     Administrador: {
       title: "Administrador",
       capabilities: [
@@ -121,7 +134,8 @@ export default function ProtectedLayout() {
     if (activeMember?.avatarUrl) {
       return { type: "image" as const, value: activeMember.avatarUrl };
     }
-    const emoji = activeMember?.avatarEmoji ?? defaultRoleAvatars[resolvedRole] ?? "🙂";
+    const emoji =
+      activeMember?.avatarEmoji ?? defaultRoleAvatars[resolvedRole] ?? "🙂";
     return { type: "emoji" as const, value: emoji };
   }, [activeMember, defaultRoleAvatars, resolvedRole]);
 
@@ -590,14 +604,13 @@ export default function ProtectedLayout() {
     return "Panel HSE";
   };
 
-  const renderNavigation = (
-    items: NavigationItem[],
-    onNavigate?: () => void
-  ) =>
+  const renderNavigation = (items: NavigationItem[], onNavigate?: () => void) =>
     items.map((item) => {
       const Icon = item.icon;
       const hasSubItems = item.subItems && item.subItems.length > 0;
-      const isAnySubItemActive = hasSubItems && item.subItems!.some(sub => location.pathname === sub.to);
+      const isAnySubItemActive =
+        hasSubItems &&
+        item.subItems!.some((sub) => location.pathname === sub.to);
 
       // Si tiene sub-items, renderizar menú desplegable
       if (hasSubItems) {
@@ -883,7 +896,9 @@ export default function ProtectedLayout() {
                 </>
               )}
             </div>
-            <nav className="space-y-2">{renderNavigation(filteredNavigation)}</nav>
+            <nav className="space-y-2">
+              {renderNavigation(filteredNavigation)}
+            </nav>
           </div>
           {desktopCollapsed ? null : (
             <div className="rounded-2xl border border-white/70 bg-white/80 px-4 py-3 text-xs text-slate-500 shadow-sm backdrop-blur dark:border-dracula-current/50 dark:bg-dracula-current/30">
@@ -916,7 +931,7 @@ export default function ProtectedLayout() {
         </aside>
 
         <div
-          className={`flex flex-1 flex-col ${
+          className={`flex min-w-0 flex-1 flex-col ${
             desktopCollapsed ? "lg:ml-24" : "lg:ml-80 xl:ml-[23rem]"
           }`}
         >
@@ -947,9 +962,17 @@ export default function ProtectedLayout() {
                   type="button"
                   onClick={() => setDesktopCollapsed((prev) => !prev)}
                   className="hidden h-10 w-10 items-center justify-center rounded-full border border-soft-gray-200/70 bg-white/80 text-slate-600 shadow-sm transition hover:border-celeste-200 hover:bg-celeste-50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-cyan lg:inline-flex"
-                  aria-label={desktopCollapsed ? "Expandir barra lateral" : "Colapsar barra lateral"}
+                  aria-label={
+                    desktopCollapsed
+                      ? "Expandir barra lateral"
+                      : "Colapsar barra lateral"
+                  }
                 >
-                  {desktopCollapsed ? <ChevronsRight className="h-5 w-5" /> : <ChevronsLeft className="h-5 w-5" />}
+                  {desktopCollapsed ? (
+                    <ChevronsRight className="h-5 w-5" />
+                  ) : (
+                    <ChevronsLeft className="h-5 w-5" />
+                  )}
                 </button>
                 <div className="hidden md:block">{roleBadge}</div>
                 <button
@@ -959,15 +982,24 @@ export default function ProtectedLayout() {
                   aria-haspopup="dialog"
                   aria-expanded={userMenuOpen}
                 >
-                  <span className="hidden max-w-[120px] truncate sm:block">Bienvenid@</span>
+                  <span className="hidden max-w-[120px] truncate sm:block">
+                    Bienvenid@
+                  </span>
                   <span className="hidden max-w-[180px] truncate text-slate-500 dark:text-dracula-comment lg:block">
-                    {activeMember?.displayName || user?.displayName || user?.email || "Usuario"}
+                    {activeMember?.displayName ||
+                      user?.displayName ||
+                      user?.email ||
+                      "Usuario"}
                   </span>
                   <span className="flex h-8 w-8 items-center justify-center rounded-full bg-celeste-100 text-base dark:bg-dracula-current/40">
                     {headerAvatar.type === "image" ? (
                       <img
                         src={headerAvatar.value}
-                        alt={activeMember?.displayName ?? user?.displayName ?? "Avatar"}
+                        alt={
+                          activeMember?.displayName ??
+                          user?.displayName ??
+                          "Avatar"
+                        }
                         className="h-8 w-8 rounded-full object-cover"
                       />
                     ) : (
@@ -995,7 +1027,11 @@ export default function ProtectedLayout() {
                     {headerAvatar.type === "image" ? (
                       <img
                         src={headerAvatar.value}
-                        alt={activeMember?.displayName ?? user?.displayName ?? "Avatar"}
+                        alt={
+                          activeMember?.displayName ??
+                          user?.displayName ??
+                          "Avatar"
+                        }
                         className="h-16 w-16 rounded-full object-cover"
                       />
                     ) : (
@@ -1007,7 +1043,10 @@ export default function ProtectedLayout() {
                       Bienvenid@
                     </p>
                     <p className="mt-1 text-lg font-semibold text-slate-800 dark:text-dracula-foreground">
-                      {activeMember?.displayName || user?.displayName || user?.email || "Usuario"}
+                      {activeMember?.displayName ||
+                        user?.displayName ||
+                        user?.email ||
+                        "Usuario"}
                     </p>
                     <p className="text-xs text-slate-500 dark:text-dracula-comment">
                       {activeMember?.email || user?.email || "Sin correo"}
@@ -1081,7 +1120,9 @@ export default function ProtectedLayout() {
                 </div>
               </div>
               <nav className="flex-1 space-y-1.5">
-                {renderNavigation(filteredNavigation, () => setSidebarOpen(false))}
+                {renderNavigation(filteredNavigation, () =>
+                  setSidebarOpen(false)
+                )}
               </nav>
               <div className="mt-8 rounded-2xl border border-soft-gray-200/70 bg-soft-gray-50/80 px-4 py-3 text-xs text-slate-500 shadow-sm dark:border-dracula-current/50 dark:bg-dracula-current/30">
                 <div className="mb-2 flex items-center gap-2">
@@ -1144,7 +1185,8 @@ export default function ProtectedLayout() {
               </div>
             </div>
             <p className="mt-4 text-sm text-slate-600 dark:text-dracula-comment">
-              Estas son las capacidades principales asociadas a tu rol dentro de ClodiApp:
+              Estas son las capacidades principales asociadas a tu rol dentro de
+              ClodiApp:
             </p>
             <ul className="mt-4 space-y-3 text-sm text-slate-600 dark:text-dracula-comment">
               {roleInfo.capabilities.map((capability) => (
@@ -1159,7 +1201,8 @@ export default function ProtectedLayout() {
             </ul>
             <div className="mt-5 rounded-2xl border border-celeste-200/70 bg-celeste-50/60 px-4 py-3 text-xs text-celeste-700 dark:border-dracula-purple/50 dark:bg-dracula-current/20 dark:text-dracula-cyan">
               <p>
-                Para ampliar tus permisos, ponte en contacto con un administrador de tu organización.
+                Para ampliar tus permisos, ponte en contacto con un
+                administrador de tu organización.
               </p>
             </div>
           </div>

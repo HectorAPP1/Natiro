@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { BookOpen, Download, Edit, Plus, Trash2, X } from "lucide-react";
-import { useLayoutState } from "../layouts/LayoutStateContext";
 import * as XLSX from "xlsx";
 import { useRiskMatrix } from "../hooks/useRiskMatrix";
 import { useAuth } from "../context/AuthContext";
@@ -1052,25 +1051,19 @@ const Riesgos = () => {
   const pageStartNumber = filteredRows.length === 0 ? 0 : startIndex + 1;
   const pageEndNumber =
     filteredRows.length === 0 ? 0 : startIndex + paginatedRows.length;
-  const { desktopCollapsed } = useLayoutState();
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-soft-gray-50 via-white to-white px-4 py-8 dark:from-dracula-bg dark:via-dracula-secondary dark:to-dracula-bg">
-      <div
-        className={`hidden w-full flex-col gap-8 lg:flex lg:px-6 ${
-          desktopCollapsed
-            ? "xl:px-0 xl:max-w-[1920px] xl:mx-auto"
-            : "xl:px-0 xl:max-w-[1648px] xl:mx-auto"
-        }`}
-      >
-        <header className="rounded-4xl border border-white/70 bg-white/95 p-4 sm:p-6 lg:p-8 shadow-[0_30px_60px_-40px_rgba(15,23,42,0.45)] backdrop-blur dark:border-dracula-current dark:bg-dracula-bg/95">
+    <div className="space-y-8">
+      {/* ===== INICIO DEL LAYOUT PARA ESCRITORIO ===== */}
+      <div className="hidden flex-col gap-8 lg:flex">
+        <header className="rounded-4xl border border-white/70 bg-white/95 p-4 shadow-[0_30px_60px_-40px_rgba(15,23,42,0.45)] backdrop-blur dark:border-dracula-current dark:bg-dracula-bg/95 sm:p-6 lg:p-8">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-[0.3em] text-celeste-300 dark:text-dracula-cyan">
                 Matrices elaboradas bajo el modelo de la guía del ISP 2025, para
                 dar cumplimiento al DS44
               </p>
-              <h1 className="mt-2 text-xl sm:text-2xl font-semibold text-slate-800 dark:text-dracula-foreground">
+              <h1 className="mt-2 text-xl font-semibold text-slate-800 dark:text-dracula-foreground sm:text-2xl">
                 Matriz de identificación de peligros y evaluación de riesgos
               </h1>
               <p className="mt-2 max-w-3xl text-sm text-slate-500 dark:text-dracula-comment">
@@ -1081,19 +1074,19 @@ const Riesgos = () => {
             </div>
             <div className="flex flex-wrap items-center gap-2 sm:gap-3 lg:justify-end">
               <button
-                className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full border border-celeste-200/70 bg-white/80 px-3 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-slate-600 shadow-sm transition hover:border-celeste-300 hover:bg-celeste-50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-cyan dark:hover:border-dracula-purple dark:hover:bg-dracula-bg"
+                className="inline-flex items-center gap-1.5 rounded-full border border-celeste-200/70 bg-white/80 px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-celeste-300 hover:bg-celeste-50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-cyan dark:hover:border-dracula-purple dark:hover:bg-dracula-bg sm:gap-2 sm:px-5 sm:py-2.5 sm:text-sm"
                 onClick={() => setShowCriteriaModal(true)}
               >
                 <BookOpen className="h-4 w-4" />
                 <span className="hidden sm:inline">Ver criterios</span>
                 <span className="sm:hidden">Criterios</span>
               </button>
-              <button className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full border border-soft-gray-200/70 bg-white/80 px-3 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-slate-600 shadow-sm transition hover:border-celeste-300 hover:bg-celeste-50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-comment dark:hover:border-dracula-purple dark:hover:bg-dracula-bg">
+              <button className="inline-flex items-center gap-1.5 rounded-full border border-soft-gray-200/70 bg-white/80 px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-celeste-300 hover:bg-celeste-50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-comment dark:hover:border-dracula-purple dark:hover:bg-dracula-bg sm:gap-2 sm:px-5 sm:py-2.5 sm:text-sm">
                 <Edit className="h-4 w-4" />
                 Editar cabecera
               </button>
               <button
-                className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full bg-gradient-to-r from-mint-200/80 via-white to-celeste-200/70 px-4 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-slate-700 shadow-md transition hover:shadow-lg dark:from-dracula-purple dark:via-dracula-pink dark:to-dracula-cyan dark:text-dracula-bg"
+                className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-mint-200/80 via-white to-celeste-200/70 px-4 py-2.5 text-xs font-semibold text-slate-700 shadow-md transition hover:shadow-lg dark:from-dracula-purple dark:via-dracula-pink dark:to-dracula-cyan dark:text-dracula-bg sm:gap-2 sm:px-6 sm:py-3 sm:text-sm"
                 onClick={handleExportMatrix}
               >
                 <Download className="h-4 w-4" />
@@ -1104,7 +1097,7 @@ const Riesgos = () => {
           </div>
 
           <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <div className="rounded-3xl border border-mint-200/70 bg-mint-50/70 p-4 sm:p-5 shadow-sm transition hover:border-mint-300 hover:bg-mint-100/70 hover:shadow-lg dark:border-dracula-green/30 dark:bg-dracula-current dark:hover:border-dracula-green/50 dark:hover:bg-dracula-green/10">
+            <div className="rounded-3xl border border-mint-200/70 bg-mint-50/70 p-4 shadow-sm transition hover:border-mint-300 hover:bg-mint-100/70 hover:shadow-lg dark:border-dracula-green/30 dark:bg-dracula-current dark:hover:border-dracula-green/50 dark:hover:bg-dracula-green/10 sm:p-5">
               <p className="text-xs font-medium uppercase tracking-[0.2em] text-mint-400 dark:text-dracula-green">
                 Empresa
               </p>
@@ -1115,7 +1108,7 @@ const Riesgos = () => {
                 RUT {matrixDocument.header.rutEmpleador}
               </p>
             </div>
-            <div className="rounded-3xl border border-celeste-200/70 bg-celeste-50/70 p-4 sm:p-5 shadow-sm transition hover:border-celeste-300 hover:bg-celeste-100/70 hover:shadow-lg dark:border-dracula-cyan/40 dark:bg-dracula-current dark:hover:border-dracula-cyan/60 dark:hover:bg-dracula-cyan/10">
+            <div className="rounded-3xl border border-celeste-200/70 bg-celeste-50/70 p-4 shadow-sm transition hover:border-celeste-300 hover:bg-celeste-100/70 hover:shadow-lg dark:border-dracula-cyan/40 dark:bg-dracula-current dark:hover:border-dracula-cyan/60 dark:hover:bg-dracula-cyan/10 sm:p-5">
               <p className="text-xs font-medium uppercase tracking-[0.2em] text-celeste-500 dark:text-dracula-cyan">
                 Centro de trabajo
               </p>
@@ -1126,7 +1119,7 @@ const Riesgos = () => {
                 {matrixDocument.header.direccionCentroTrabajo}
               </p>
             </div>
-            <div className="rounded-3xl border border-purple-200/70 bg-purple-50/60 p-4 sm:p-5 shadow-sm transition hover:border-purple-300 hover:bg-purple-100/70 hover:shadow-lg dark:border-dracula-purple/40 dark:bg-dracula-current dark:hover:border-dracula-purple/60 dark:hover:bg-dracula-purple/10">
+            <div className="rounded-3xl border border-purple-200/70 bg-purple-50/60 p-4 shadow-sm transition hover:border-purple-300 hover:bg-purple-100/70 hover:shadow-lg dark:border-dracula-purple/40 dark:bg-dracula-current dark:hover:border-dracula-purple/60 dark:hover:bg-dracula-purple/10 sm:p-5">
               <p className="text-xs font-medium uppercase tracking-[0.2em] text-purple-400 dark:text-dracula-purple">
                 Fecha de actualización
               </p>
@@ -1140,14 +1133,14 @@ const Riesgos = () => {
           </div>
         </header>
 
-        <main className="space-y-8 min-w-0">
-          <section className="rounded-4xl border border-white/70 bg-white/95 p-4 sm:p-6 lg:p-8 shadow-[0_30px_60px_-40px_rgba(15,23,42,0.35)] backdrop-blur dark:border-dracula-current dark:bg-dracula-bg/90">
+        <main className="min-w-0 space-y-8">
+          <section className="rounded-4xl border border-white/70 bg-white/95 p-4 shadow-[0_30px_60px_-40px_rgba(15,23,42,0.35)] backdrop-blur dark:border-dracula-current dark:bg-dracula-bg/90 sm:p-6 lg:p-8">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-lg font-semibold text-slate-800 dark:text-dracula-foreground">
                 Listado de riesgos
               </h2>
               <button
-                className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full bg-gradient-to-r from-mint-200/80 via-white to-celeste-200/70 px-4 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-slate-700 shadow-md transition hover:shadow-lg dark:from-dracula-purple dark:via-dracula-pink dark:to-dracula-cyan dark:text-dracula-bg"
+                className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-mint-200/80 via-white to-celeste-200/70 px-4 py-2.5 text-xs font-semibold text-slate-700 shadow-md transition hover:shadow-lg dark:from-dracula-purple dark:via-dracula-pink dark:to-dracula-cyan dark:text-dracula-bg sm:gap-2 sm:px-6 sm:py-3 sm:text-sm"
                 onClick={handleAddRow}
               >
                 <Plus className="h-4 w-4" />
@@ -1156,7 +1149,7 @@ const Riesgos = () => {
               </button>
             </div>
             <div className="mb-6 space-y-3 rounded-3xl border border-soft-gray-200/70 bg-white/80 p-4 text-xs shadow-sm dark:border-dracula-selection dark:bg-dracula-current/30">
-              <div className="flex flex-nowrap items-end gap-3 overflow-x-auto pb-1">
+              <div className="scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100 hover:scrollbar-thumb-slate-400 dark:scrollbar-thumb-slate-600 dark:scrollbar-track-slate-800 dark:hover:scrollbar-thumb-slate-500 flex flex-nowrap items-end gap-3 overflow-x-auto pb-1">
                 <label className="flex min-w-[220px] flex-col gap-1">
                   <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-slate-400 dark:text-dracula-comment">
                     Buscar
@@ -1311,13 +1304,11 @@ const Riesgos = () => {
               </div>
             </div>
 
-            <div className="w-full max-h-[520px] overflow-y-auto overflow-x-auto">
+            <div className="scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100 hover:scrollbar-thumb-slate-400 dark:scrollbar-thumb-slate-600 dark:scrollbar-track-slate-800 dark:hover:scrollbar-thumb-slate-500 w-full max-h-[520px] overflow-y-auto overflow-x-auto">
               <table className="w-full min-w-[1280px] table-auto divide-y divide-soft-gray-200 text-sm dark:divide-dracula-selection">
                 <thead className="sticky top-0 z-10 bg-soft-gray-100 text-xs font-semibold uppercase text-slate-500 dark:bg-dracula-current/80 dark:text-dracula-comment">
                   <tr>
-                    <th className="w-12 px-3 py-3 text-center whitespace-nowrap">
-                      #
-                    </th>
+                    <th className="w-12 px-3 py-3 text-center whitespace-nowrap"></th>
                     <th className="min-w-[200px] px-4 py-3 text-left whitespace-nowrap">
                       Actividad
                     </th>
@@ -1549,6 +1540,7 @@ const Riesgos = () => {
         </main>
       </div>
 
+      {/* ===== LAYOUT PARA MÓVIL (SIN CAMBIOS) ===== */}
       <div className="flex flex-col items-center justify-center gap-5 rounded-4xl border border-white/70 bg-white/95 p-6 text-center shadow-[0_20px_40px_-30px_rgba(15,23,42,0.4)] backdrop-blur dark:border-dracula-current dark:bg-dracula-bg/95 lg:hidden">
         <div className="space-y-2">
           <p className="text-sm font-semibold uppercase tracking-[0.3em] text-celeste-300 dark:text-dracula-cyan">
@@ -1571,6 +1563,7 @@ const Riesgos = () => {
         </button>
       </div>
 
+      {/* ===== MODALES (SIN CAMBIOS) ===== */}
       <RiskMatrixEditorModal
         open={Boolean(editingRow)}
         row={editingRow ?? null}
