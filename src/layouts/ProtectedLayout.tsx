@@ -604,7 +604,7 @@ export default function ProtectedLayout() {
     return "Panel HSE";
   };
 
-  const renderNavigation = (items: NavigationItem[], onNavigate?: () => void) =>
+  const renderNavigation = (items: NavigationItem[], onNavigate?: () => void, forceExpanded: boolean = false) =>
     items.map((item) => {
       const Icon = item.icon;
       const hasSubItems = item.subItems && item.subItems.length > 0;
@@ -638,7 +638,7 @@ export default function ProtectedLayout() {
                 const activeClasses = isActive
                   ? "border-celeste-200/80 bg-celeste-50/50 text-slate-800 dark:border-dracula-cyan/50 dark:bg-dracula-cyan/10 dark:text-dracula-cyan"
                   : "border-transparent text-slate-500 hover:border-celeste-100/60 hover:bg-white/60 hover:text-slate-700 dark:text-dracula-comment/70 dark:hover:border-dracula-cyan/20 dark:hover:bg-dracula-current/30 dark:hover:text-dracula-cyan/80";
-                if (desktopCollapsed) {
+                if (desktopCollapsed && !forceExpanded) {
                   return `group flex flex-col items-center justify-center gap-1 rounded-xl border px-3 py-2 text-xs font-medium transition-all ${activeClasses}`;
                 }
                 return `group flex items-center gap-3 rounded-xl border py-2 px-4 text-sm font-medium transition-all ${activeClasses}`;
@@ -653,7 +653,7 @@ export default function ProtectedLayout() {
                         : "text-celeste-300/70 group-hover:text-celeste-400 dark:text-dracula-cyan/50 dark:group-hover:text-dracula-cyan"
                     }`}
                   />
-                  {!desktopCollapsed ? (
+                  {! (desktopCollapsed && !forceExpanded) ? (
                     <span
                       className={`flex-1 text-left ${
                         isActive
@@ -678,7 +678,7 @@ export default function ProtectedLayout() {
             <button
               onClick={handleParentClick}
               className={`group flex w-full items-center rounded-2xl border py-3 text-sm font-semibold transition-all ${
-                desktopCollapsed ? "justify-center px-3" : "gap-4 px-6"
+               (desktopCollapsed && !forceExpanded) ? "justify-center px-3" : "gap-4 px-6"
               } ${
                 isAnySubItemActive || isOpen
                   ? "border-mint-200/80 bg-white text-slate-800 shadow-sm dark:border-dracula-purple/50 dark:bg-dracula-current dark:text-dracula-foreground"
@@ -692,7 +692,7 @@ export default function ProtectedLayout() {
                     : "text-celeste-300/70 group-hover:text-celeste-400 dark:text-dracula-cyan/50 dark:group-hover:text-dracula-cyan"
                 }`}
               />
-              {!desktopCollapsed && (
+             {! (desktopCollapsed && !forceExpanded) && (
                 <>
                   <span className="flex-1 text-left">{item.label}</span>
                   <ChevronDown
@@ -704,13 +704,13 @@ export default function ProtectedLayout() {
               )}
             </button>
 
-            {/* Sub-items */}
-            {!desktopCollapsed && isOpen ? (
+           {/* Sub-items */}
+            {/*!(desktopCollapsed && !forceExpanded) && isOpen ? (
               <div className="ml-6 space-y-1">
                 {item.subItems!.map((subItem) => renderSubItemLink(subItem))}
               </div>
             ) : null}
-            {desktopCollapsed && isOpen ? (
+            {(desktopCollapsed && !forceExpanded) && isOpen ? (
               <div className="absolute left-1/2 top-full z-40 mt-2 flex -translate-x-1/2 flex-col items-center gap-3 rounded-2xl border border-soft-gray-200/70 bg-white/95 px-3 py-3 shadow-xl transition dark:border-dracula-current/40 dark:bg-dracula-bg/95">
                 {item.subItems!.map((subItem) => renderSubItemLink(subItem))}
               </div>
@@ -727,7 +727,7 @@ export default function ProtectedLayout() {
           onClick={onNavigate}
           className={({ isActive }) =>
             `group flex items-center rounded-2xl border py-3 text-sm font-semibold transition-all ${
-              desktopCollapsed ? "justify-center px-3" : "gap-4 px-6"
+             (desktopCollapsed && !forceExpanded) ? "justify-center px-3" : "gap-4 px-6"
             } ${
               isActive
                 ? "border-mint-200/80 bg-white text-slate-800 shadow-sm dark:border-dracula-purple/50 dark:bg-dracula-current dark:text-dracula-foreground"
@@ -744,7 +744,7 @@ export default function ProtectedLayout() {
                     : "text-celeste-300/70 group-hover:text-celeste-400 dark:text-dracula-cyan/50 dark:group-hover:text-dracula-cyan"
                 }`}
               />
-              {desktopCollapsed ? null : (
+            {(desktopCollapsed && !forceExpanded) ? null : (
                 <>
                   <span
                     className={`flex-1 text-left ${
@@ -1088,7 +1088,7 @@ export default function ProtectedLayout() {
         </div>
 
         {sidebarOpen ? (
-          <div className="fixed inset-0 z-[190] flex justify-end lg:hidden">
+          <div className="fixed inset-0 z-[190] flex justify-start lg:hidden">
             <div
               className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
               onClick={() => setSidebarOpen(false)}
@@ -1121,7 +1121,7 @@ export default function ProtectedLayout() {
               </div>
               <nav className="flex-1 space-y-1.5">
                 {renderNavigation(filteredNavigation, () =>
-                  setSidebarOpen(false)
+                  setSidebarOpen(false), true
                 )}
               </nav>
               <div className="mt-8 rounded-2xl border border-soft-gray-200/70 bg-soft-gray-50/80 px-4 py-3 text-xs text-slate-500 shadow-sm dark:border-dracula-current/50 dark:bg-dracula-current/30">
