@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 type LocationState = {
@@ -14,6 +15,7 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [passwordVisible, setPasswordVisible] = useState(false)
 
   const navigate = useNavigate()
   const location = useLocation()
@@ -41,12 +43,16 @@ export default function Login() {
     <div className="flex min-h-screen items-center justify-center bg-soft-gray-50 px-4">
       <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-xl ring-1 ring-soft-gray-100">
         <div className="mb-8 text-center">
-          <span className="inline-flex items-center justify-center rounded-full bg-mint-100 px-4 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-celeste-300">
-            Natiro HSE
-          </span>
-          <h1 className="mt-4 text-2xl font-semibold text-slate-800">Ingreso al portal</h1>
-          <p className="mt-2 text-sm text-slate-500">
-            Utiliza tu correo corporativo para acceder al módulo de EPP.
+          <div className="flex justify-center">
+            <img
+              src="/IsoLogo Clodi Light.png"
+              alt="Clodi"
+              className="h-12 w-auto drop-shadow-sm"
+              loading="lazy"
+            />
+          </div>
+          <p className="mt-4 text-sm text-slate-500">
+            Accede con tu correo corporativo y opera en la app.
           </p>
         </div>
         <form className="space-y-5" onSubmit={handleSubmit}>
@@ -68,15 +74,25 @@ export default function Login() {
             <label className="block text-sm font-medium text-slate-600" htmlFor="password">
               Contraseña
             </label>
-            <input
-              id="password"
-              type="password"
-              required
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              className="mt-2 w-full rounded-xl border border-soft-gray-200 bg-soft-gray-50 px-4 py-2.5 text-sm text-slate-700 shadow-inner focus:border-celeste-200 focus:outline-none focus:ring-2 focus:ring-celeste-200"
-              placeholder="••••••••"
-            />
+            <div className="relative mt-2">
+              <input
+                id="password"
+                type={passwordVisible ? 'text' : 'password'}
+                required
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                className="w-full rounded-xl border border-soft-gray-200 bg-soft-gray-50 px-4 py-2.5 pr-10 text-sm text-slate-700 shadow-inner focus:border-celeste-200 focus:outline-none focus:ring-2 focus:ring-celeste-200"
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setPasswordVisible((visible) => !visible)}
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600"
+                aria-label={passwordVisible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+              >
+                {passwordVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
           {error ? (
             <p className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600">{error}</p>
