@@ -5,6 +5,11 @@ import * as XLSX from "xlsx";
 import { useRiskMatrix } from "../hooks/useRiskMatrix";
 import { useAuth } from "../context/AuthContext";
 import FullScreenLoader from "../components/FullScreenLoader";
+import {
+  ALL_RISK_NAME_LABELS,
+  RISK_FACTOR_CATALOG,
+  RISK_OPTIONS_BY_FACTOR_LABEL,
+} from "../constants/riskCatalog";
 import type {
   RiskMatrixRow,
   RiskClassificationDescriptor,
@@ -35,8 +40,9 @@ type FilterState = {
   classification: RiskClassification | "all";
   probability: RiskProbabilityLevel | "all";
   consequence: RiskConsequenceLevel | "all";
-  routine: TaskRoutineType | "all";
   controlled: ControlledFilterValue;
+  riskFactor: string | "all";
+  riskName: string | "all";
 };
 
 const ROUTINE_OPTIONS: TaskRoutineType[] = ["Rutina", "No Rutina"];
@@ -67,13 +73,10 @@ const CONTROL_STATUS_OPTIONS: Array<{
   },
 ];
 
-const CONTROL_STATUS_META = CONTROL_STATUS_OPTIONS.reduce(
-  (acc, option) => {
-    acc[option.value] = option;
-    return acc;
-  },
-  {} as Record<RiskControlStatus, (typeof CONTROL_STATUS_OPTIONS)[number]>
-);
+const CONTROL_STATUS_META = CONTROL_STATUS_OPTIONS.reduce((acc, option) => {
+  acc[option.value] = option;
+  return acc;
+}, {} as Record<RiskControlStatus, (typeof CONTROL_STATUS_OPTIONS)[number]>);
 
 const CONTROLLED_OPTIONS: { label: string; value: ControlledFilterValue }[] = [
   { label: "Todos", value: "all" },
@@ -98,7 +101,10 @@ const CONTROL_TYPE_OPTIONS: ControlTypeOption[] = [
   { value: "Otra", label: "Otra", color: "#6366f1" },
 ];
 
-const WORKFORCE_LABELS: Record<keyof RiskMatrixRow["numeroTrabajadores"], string> = {
+const WORKFORCE_LABELS: Record<
+  keyof RiskMatrixRow["numeroTrabajadores"],
+  string
+> = {
   femenino: "Personas mujeres",
   masculino: "Personas hombres",
   otros: "Otras identidades",
@@ -113,7 +119,10 @@ type ControlModalState = {
 };
 
 const generateControlId = () => {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
     return crypto.randomUUID();
   }
   return Math.random().toString(36).slice(2);
@@ -138,6 +147,7 @@ const FIELD_LABELS: Record<string, string> = {
   tarea: "Tarea",
   puestoTrabajo: "Puesto de trabajo",
   lugarEspecifico: "Lugar específico",
+  peligro: "Peligro",
   factorDeRiesgo: "Peligro / factor de riesgo",
   riesgo: "Riesgo",
   danoProbable: "Daño probable",
@@ -150,6 +160,8 @@ type RiskMatrixRowEditorProps = {
   probabilityOptions: RiskEvaluationCriteria["probability"];
   consequenceOptions: RiskEvaluationCriteria["consequence"];
   onChange: (id: string, patch: Partial<RiskMatrixRow>) => void;
+  factorOptions: string[];
+  resolveRiskOptions: (factorLabel: string | null | undefined) => string[];
 };
 
 type RiskMatrixEditorModalProps = {
@@ -163,6 +175,8 @@ type RiskMatrixEditorModalProps = {
   onSave: () => void;
   onDelete?: () => void;
   isNew: boolean;
+  factorOptions: string[];
+  resolveRiskOptions: (factorLabel: string | null | undefined) => string[];
 };
 
 type RiskControlModalProps = {
@@ -171,7 +185,10 @@ type RiskControlModalProps = {
   onClose: () => void;
   onSave: () => void;
   onAddControl: () => void;
-  onControlChange: (controlId: string, patch: Partial<RiskMatrixControl>) => void;
+  onControlChange: (
+    controlId: string,
+    patch: Partial<RiskMatrixControl>
+  ) => void;
   onRemoveControl: (controlId: string) => void;
   onToggleApplied: (controlId: string) => void;
   deriveStatus: (controles: RiskMatrixControl[]) => RiskControlStatus;
@@ -183,12 +200,68 @@ const RiskMatrixRowEditor = ({
   probabilityOptions,
   consequenceOptions,
   onChange,
+  factorOptions,
+  resolveRiskOptions,
 }: RiskMatrixRowEditorProps) => {
   const descriptor =
     descriptors.find(
       (item) =>
         row.puntuacion >= item.minScore && row.puntuacion <= item.maxScore
     ) ?? descriptors[0];
+
+  useEffect(() => {
+    if (!factorOptions.length) {
+      return;
+    }
+
+    if (!row.factorDeRiesgo) {
+      const firstFactor = factorOptions[0];
+      const nextRiskOptions = resolveRiskOptions(firstFactor);
+      const firstRisk = nextRiskOptions[0] ?? "";
+      onChange(row.id, {
+        factorDeRiesgo: firstFactor,
+        riesgo: firstRisk,
+      });
+      return;
+    }
+
+    const currentRiskOptions = resolveRiskOptions(row.factorDeRiesgo);
+    if (currentRiskOptions.length === 0) {
+      return;
+    }
+
+    if (!row.riesgo || !currentRiskOptions.includes(row.riesgo)) {
+      onChange(row.id, {
+        riesgo: currentRiskOptions[0],
+      });
+    }
+  }, [
+    factorOptions,
+    onChange,
+    resolveRiskOptions,
+    row.factorDeRiesgo,
+    row.id,
+    row.riesgo,
+  ]);
+
+  const effectiveFactorOptions = useMemo(() => {
+    if (!row.factorDeRiesgo || factorOptions.includes(row.factorDeRiesgo)) {
+      return factorOptions;
+    }
+    return [row.factorDeRiesgo, ...factorOptions];
+  }, [factorOptions, row.factorDeRiesgo]);
+
+  const resolvedRiskOptions = useMemo(
+    () => resolveRiskOptions(row.factorDeRiesgo),
+    [resolveRiskOptions, row.factorDeRiesgo]
+  );
+
+  const effectiveRiskOptions = useMemo(() => {
+    if (!row.riesgo || resolvedRiskOptions.includes(row.riesgo)) {
+      return resolvedRiskOptions;
+    }
+    return [row.riesgo, ...resolvedRiskOptions];
+  }, [resolvedRiskOptions, row.riesgo]);
 
   return (
     <div className="grid gap-4 text-sm">
@@ -313,36 +386,77 @@ const RiskMatrixRowEditor = ({
 
         <label className="flex flex-col gap-1">
           <span className="text-xs font-semibold uppercase text-slate-500">
-            ⚠️ Peligro / factor de riesgo
+            ⚠️ Peligro
           </span>
           <span className="text-[11px] font-medium text-slate-400 dark:text-dracula-comment">
             Menciona el agente que podría causar daño (ruido, golpes...).
           </span>
           <input
             className="rounded-xl border border-soft-gray-200 px-3 py-2 text-slate-700 outline-none transition focus:border-celeste-300 focus:ring-2 focus:ring-celeste-200 dark:border-dracula-selection dark:bg-dracula-current/40 dark:text-dracula-foreground"
-            value={row.factorDeRiesgo}
+            value={row.peligro}
             maxLength={TEXT_FIELD_MAX_LENGTH}
             onChange={(event) =>
-              onChange(row.id, { factorDeRiesgo: event.target.value })
+              onChange(row.id, { peligro: event.target.value })
             }
           />
         </label>
 
         <label className="flex flex-col gap-1">
           <span className="text-xs font-semibold uppercase text-slate-500">
+            🧭 Factor de riesgo
+          </span>
+          <span className="text-[11px] font-medium text-slate-400 dark:text-dracula-comment">
+            Selecciona el factor normativo según DS 44 / DS 594 / ISO 45001.
+          </span>
+          <select
+            className="rounded-xl border border-soft-gray-200 px-3 py-2 text-slate-700 outline-none transition focus:border-celeste-300 focus:ring-2 focus:ring-celeste-200 dark:border-dracula-selection dark:bg-dracula-current/40 dark:text-dracula-foreground"
+            value={
+              row.factorDeRiesgo && effectiveFactorOptions.includes(row.factorDeRiesgo)
+                ? row.factorDeRiesgo
+                : effectiveFactorOptions[0] ?? ""
+            }
+            onChange={(event) => {
+              const selectedFactor = event.target.value;
+              const nextRiskOptions = resolveRiskOptions(selectedFactor);
+              const nextRisk = nextRiskOptions[0] ?? "";
+              onChange(row.id, {
+                factorDeRiesgo: selectedFactor,
+                riesgo: nextRisk,
+              });
+            }}
+          >
+            {effectiveFactorOptions.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="flex flex-col gap-1 md:col-span-3">
+          <span className="text-xs font-semibold uppercase text-slate-500">
             🚨 Riesgo
           </span>
           <span className="text-[11px] font-medium text-slate-400 dark:text-dracula-comment">
-            Describe la consecuencia posible (caídas, atrapamientos...).
+            Selecciona el riesgo específico asociado al factor elegido.
           </span>
-          <input
+          <select
             className="rounded-xl border border-soft-gray-200 px-3 py-2 text-slate-700 outline-none transition focus:border-celeste-300 focus:ring-2 focus:ring-celeste-200 dark:border-dracula-selection dark:bg-dracula-current/40 dark:text-dracula-foreground"
-            value={row.riesgo}
-            maxLength={TEXT_FIELD_MAX_LENGTH}
+            value={
+              row.riesgo && effectiveRiskOptions.includes(row.riesgo)
+                ? row.riesgo
+                : effectiveRiskOptions[0] ?? ""
+            }
             onChange={(event) =>
               onChange(row.id, { riesgo: event.target.value })
             }
-          />
+          >
+            {effectiveRiskOptions.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
         </label>
       </div>
 
@@ -640,7 +754,9 @@ const RiskControlModal = ({
                         <span className="flex items-center gap-2 text-[11px] font-medium text-slate-400 dark:text-dracula-comment">
                           <span
                             className="inline-block h-3 w-3 rounded-full"
-                            style={{ backgroundColor: typeMeta?.color ?? "#94a3b8" }}
+                            style={{
+                              backgroundColor: typeMeta?.color ?? "#94a3b8",
+                            }}
                           />
                           Jerarquía aplicada al riesgo.
                         </span>
@@ -649,7 +765,8 @@ const RiskControlModal = ({
                           value={control.controlType}
                           onChange={(event) =>
                             onControlChange(control.id, {
-                              controlType: event.target.value as RiskControlType,
+                              controlType: event.target
+                                .value as RiskControlType,
                             })
                           }
                         >
@@ -735,6 +852,8 @@ const RiskMatrixEditorModal = ({
   onSave,
   onDelete,
   isNew,
+  factorOptions,
+  resolveRiskOptions,
 }: RiskMatrixEditorModalProps) => {
   if (!open || !row) {
     return null;
@@ -772,6 +891,8 @@ const RiskMatrixEditorModal = ({
             probabilityOptions={probabilityOptions}
             consequenceOptions={consequenceOptions}
             onChange={onChange}
+            factorOptions={factorOptions}
+            resolveRiskOptions={resolveRiskOptions}
           />
         </div>
 
@@ -980,8 +1101,9 @@ const Riesgos = () => {
     classification: "all",
     probability: "all",
     consequence: "all",
-    routine: "all",
     controlled: "all",
+    riskFactor: "all",
+    riskName: "all",
   });
 
   const renderTruncatedText = useCallback<
@@ -1084,6 +1206,101 @@ const Riesgos = () => {
     };
   }, [createEmptyDocument, evaluationCriteria.classification, header, rows]);
 
+  const catalogFactorOptions = useMemo(
+    () => RISK_FACTOR_CATALOG.map((factor) => factor.label),
+    []
+  );
+
+  const catalogRiskOptions = useMemo(
+    () => Array.from(new Set(ALL_RISK_NAME_LABELS)),
+    []
+  );
+
+  const observedFactorLabels = useMemo(() => {
+    const registry = new Set<string>();
+    rows.forEach((row) => {
+      const value = row.factorDeRiesgo?.trim();
+      if (value) {
+        registry.add(value);
+      }
+    });
+    return Array.from(registry);
+  }, [rows]);
+
+  const observedRiskLabels = useMemo(() => {
+    const registry = new Set<string>();
+    rows.forEach((row) => {
+      const value = row.riesgo?.trim();
+      if (value) {
+        registry.add(value);
+      }
+    });
+    return Array.from(registry);
+  }, [rows]);
+
+  const combinedFactorOptions = useMemo(() => {
+    const extras = observedFactorLabels.filter(
+      (label) => !catalogFactorOptions.includes(label)
+    );
+    return [...catalogFactorOptions, ...extras];
+  }, [catalogFactorOptions, observedFactorLabels]);
+
+  const combinedRiskOptions = useMemo(() => {
+    const extras = observedRiskLabels.filter(
+      (label) => !catalogRiskOptions.includes(label)
+    );
+    return [...catalogRiskOptions, ...extras];
+  }, [catalogRiskOptions, observedRiskLabels]);
+
+  const resolveRiskOptions = useCallback(
+    (factorLabel: string | null | undefined) => {
+      if (!factorLabel || factorLabel === "all") {
+        return combinedRiskOptions;
+      }
+
+      const normalized = factorLabel.trim();
+      const catalogMatches =
+        RISK_OPTIONS_BY_FACTOR_LABEL.get(normalized)?.map(
+          (risk) => risk.label
+        ) ?? [];
+
+      const observedMatches = rows
+        .map((row) => {
+          if (row.factorDeRiesgo?.trim() !== normalized) {
+            return "";
+          }
+          return row.riesgo?.trim() ?? "";
+        })
+        .filter((value): value is string => value.length > 0);
+
+      const merged = new Set<string>([
+        ...catalogMatches,
+        ...observedMatches,
+      ]);
+
+      if (merged.size === 0) {
+        return combinedRiskOptions;
+      }
+
+      return Array.from(merged);
+    },
+    [combinedRiskOptions, rows]
+  );
+
+  const factorFilterOptions = useMemo<string[]>(
+    () => ["all", ...combinedFactorOptions],
+    [combinedFactorOptions]
+  );
+
+  const riskFilterOptions = useMemo<string[]>(() => {
+    const baseOptions =
+      filters.riskFactor !== "all" && filters.riskFactor
+        ? resolveRiskOptions(filters.riskFactor)
+        : combinedRiskOptions;
+    const unique = Array.from(new Set(baseOptions));
+    return ["all", ...unique];
+  }, [combinedRiskOptions, filters.riskFactor, resolveRiskOptions]);
+
   const probabilityValueMap = useMemo(() => {
     const map: Record<RiskMatrixRow["probabilidad"], number> = {
       Baja: 1,
@@ -1108,17 +1325,14 @@ const Riesgos = () => {
     return map;
   }, [evaluationCriteria.consequence]);
 
-  const deriveControlStatus = useCallback(
-    (controles: RiskMatrixControl[]) => {
-      if (!controles || controles.length === 0) {
-        return "Sin controlar";
-      }
-      return controles.every((control) => control.applied)
-        ? "Controlado"
-        : "En proceso";
-    },
-    []
-  );
+  const deriveControlStatus = useCallback((controles: RiskMatrixControl[]) => {
+    if (!controles || controles.length === 0) {
+      return "Sin controlar";
+    }
+    return controles.every((control) => control.applied)
+      ? "Controlado"
+      : "En proceso";
+  }, []);
 
   const resolveRowControlStatus = useCallback(
     (row: RiskMatrixRow): RiskControlStatus => {
@@ -1337,8 +1551,9 @@ const Riesgos = () => {
       classification: "all",
       probability: "all",
       consequence: "all",
-      routine: "all",
       controlled: "all",
+      riskFactor: "all",
+      riskName: "all",
     });
     setCurrentPage(1);
   }, []);
@@ -1370,6 +1585,7 @@ const Riesgos = () => {
       "Otras identidades",
       "Rutina",
       "Peligro / factor",
+      "Factor de riesgo",
       "Riesgo",
       "Daño probable",
       "Probabilidad",
@@ -1393,7 +1609,8 @@ const Riesgos = () => {
         row.numeroTrabajadores.masculino,
         row.numeroTrabajadores.otros,
         row.rutina,
-        row.factorDeRiesgo || row.peligro,
+        row.peligro,
+        row.factorDeRiesgo,
         row.riesgo,
         row.danoProbable,
         row.probabilidad,
@@ -1427,8 +1644,9 @@ const Riesgos = () => {
       filters.classification !== "all" ||
       filters.probability !== "all" ||
       filters.consequence !== "all" ||
-      filters.routine !== "all" ||
-      filters.controlled !== "all"
+      filters.controlled !== "all" ||
+      filters.riskFactor !== "all" ||
+      filters.riskName !== "all"
     );
   }, [filters]);
 
@@ -1459,6 +1677,20 @@ const Riesgos = () => {
       }
 
       if (
+        filters.riskFactor !== "all" &&
+        row.factorDeRiesgo.trim() !== filters.riskFactor
+      ) {
+        return false;
+      }
+
+      if (
+        filters.riskName !== "all" &&
+        row.riesgo.trim() !== filters.riskName
+      ) {
+        return false;
+      }
+
+      if (
         filters.classification !== "all" &&
         row.clasificacion !== filters.classification
       ) {
@@ -1476,10 +1708,6 @@ const Riesgos = () => {
         filters.consequence !== "all" &&
         row.consecuencia !== filters.consequence
       ) {
-        return false;
-      }
-
-      if (filters.routine !== "all" && row.rutina !== filters.routine) {
         return false;
       }
 
@@ -1719,24 +1947,48 @@ const Riesgos = () => {
                   </select>
                 </label>
 
-                <label className="flex min-w-[160px] flex-col gap-1">
+                <label className="flex min-w-[200px] flex-col gap-1">
                   <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-slate-400 dark:text-dracula-comment">
-                    Rutina
+                    Factor de riesgo
                   </span>
                   <select
-                    value={filters.routine}
+                    value={filters.riskFactor}
                     onChange={(event) =>
                       updateFilter(
-                        "routine",
+                        "riskFactor",
                         event.target.value === "all"
                           ? "all"
-                          : (event.target.value as TaskRoutineType | "all")
+                          : event.target.value
                       )
                     }
                     className="rounded-2xl border border-soft-gray-200 px-3 py-2 text-sm text-slate-600 outline-none transition focus:border-celeste-300 focus:ring-2 focus:ring-celeste-200 dark:border-dracula-selection dark:bg-dracula-current/40 dark:text-dracula-foreground"
                   >
-                    <option value="all">Todas</option>
-                    {ROUTINE_OPTIONS.map((option) => (
+                    <option value="all">Todos</option>
+                    {factorFilterOptions.slice(1).map((option: string) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex min-w-[200px] flex-col gap-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-slate-400 dark:text-dracula-comment">
+                    Riesgo
+                  </span>
+                  <select
+                    value={filters.riskName}
+                    onChange={(event) =>
+                      updateFilter(
+                        "riskName",
+                        event.target.value === "all"
+                          ? "all"
+                          : event.target.value
+                      )
+                    }
+                    className="rounded-2xl border border-soft-gray-200 px-3 py-2 text-sm text-slate-600 outline-none transition focus:border-celeste-300 focus:ring-2 focus:ring-celeste-200 dark:border-dracula-selection dark:bg-dracula-current/40 dark:text-dracula-foreground"
+                  >
+                    <option value="all">Todos</option>
+                    {riskFilterOptions.slice(1).map((option: string) => (
                       <option key={option} value={option}>
                         {option}
                       </option>
@@ -1799,12 +2051,17 @@ const Riesgos = () => {
                     </th>
                     <th className="w-14 px-3 py-3 text-center">Mujeres</th>
                     <th className="w-14 px-3 py-3 text-center">Hombres</th>
-                    <th className="w-16 px-3 py-3 text-center">Otras identidades</th>
+                    <th className="w-16 px-3 py-3 text-center">
+                      Otras identidades
+                    </th>
                     <th className="w-24 px-3 py-3 text-center whitespace-nowrap">
                       Rutina
                     </th>
                     <th className="min-w-[160px] px-4 py-3 text-left whitespace-nowrap">
                       Peligro
+                    </th>
+                    <th className="min-w-[160px] px-4 py-3 text-left whitespace-nowrap">
+                      Factor de riesgo
                     </th>
                     <th className="min-w-[160px] px-4 py-3 text-left whitespace-nowrap">
                       Riesgo
@@ -1906,6 +2163,13 @@ const Riesgos = () => {
                           </td>
                           <td className="w-24 px-3 py-3 text-center align-top whitespace-nowrap">
                             {row.rutina}
+                          </td>
+                          <td className="px-4 py-3 align-top whitespace-normal break-words">
+                            {renderTruncatedText(
+                              row.id,
+                              "peligro",
+                              row.peligro
+                            )}
                           </td>
                           <td className="px-4 py-3 align-top whitespace-normal break-words">
                             {renderTruncatedText(
@@ -2078,6 +2342,8 @@ const Riesgos = () => {
             : undefined
         }
         isNew={editingRow ? pendingNewRowId === editingRow.id : false}
+        factorOptions={combinedFactorOptions}
+        resolveRiskOptions={resolveRiskOptions}
       />
 
       <RiskControlModal

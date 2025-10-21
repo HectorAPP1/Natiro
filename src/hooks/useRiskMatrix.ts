@@ -101,7 +101,8 @@ export const useRiskMatrix = () => {
       row.consecuencia ?? "Leve"
     );
 
-    const defaultEstado: RiskControlStatus = row.estadoControl ?? "Sin controlar";
+    const defaultEstado: RiskControlStatus =
+      row.estadoControl ?? "Sin controlar";
     const controlesNormalizados = (row.controles ?? []).map((control) => ({
       id: control.id ?? crypto.randomUUID(),
       controlDescription: control.controlDescription ?? "",
