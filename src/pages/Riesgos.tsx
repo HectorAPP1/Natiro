@@ -424,7 +424,8 @@ const RiskMatrixRowEditor = ({
           <select
             className="rounded-xl border border-soft-gray-200 px-3 py-2 text-slate-700 outline-none transition focus:border-celeste-300 focus:ring-2 focus:ring-celeste-200 dark:border-dracula-selection dark:bg-dracula-current/40 dark:text-dracula-foreground"
             value={
-              row.factorDeRiesgo && effectiveFactorOptions.includes(row.factorDeRiesgo)
+              row.factorDeRiesgo &&
+              effectiveFactorOptions.includes(row.factorDeRiesgo)
                 ? row.factorDeRiesgo
                 : effectiveFactorOptions[0] ?? ""
             }
@@ -1250,7 +1251,13 @@ const Riesgos = () => {
       rows,
       criterios: evaluationCriteria.classification,
     };
-  }, [createEmptyDocument, evaluationCriteria.classification, header, remoteMatrix, rows]);
+  }, [
+    createEmptyDocument,
+    evaluationCriteria.classification,
+    header,
+    remoteMatrix,
+    rows,
+  ]);
 
   const catalogFactorOptions = useMemo(
     () => RISK_FACTOR_CATALOG.map((factor) => factor.label),
@@ -1319,10 +1326,7 @@ const Riesgos = () => {
         })
         .filter((value): value is string => value.length > 0);
 
-      const merged = new Set<string>([
-        ...catalogMatches,
-        ...observedMatches,
-      ]);
+      const merged = new Set<string>([...catalogMatches, ...observedMatches]);
 
       if (merged.size === 0) {
         return combinedRiskOptions;
@@ -1787,7 +1791,9 @@ const Riesgos = () => {
     }
     const remoteRowsJSON = JSON.stringify(remoteMatrix.rows ?? []);
     const localRowsJSON = JSON.stringify(rows ?? []);
-    const headerChanged = JSON.stringify(remoteMatrix.header ?? {}) !== JSON.stringify(header ?? {});
+    const headerChanged =
+      JSON.stringify(remoteMatrix.header ?? {}) !==
+      JSON.stringify(header ?? {});
     return remoteRowsJSON !== localRowsJSON || headerChanged;
   }, [header, remoteMatrix, rows]);
 
@@ -1941,7 +1947,11 @@ const Riesgos = () => {
                       onClick={handleSaveMatrix}
                       disabled={saving}
                     >
-                      {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                      {saving ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Save className="h-4 w-4" />
+                      )}
                       {saving ? "Guardando..." : "Guardar"}
                     </button>
                   </>
