@@ -1,6 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { BookOpen, Check, Download, Edit, Plus, Trash2, X } from "lucide-react";
+import {
+  BookOpen,
+  Check,
+  Download,
+  Edit,
+  Loader2,
+  Plus,
+  Save,
+  Trash2,
+  X,
+} from "lucide-react";
 import * as XLSX from "xlsx";
 import { useRiskMatrix } from "../hooks/useRiskMatrix";
 import { useAuth } from "../context/AuthContext";
@@ -10,8 +20,13 @@ import {
   RISK_FACTOR_CATALOG,
   RISK_OPTIONS_BY_FACTOR_LABEL,
 } from "../constants/riskCatalog";
+import {
+  useRiskMatrixFirestore,
+  createDefaultRiskMatrixDocument,
+} from "../hooks/useRiskMatrixFirestore";
 import type {
   RiskMatrixRow,
+  RiskMatrixHeader,
   RiskClassificationDescriptor,
   RiskEvaluationCriteria,
   RiskClassification,
@@ -20,7 +35,6 @@ import type {
   RiskControlStatus,
   RiskControlType,
   RiskMatrixControl,
-  TaskRoutineType,
 } from "../types/riskMatrix";
 
 const formatDate = (iso: string) => {
@@ -44,8 +58,6 @@ type FilterState = {
   riskFactor: string | "all";
   riskName: string | "all";
 };
-
-const ROUTINE_OPTIONS: TaskRoutineType[] = ["Rutina", "No Rutina"];
 
 const CONTROL_STATUS_OPTIONS: Array<{
   value: RiskControlStatus;
@@ -1075,14 +1087,20 @@ const RiskCriteriaModal = ({
 
 const Riesgos = () => {
   const {
-    header,
-    loading,
+    header: companyHeader,
+    loading: baseLoading,
     buildRiskRow,
     createEmptyDocument,
     evaluationCriteria,
     getScoreDetails,
     members,
   } = useRiskMatrix();
+  const {
+    data: remoteMatrix,
+    loading: remoteLoading,
+    error: remoteError,
+    save: saveMatrix,
+  } = useRiskMatrixFirestore();
   const { user } = useAuth();
   const [rows, setRows] = useState<RiskMatrixRow[]>([]);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
@@ -1105,6 +1123,33 @@ const Riesgos = () => {
     riskFactor: "all",
     riskName: "all",
   });
+
+  const [header, setHeader] = useState<RiskMatrixHeader | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!remoteMatrix) {
+      return;
+    }
+    setRows(remoteMatrix.rows ?? []);
+    setHeader(remoteMatrix.header);
+    setSaveError(null);
+  }, [remoteMatrix]);
+
+  useEffect(() => {
+    if (!remoteMatrix && !remoteLoading) {
+      const fallback = createDefaultRiskMatrixDocument();
+      setRows([]);
+      setHeader(fallback.header);
+    }
+  }, [createDefaultRiskMatrixDocument, remoteLoading, remoteMatrix]);
+
+  useEffect(() => {
+    if (companyHeader && !remoteMatrix) {
+      setHeader((prev) => prev ?? companyHeader);
+    }
+  }, [companyHeader, remoteMatrix]);
 
   const renderTruncatedText = useCallback<
     (rowId: string, fieldKey: string, rawValue?: string | null) => ReactNode
@@ -1197,14 +1242,14 @@ const Riesgos = () => {
   }, [isAnyModalOpen]);
 
   const matrixDocument = useMemo(() => {
-    const base = createEmptyDocument();
+    const base = remoteMatrix ?? createEmptyDocument();
     return {
       ...base,
       header: header ?? base.header,
       rows,
       criterios: evaluationCriteria.classification,
     };
-  }, [createEmptyDocument, evaluationCriteria.classification, header, rows]);
+  }, [createEmptyDocument, evaluationCriteria.classification, header, remoteMatrix, rows]);
 
   const catalogFactorOptions = useMemo(
     () => RISK_FACTOR_CATALOG.map((factor) => factor.label),
@@ -1733,6 +1778,40 @@ const Riesgos = () => {
     }
   }, [currentPage, totalPages]);
 
+  const loading = baseLoading || remoteLoading;
+
+  const hasUnsavedChanges = useMemo(() => {
+    if (!remoteMatrix) {
+      return rows.length > 0;
+    }
+    const remoteRowsJSON = JSON.stringify(remoteMatrix.rows ?? []);
+    const localRowsJSON = JSON.stringify(rows ?? []);
+    const headerChanged = JSON.stringify(remoteMatrix.header ?? {}) !== JSON.stringify(header ?? {});
+    return remoteRowsJSON !== localRowsJSON || headerChanged;
+  }, [header, remoteMatrix, rows]);
+
+  const handleSaveMatrix = useCallback(async () => {
+    if (!matrixDocument) {
+      return;
+    }
+    console.log("handleSaveMatrix: preparando guardado", matrixDocument);
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const nextDocument = {
+        ...matrixDocument,
+        updatedAt: new Date().toISOString(),
+        updatedBy: user?.uid ?? user?.email ?? "",
+      };
+      await saveMatrix(nextDocument);
+      setSaving(false);
+    } catch (error) {
+      console.error("Error al guardar la matriz:", error);
+      setSaveError("No se pudo guardar la matriz. Intenta nuevamente.");
+      setSaving(false);
+    }
+  }, [matrixDocument, saveMatrix, user?.email, user?.uid]);
+
   if (loading) {
     return (
       <FullScreenLoader
@@ -1797,8 +1876,22 @@ const Riesgos = () => {
                 <span className="hidden sm:inline">Exportar matriz</span>
                 <span className="sm:hidden">Exportar</span>
               </button>
+              <button
+                className="inline-flex items-center gap-1.5 rounded-full border border-celeste-200/70 bg-white/80 px-4 py-2.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-celeste-300 hover:bg-celeste-50 hover:text-celeste-600 disabled:opacity-60 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-cyan"
+                onClick={handleSaveMatrix}
+                disabled={saving || !hasUnsavedChanges}
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                {saving ? "Guardando..." : "Guardar cambios"}
+              </button>
             </div>
           </div>
+
+          {remoteError ? (
+            <div className="mt-4 rounded-3xl border border-rose-200/70 bg-rose-50/80 p-4 text-sm font-medium text-rose-600 dark:border-dracula-red/40 dark:bg-dracula-red/20 dark:text-dracula-red">
+              {remoteError}
+            </div>
+          ) : null}
 
           <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div className="rounded-3xl border border-mint-200/70 bg-mint-50/70 p-4 shadow-sm transition hover:border-mint-300 hover:bg-mint-100/70 hover:shadow-lg dark:border-dracula-green/30 dark:bg-dracula-current dark:hover:border-dracula-green/50 dark:hover:bg-dracula-green/10 sm:p-5">
@@ -2029,6 +2122,15 @@ const Riesgos = () => {
 
               <div className="flex flex-wrap items-center justify-between gap-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-dracula-comment">
                 <span>Coincidencias: {filteredRows.length}</span>
+                {saveError ? (
+                  <span className="text-xs font-semibold text-rose-500">
+                    {saveError}
+                  </span>
+                ) : hasUnsavedChanges ? (
+                  <span className="text-xs font-medium text-celeste-500">
+                    Cambios sin guardar
+                  </span>
+                ) : null}
               </div>
             </div>
 
