@@ -5,6 +5,7 @@ import {
   Check,
   Download,
   Edit,
+  Info,
   Loader2,
   Plus,
   Save,
@@ -1876,14 +1877,6 @@ const Riesgos = () => {
                 <span className="hidden sm:inline">Exportar matriz</span>
                 <span className="sm:hidden">Exportar</span>
               </button>
-              <button
-                className="inline-flex items-center gap-1.5 rounded-full border border-celeste-200/70 bg-white/80 px-4 py-2.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-celeste-300 hover:bg-celeste-50 hover:text-celeste-600 disabled:opacity-60 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-cyan"
-                onClick={handleSaveMatrix}
-                disabled={saving || !hasUnsavedChanges}
-              >
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                {saving ? "Guardando..." : "Guardar cambios"}
-              </button>
             </div>
           </div>
 
@@ -1936,14 +1929,32 @@ const Riesgos = () => {
               <h2 className="text-lg font-semibold text-slate-800 dark:text-dracula-foreground">
                 Listado de riesgos
               </h2>
-              <button
-                className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-mint-200/80 via-white to-celeste-200/70 px-4 py-2.5 text-xs font-semibold text-slate-700 shadow-md transition hover:shadow-lg dark:from-dracula-purple dark:via-dracula-pink dark:to-dracula-cyan dark:text-dracula-bg sm:gap-2 sm:px-6 sm:py-3 sm:text-sm"
-                onClick={handleAddRow}
-              >
-                <Plus className="h-4 w-4" />
-                <span className="hidden sm:inline">Agregar fila</span>
-                <span className="sm:hidden">Agregar</span>
-              </button>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                {hasUnsavedChanges ? (
+                  <>
+                    <div className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-600 dark:border-dracula-orange/50 dark:bg-dracula-orange/10 dark:text-dracula-orange">
+                      <Info className="h-3.5 w-3.5" />
+                      Cambios sin guardar
+                    </div>
+                    <button
+                      className="inline-flex items-center gap-1.5 rounded-full border border-transparent bg-slate-900 px-4 py-2.5 text-xs font-semibold text-white shadow-lg ring-2 ring-slate-900/30 ring-offset-2 ring-offset-white transition sm:gap-2 sm:px-6 sm:py-3 sm:text-sm disabled:opacity-60 disabled:cursor-not-allowed animate-pulse dark:bg-gradient-to-r dark:from-[#a855f7] dark:via-[#ec4899] dark:to-[#38bdf8] dark:text-slate-900 dark:ring-dracula-cyan/60 dark:ring-offset-dracula-bg"
+                      onClick={handleSaveMatrix}
+                      disabled={saving}
+                    >
+                      {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                      {saving ? "Guardando..." : "Guardar"}
+                    </button>
+                  </>
+                ) : null}
+                <button
+                  className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-mint-200/80 via-white to-celeste-200/70 px-4 py-2.5 text-xs font-semibold text-slate-700 shadow-md transition hover:shadow-lg dark:from-dracula-purple dark:via-dracula-pink dark:to-dracula-cyan dark:text-dracula-bg sm:gap-2 sm:px-6 sm:py-3 sm:text-sm"
+                  onClick={handleAddRow}
+                >
+                  <Plus className="h-4 w-4" />
+                  <span className="hidden sm:inline">Agregar fila</span>
+                  <span className="sm:hidden">Agregar</span>
+                </button>
+              </div>
             </div>
             <div className="mb-6 space-y-3 rounded-3xl border border-soft-gray-200/70 bg-white/80 p-4 text-xs shadow-sm dark:border-dracula-selection dark:bg-dracula-current/30">
               <div className="scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100 hover:scrollbar-thumb-slate-400 dark:scrollbar-thumb-slate-600 dark:scrollbar-track-slate-800 dark:hover:scrollbar-thumb-slate-500 flex flex-nowrap items-end gap-3 overflow-x-auto pb-1">
