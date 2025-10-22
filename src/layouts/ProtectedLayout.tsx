@@ -29,6 +29,7 @@ import {
   User,
   ChevronsLeft,
   ChevronsRight,
+  Network,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useCompanyMembers } from "../hooks/useCompanyMembers";
@@ -40,6 +41,8 @@ import {
 import ThemeToggle from "../components/ThemeToggle";
 import { LayoutStateProvider } from "./LayoutStateContext";
 import FullScreenLoader from "../components/FullScreenLoader";
+
+const APP_VERSION = __APP_VERSION__;
 
 export default function ProtectedLayout() {
   const { user, loading, signOutUser } = useAuth();
@@ -901,34 +904,42 @@ export default function ProtectedLayout() {
               {renderNavigation(filteredNavigation)}
             </nav>
           </div>
-          {desktopCollapsed ? null : (
-            <div className="rounded-2xl border border-white/70 bg-white/80 px-4 py-3 text-xs text-slate-500 shadow-sm backdrop-blur dark:border-dracula-current/50 dark:bg-dracula-current/30">
-              <div className="mb-2 flex items-center gap-2">
-                {(() => {
-                  const Icon = hseContent[currentTipIndex].icon;
-                  const color = hseContent[currentTipIndex].color;
-                  return (
-                    <Icon
-                      className={`h-4 w-4 ${color} animate-pulse`}
-                      key={`icon-${currentTipIndex}`}
-                    />
-                  );
-                })()}
+          <div className="flex flex-col items-center gap-2">
+            {desktopCollapsed ? null : (
+              <div className="w-full rounded-2xl border border-white/70 bg-white/80 px-4 py-3 text-xs text-slate-500 shadow-sm backdrop-blur dark:border-dracula-current/50 dark:bg-dracula-current/30">
+                <div className="mb-2 flex items-center gap-2">
+                  {(() => {
+                    const Icon = hseContent[currentTipIndex].icon;
+                    const color = hseContent[currentTipIndex].color;
+                    return (
+                      <Icon
+                        className={`h-4 w-4 ${color} animate-pulse`}
+                        key={`icon-${currentTipIndex}`}
+                      />
+                    );
+                  })()}
+                  <p
+                    key={`category-${currentTipIndex}`}
+                    className="font-semibold text-slate-600 dark:text-dracula-cyan animate-in fade-in duration-300"
+                  >
+                    {hseContent[currentTipIndex].category}
+                  </p>
+                </div>
                 <p
-                  key={`category-${currentTipIndex}`}
-                  className="font-semibold text-slate-600 dark:text-dracula-cyan animate-in fade-in duration-300"
+                  key={`text-${currentTipIndex}`}
+                  className="leading-relaxed dark:text-dracula-cyan/60 animate-in fade-in slide-in-from-bottom-2 duration-500"
                 >
-                  {hseContent[currentTipIndex].category}
+                  {hseContent[currentTipIndex].text}
                 </p>
               </div>
-              <p
-                key={`text-${currentTipIndex}`}
-                className="leading-relaxed dark:text-dracula-cyan/60 animate-in fade-in slide-in-from-bottom-2 duration-500"
-              >
-                {hseContent[currentTipIndex].text}
-              </p>
+            )}
+            <div
+              className={`${desktopCollapsed ? "text-[9px]" : "text-[10px]"} mt-4 inline-flex items-center gap-1 text-slate-400 dark:text-dracula-comment/70`}
+            >
+              <Network className="h-3 w-3" />
+              Versión {APP_VERSION}
             </div>
-          )}
+          </div>
         </aside>
 
         <div
