@@ -455,7 +455,7 @@ export default function ProtectedLayout() {
   const navigation: NavigationItem[] = useMemo(
     () => [
       {
-        label: "EPP",
+        label: "Epp",
         icon: HardHat,
         module: "epp",
         subItems: [
@@ -758,7 +758,7 @@ export default function ProtectedLayout() {
                   </span>
                   {item.soon ? (
                     <span className="ml-auto rounded-full bg-soft-gray-100 px-2 py-0.5 text-[11px] font-semibold uppercase text-slate-400 dark:bg-dracula-current dark:text-dracula-cyan/50">
-                      Próximamente
+                      {item.module === "riesgos" ? "Beta" : "Próximamente"}
                     </span>
                   ) : null}
                 </>
