@@ -43,6 +43,7 @@ import {
   type CreateEntregaInput,
 } from "../hooks/useEppEntregasFirestore";
 import { useAccessControl } from "../hooks/useAccessControl";
+import { useCompanyMembers } from "../hooks/useCompanyMembers";
 
 type DraftItem = {
   tempId: string;
@@ -272,6 +273,7 @@ export default function EppEntregas() {
     deleteEntrega,
   } = useEppEntregasFirestore();
   const { canManageModule, role } = useAccessControl();
+  const { members } = useCompanyMembers();
   const canManageDeliveries = canManageModule("epp");
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -282,6 +284,18 @@ export default function EppEntregas() {
   const [toDate, setToDate] = useState("");
 
   const canDeleteDeliveries = canManageDeliveries && role !== "Comentarista";
+  const normalizedAuthorizedEmail = useMemo(
+    () => user?.email?.toLowerCase() ?? null,
+    [user]
+  );
+  const activeMember = useMemo(() => {
+    if (!normalizedAuthorizedEmail) {
+      return undefined;
+    }
+    return members.find(
+      (member) => member.email.toLowerCase() === normalizedAuthorizedEmail
+    );
+  }, [members, normalizedAuthorizedEmail]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formState, setFormState] = useState<FormState>(initialFormState);
@@ -1888,8 +1902,12 @@ export default function EppEntregas() {
       capacitacion: formState.capacitacion,
       items,
       autorizadoPorUid: user.uid,
-      autorizadoPorNombre: user.displayName ?? user.email ?? "Usuario",
-      autorizadoPorEmail: user.email ?? undefined,
+      autorizadoPorNombre:
+        activeMember?.displayName?.trim() ||
+        user.displayName?.trim() ||
+        user.email ||
+        "Usuario",
+      autorizadoPorEmail: activeMember?.email || user.email || undefined,
       firmaDigitalDataUrl: signatureMetadata?.dataUrl ?? null,
       firmaDigitalHash: signatureMetadata?.hash ?? null,
       firmaDigitalToken: signatureMetadata?.token ?? null,
