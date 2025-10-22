@@ -211,7 +211,7 @@ export default function EppDashboard() {
   const [formError, setFormError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("vigente");
   const [stockFilter, setStockFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
@@ -1040,7 +1040,7 @@ export default function EppDashboard() {
               onClick={() => {
                 setSearchQuery("");
                 setCategoryFilter("all");
-                setStatusFilter("all");
+                setStatusFilter("vigente");
                 setStockFilter("all");
                 setCurrentPage(1);
               }}

@@ -8,6 +8,8 @@ import {
   Download,
   Fingerprint,
   Grid3x3,
+  ChevronDown,
+  HardHat,
   Layers,
   List,
   MoveHorizontal,
@@ -291,6 +293,7 @@ export default function EppEntregas() {
     "idle" | "dirty" | "saved"
   >("idle");
   const [signatureError, setSignatureError] = useState<string | null>(null);
+  const [openEppDropdown, setOpenEppDropdown] = useState<string | null>(null);
   const signatureStatusMessages = {
     idle: {
       label: "Pendiente de firma",
@@ -321,6 +324,35 @@ export default function EppEntregas() {
         .map((t) => ({ value: t.id, label: `${t.nombre} (${t.rut})` })),
     [trabajadores]
   );
+
+  const eppOptionsByCategory = useMemo(() => {
+    const groups = new Map<
+      string,
+      {
+        category: string;
+        items: typeof eppItems;
+      }
+    >();
+
+    eppItems.forEach((item) => {
+      const category = item.category?.trim() || "Sin categoría";
+      if (!groups.has(category)) {
+        groups.set(category, { category, items: [] });
+      }
+      groups.get(category)!.items.push(item);
+    });
+
+    return Array.from(groups.values())
+      .sort((a, b) =>
+        a.category.localeCompare(b.category, "es", { sensitivity: "base" })
+      )
+      .map((group) => ({
+        category: group.category,
+        items: [...group.items].sort((a, b) =>
+          a.name.localeCompare(b.name, "es", { sensitivity: "base" })
+        ),
+      }));
+  }, [eppItems]);
 
   const areaOptions = useMemo(() => {
     const set = new Set<string>();
@@ -832,6 +864,22 @@ export default function EppEntregas() {
     return () => mediaQuery.removeListener(handleChange);
   }, []);
 
+  useEffect(() => {
+    if (!openEppDropdown) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest(`[data-epp-dropdown="${openEppDropdown}"]`)) {
+        setOpenEppDropdown(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [openEppDropdown]);
+
   const isDateRangeValid = useMemo(() => {
     if (!fromDate || !toDate) return false;
     const from = new Date(fromDate);
@@ -1165,6 +1213,7 @@ export default function EppEntregas() {
   };
 
   const handleRemoveItem = (tempId: string) => {
+    setOpenEppDropdown((prev) => (prev === tempId ? null : prev));
     setFormState((prev) => ({
       ...prev,
       items: prev.items.filter((item) => item.tempId !== tempId),
@@ -2467,7 +2516,11 @@ export default function EppEntregas() {
             <div className="flex flex-col items-start gap-1">
               <button
                 onClick={handleExportToExcel}
-                disabled={!canManageDeliveries || !isDateRangeValid || filteredEntregas.length === 0}
+                disabled={
+                  !canManageDeliveries ||
+                  !isDateRangeValid ||
+                  filteredEntregas.length === 0
+                }
                 className="inline-flex w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-mint-200/70 bg-white/80 px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-mint-300 hover:bg-mint-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-green dark:hover:border-dracula-green dark:hover:bg-dracula-bg sm:w-auto sm:gap-2 sm:px-5 sm:py-2.5 sm:text-sm"
               >
                 <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -3010,27 +3063,112 @@ export default function EppEntregas() {
                           key={item.tempId}
                           className="grid grid-cols-1 gap-3 rounded-2xl border border-soft-gray-200/70 bg-white/90 p-4 shadow-sm dark:border-dracula-current dark:bg-dracula-current/40 md:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.2fr)_auto]"
                         >
-                          <div>
+                          <div
+                            className="relative"
+                            data-epp-dropdown={item.tempId}
+                          >
                             <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-dracula-comment">
                               EPP
                             </label>
-                            <select
-                              required
-                              value={item.eppId}
-                              onChange={(event) =>
-                                handleItemChange(item.tempId, {
-                                  eppId: event.target.value,
-                                })
+                            <button
+                              type="button"
+                              className="flex w-full items-center justify-between gap-3 rounded-xl border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200 dark:border-dracula-current dark:bg-dracula-bg dark:text-dracula-foreground"
+                              onClick={() =>
+                                setOpenEppDropdown((prev) =>
+                                  prev === item.tempId ? null : item.tempId
+                                )
                               }
-                              className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-3 py-2 text-sm focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-bg dark:text-dracula-foreground"
+                              aria-haspopup="listbox"
+                              aria-expanded={openEppDropdown === item.tempId}
                             >
-                              <option value="">Selecciona un EPP</option>
-                              {eppItems.map((option) => (
-                                <option key={option.id} value={option.id}>
-                                  {option.name}
-                                </option>
-                              ))}
-                            </select>
+                              <span className="flex min-w-0 flex-1 items-center gap-3">
+                                {epp?.imageBase64 ? (
+                                  <img
+                                    src={epp.imageBase64}
+                                    alt={epp.name}
+                                    className="h-9 w-9 flex-shrink-0 rounded-lg object-cover"
+                                  />
+                                ) : (
+                                  <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-dashed border-soft-gray-200 bg-soft-gray-50 text-celeste-400 dark:border-dracula-current/40 dark:bg-dracula-current/30 dark:text-dracula-cyan">
+                                    <HardHat className="h-5 w-5" />
+                                  </span>
+                                )}
+                                <span className="line-clamp-1 text-left">
+                                  {epp?.name || "Selecciona un EPP"}
+                                </span>
+                              </span>
+                              <ChevronDown
+                                className={`h-4 w-4 flex-shrink-0 transition-transform ${
+                                  openEppDropdown === item.tempId
+                                    ? "rotate-180"
+                                    : ""
+                                }`}
+                              />
+                            </button>
+                            {openEppDropdown === item.tempId ? (
+                              <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-64 overflow-y-auto rounded-xl border border-soft-gray-200/80 bg-white p-1 shadow-xl dark:border-dracula-current dark:bg-dracula-bg">
+                                <div
+                                  role="listbox"
+                                  aria-label="Selecciona un EPP"
+                                  className="space-y-2"
+                                >
+                                  {eppOptionsByCategory.map((group) => (
+                                    <div
+                                      key={group.category}
+                                      className="space-y-1"
+                                    >
+                                      <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.25em] text-celeste-400 dark:text-dracula-cyan">
+                                        {group.category}
+                                      </p>
+                                      <ul className="space-y-1">
+                                        {group.items.map((option) => {
+                                          const isSelected =
+                                            option.id === item.eppId;
+                                          return (
+                                            <li key={option.id}>
+                                              <button
+                                                type="button"
+                                                className={`w-full rounded-lg px-3 py-2 text-left text-sm transition hover:bg-celeste-50 hover:text-celeste-600 dark:hover:bg-dracula-current/40 ${
+                                                  isSelected
+                                                    ? "bg-celeste-50 text-celeste-600 dark:bg-dracula-current/40"
+                                                    : "text-slate-600 dark:text-dracula-comment"
+                                                }`}
+                                                onClick={() => {
+                                                  handleItemChange(
+                                                    item.tempId,
+                                                    {
+                                                      eppId: option.id,
+                                                    }
+                                                  );
+                                                  setOpenEppDropdown(null);
+                                                }}
+                                              >
+                                                <span className="flex items-center gap-3">
+                                                  {option.imageBase64 ? (
+                                                    <img
+                                                      src={option.imageBase64}
+                                                      alt={option.name}
+                                                      className="h-9 w-9 flex-shrink-0 rounded-lg object-cover"
+                                                    />
+                                                  ) : (
+                                                    <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-dashed border-soft-gray-200 bg-soft-gray-50 text-celeste-400 dark:border-dracula-current/40 dark:bg-dracula-current/30 dark:text-dracula-cyan">
+                                                      <HardHat className="h-5 w-5" />
+                                                    </span>
+                                                  )}
+                                                  <span className="line-clamp-1">
+                                                    {option.name}
+                                                  </span>
+                                                </span>
+                                              </button>
+                                            </li>
+                                          );
+                                        })}
+                                      </ul>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : null}
                           </div>
 
                           <div>
