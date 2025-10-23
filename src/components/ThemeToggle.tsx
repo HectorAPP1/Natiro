@@ -1,10 +1,20 @@
 import { Moon, Sun } from 'lucide-react'
+import { useMemo } from 'react'
 import { useTheme } from '../context/ThemeContext'
 
 export default function ThemeToggle() {
   const { theme, preference, setPreference, toggleTheme } = useTheme()
 
-  const handleClick = () => {
+  const isDark = theme === 'dark'
+
+  const title = useMemo(() => {
+    if (preference === 'system') {
+      return 'Tema automático (sigue el sistema)'
+    }
+    return theme === 'light' ? 'Cambiar a modo oscuro' : 'Cambiar a modo claro'
+  }, [preference, theme])
+
+  const handleToggle = () => {
     if (preference === 'system') {
       setPreference(theme === 'light' ? 'dark' : 'light')
       return
@@ -13,23 +23,22 @@ export default function ThemeToggle() {
   }
 
   return (
-    <button
-      onClick={handleClick}
-      className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-soft-gray-200/70 bg-white/80 text-slate-600 shadow-sm transition hover:border-celeste-300 hover:bg-celeste-50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-cyan dark:hover:border-dracula-purple dark:hover:bg-dracula-bg"
-      aria-label="Toggle theme"
-      title={
-        preference === 'system'
-          ? 'Tema automático (sigue el sistema)'
-          : theme === 'light'
-          ? 'Cambiar a modo oscuro'
-          : 'Cambiar a modo claro'
-      }
-    >
-      {theme === 'light' ? (
-        <Moon className="h-5 w-5" />
-      ) : (
-        <Sun className="h-5 w-5" />
-      )}
-    </button>
+    <label className="theme-toggle" title={title} aria-label={title}>
+      <span className="sr-only">Cambiar tema</span>
+      <input
+        type="checkbox"
+        className="theme-toggle__input"
+        checked={isDark}
+        onChange={handleToggle}
+      />
+      <div className="theme-toggle__track">
+        <Sun className="theme-toggle__icon theme-toggle__icon--sun theme-toggle__icon--inactive" />
+        <Moon className="theme-toggle__icon theme-toggle__icon--moon theme-toggle__icon--inactive" />
+      </div>
+      <div className="theme-toggle__thumb">
+        <Sun className="theme-toggle__thumb-icon theme-toggle__thumb-icon--sun" />
+        <Moon className="theme-toggle__thumb-icon theme-toggle__thumb-icon--moon" />
+      </div>
+    </label>
   )
 }
