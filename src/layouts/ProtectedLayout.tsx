@@ -933,12 +933,12 @@ export default function ProtectedLayout() {
                 </p>
               </div>
             )}
-            <div
-              className={`${desktopCollapsed ? "text-[9px]" : "text-[10px]"} mt-4 inline-flex items-center gap-1 text-slate-400 dark:text-dracula-comment/70`}
-            >
-              <Network className="h-3 w-3" />
-              Versión {APP_VERSION}
-            </div>
+            {desktopCollapsed ? null : (
+              <div className="text-[10px] mt-4 inline-flex items-center gap-1 text-slate-400 dark:text-dracula-comment/70">
+                <Network className="h-3 w-3" />
+                Versión {APP_VERSION}
+              </div>
+            )}
           </div>
         </aside>
 
