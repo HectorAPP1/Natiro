@@ -55,8 +55,13 @@ type DraftItem = {
 };
 
 type FormState = {
+  workerMode: "catalog" | "manual";
   trabajadorId: string;
   trabajadorCargo: string;
+  trabajadorNombreManual: string;
+  trabajadorRutManual: string;
+  areaTrabajoManual: string;
+  subAreaTrabajoManual: string;
   fechaEntrega: string;
   firmaFecha: string;
   firmaHora: string;
@@ -90,8 +95,13 @@ const getCurrentTime = () => {
 };
 
 const initialFormState = (): FormState => ({
+  workerMode: "catalog",
   trabajadorId: "",
   trabajadorCargo: "",
+  trabajadorNombreManual: "",
+  trabajadorRutManual: "",
+  areaTrabajoManual: "",
+  subAreaTrabajoManual: "",
   fechaEntrega: getTodayDate(),
   firmaFecha: getTodayDate(),
   firmaHora: getCurrentTime(),
@@ -390,9 +400,11 @@ export default function EppEntregas() {
   }, [trabajadores, areaFilter]); // Depende de los trabajadores y del filtro de área
 
   const selectedTrabajador = useMemo(() => {
-    if (!formState.trabajadorId) return null;
+    if (formState.workerMode !== "catalog" || !formState.trabajadorId) {
+      return null;
+    }
     return trabajadores.find((t) => t.id === formState.trabajadorId) ?? null;
-  }, [formState.trabajadorId, trabajadores]);
+  }, [formState.workerMode, formState.trabajadorId, trabajadores]);
 
   const getEppById = (id: string) =>
     eppItems.find((item) => item.id === id) ?? null;
@@ -1106,9 +1118,9 @@ export default function EppEntregas() {
 
     if (entrega) {
       setEditingId(entrega.id);
-      setFormState({
-        trabajadorId: entrega.trabajadorId,
-        trabajadorCargo: entrega.trabajadorCargo,
+      const existingTrabajador =
+        trabajadores.find((t) => t.id === entrega.trabajadorId) ?? null;
+      const baseState = {
         fechaEntrega: entrega.fechaEntrega.toISOString().split("T")[0],
         firmaFecha: entrega.firmaFecha || getTodayDate(),
         firmaHora: entrega.firmaHora || getCurrentTime(),
@@ -1138,7 +1150,41 @@ export default function EppEntregas() {
         firmaResponsableTimestamp: entrega.firmaResponsableTimestamp ?? null,
         firmaTipo: entrega.firmaTipo ?? "digital",
         generarPdf: entrega.firmaTipo === "digital",
-      });
+      } as Omit<
+        FormState,
+        |
+          "workerMode"
+        | "trabajadorId"
+        | "trabajadorCargo"
+        | "trabajadorNombreManual"
+        | "trabajadorRutManual"
+        | "areaTrabajoManual"
+        | "subAreaTrabajoManual"
+      >;
+
+      if (existingTrabajador) {
+        setFormState({
+          workerMode: "catalog",
+          trabajadorId: entrega.trabajadorId,
+          trabajadorCargo: entrega.trabajadorCargo,
+          trabajadorNombreManual: "",
+          trabajadorRutManual: "",
+          areaTrabajoManual: "",
+          subAreaTrabajoManual: "",
+          ...baseState,
+        });
+      } else {
+        setFormState({
+          workerMode: "manual",
+          trabajadorId: entrega.trabajadorId,
+          trabajadorCargo: entrega.trabajadorCargo,
+          trabajadorNombreManual: entrega.trabajadorNombre,
+          trabajadorRutManual: entrega.trabajadorRut,
+          areaTrabajoManual: entrega.areaTrabajo,
+          subAreaTrabajoManual: entrega.subAreaTrabajo,
+          ...baseState,
+        });
+      }
       setSignatureStatus(
         entrega.firmaTipo === "digital" && entrega.firmaDigitalDataUrl
           ? "saved"
@@ -1817,6 +1863,8 @@ export default function EppEntregas() {
     URL.revokeObjectURL(url);
   };
 
+  const isManualWorkerMode = formState.workerMode === "manual";
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -1825,19 +1873,41 @@ export default function EppEntregas() {
       return;
     }
 
-    if (!formState.trabajadorId) {
-      setFormError("Selecciona un trabajador.");
-      return;
-    }
+    let trabajador = null as (typeof trabajadores)[number] | null;
 
-    const trabajador = trabajadores.find(
-      (t) => t.id === formState.trabajadorId
-    );
-    if (!trabajador) {
-      setFormError(
-        "No se encontró la información del trabajador seleccionado."
-      );
-      return;
+    if (!isManualWorkerMode) {
+      if (!formState.trabajadorId) {
+        setFormError("Selecciona un trabajador.");
+        return;
+      }
+
+      trabajador = trabajadores.find(
+        (t) => t.id === formState.trabajadorId
+      ) ?? null;
+
+      if (!trabajador) {
+        setFormError(
+          "No se encontró la información del trabajador seleccionado."
+        );
+        return;
+      }
+    } else {
+      if (!formState.trabajadorNombreManual.trim()) {
+        setFormError("Ingresa el nombre del trabajador.");
+        return;
+      }
+      if (!formState.trabajadorRutManual.trim()) {
+        setFormError("Ingresa el RUT del trabajador.");
+        return;
+      }
+      if (!formState.trabajadorCargo.trim()) {
+        setFormError("Ingresa el cargo del trabajador.");
+        return;
+      }
+      if (!formState.areaTrabajoManual.trim()) {
+        setFormError("Ingresa el área de trabajo del trabajador.");
+        return;
+      }
     }
 
     let items: EntregaItem[] = [];
@@ -1888,13 +1958,32 @@ export default function EppEntregas() {
       signatureMetadata = null;
     }
 
+    const manualWorkerId =
+      formState.trabajadorId && isManualWorkerMode
+        ? formState.trabajadorId
+        : `manual-${
+            formState.trabajadorRutManual.replace(/\s+/g, "") || randomId()
+          }`;
+
     const payload: CreateEntregaInput = {
-      trabajadorId: trabajador.id,
-      trabajadorNombre: trabajador.nombre,
-      trabajadorRut: trabajador.rut,
-      trabajadorCargo: formState.trabajadorCargo.trim() || trabajador.cargo,
-      areaTrabajo: trabajador.areaTrabajo,
-      subAreaTrabajo: trabajador.subAreaTrabajo,
+      trabajadorId: isManualWorkerMode
+        ? manualWorkerId
+        : trabajador!.id,
+      trabajadorNombre: isManualWorkerMode
+        ? formState.trabajadorNombreManual.trim()
+        : trabajador!.nombre,
+      trabajadorRut: isManualWorkerMode
+        ? formState.trabajadorRutManual.trim()
+        : trabajador!.rut,
+      trabajadorCargo: isManualWorkerMode
+        ? formState.trabajadorCargo.trim()
+        : formState.trabajadorCargo.trim() || trabajador!.cargo,
+      areaTrabajo: isManualWorkerMode
+        ? formState.areaTrabajoManual.trim()
+        : trabajador!.areaTrabajo,
+      subAreaTrabajo: isManualWorkerMode
+        ? formState.subAreaTrabajoManual.trim()
+        : trabajador!.subAreaTrabajo,
       fechaEntrega: new Date(formState.fechaEntrega),
       firmaFecha: formState.firmaFecha || getTodayDate(),
       firmaHora: formState.firmaHora || getCurrentTime(),
@@ -1956,6 +2045,36 @@ export default function EppEntregas() {
     if (!result.success) {
       alert(result.error ?? "No se pudo eliminar la entrega.");
     }
+  };
+
+  const handleWorkerModeChange = (mode: "catalog" | "manual") => {
+    setFormState((prev) => {
+      if (prev.workerMode === mode) {
+        return prev;
+      }
+
+      if (mode === "catalog") {
+        return {
+          ...prev,
+          workerMode: "catalog",
+          trabajadorId: "",
+          trabajadorCargo: "",
+          trabajadorNombreManual: "",
+          trabajadorRutManual: "",
+          areaTrabajoManual: "",
+          subAreaTrabajoManual: "",
+        };
+      }
+
+      return {
+        ...prev,
+        workerMode: "manual",
+        trabajadorId: prev.trabajadorId.startsWith("manual-")
+          ? prev.trabajadorId
+          : "",
+        trabajadorCargo: "",
+      };
+    });
   };
 
   const isLoading =
@@ -2967,31 +3086,129 @@ export default function EppEntregas() {
                   </h4>
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div>
-                      <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-foreground">
-                        👷 Trabajador *
-                      </label>
-                      <select
-                        required
-                        value={formState.trabajadorId}
-                        onChange={(event) => {
-                          const value = event.target.value;
-                          const worker =
-                            trabajadores.find((t) => t.id === value) ?? null;
-                          setFormState((prev) => ({
-                            ...prev,
-                            trabajadorId: value,
-                            trabajadorCargo: worker?.cargo ?? "",
-                          }));
-                        }}
-                        className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-2 text-sm focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-bg dark:text-dracula-foreground"
-                      >
-                        <option value="">Selecciona un trabajador</option>
-                        {trabajadorOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <label className="block text-sm font-semibold text-slate-700 dark:text-dracula-foreground">
+                          👷 Trabajador *
+                        </label>
+                        <div className="inline-flex items-center gap-2 rounded-full border border-soft-gray-200/70 bg-white p-1 text-xs font-semibold text-slate-500 shadow-sm dark:border-dracula-current dark:bg-dracula-current">
+                          <button
+                            type="button"
+                            onClick={() => handleWorkerModeChange("catalog")}
+                            className={`rounded-full px-3 py-1.5 transition ${
+                              !isManualWorkerMode
+                                ? "bg-celeste-100 text-celeste-600 dark:bg-dracula-purple/30 dark:text-dracula-purple"
+                                : "hover:text-slate-700 dark:text-dracula-comment dark:hover:text-dracula-foreground"
+                            }`}
+                          >
+                            Registrados
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleWorkerModeChange("manual")}
+                            className={`rounded-full px-3 py-1.5 transition ${
+                              isManualWorkerMode
+                                ? "bg-amber-100 text-amber-600 dark:bg-dracula-orange/30 dark:text-dracula-orange"
+                                : "hover:text-slate-700 dark:text-dracula-comment dark:hover:text-dracula-foreground"
+                            }`}
+                          >
+                            Manual
+                          </button>
+                        </div>
+                      </div>
+
+                      {!isManualWorkerMode ? (
+                        <select
+                          required
+                          value={formState.trabajadorId}
+                          onChange={(event) => {
+                            const value = event.target.value;
+                            const worker =
+                              trabajadores.find((t) => t.id === value) ?? null;
+                            setFormState((prev) => ({
+                              ...prev,
+                              trabajadorId: value,
+                              trabajadorCargo: worker?.cargo ?? "",
+                            }));
+                          }}
+                          className="mt-3 w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-2 text-sm focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-bg dark:text-dracula-foreground"
+                        >
+                          <option value="">Selecciona un trabajador</option>
+                          {trabajadorOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div className="mt-3 space-y-3">
+                          <input
+                            type="text"
+                            required
+                            value={formState.trabajadorNombreManual}
+                            onChange={(event) =>
+                              setFormState((prev) => ({
+                                ...prev,
+                                trabajadorNombreManual: event.target.value,
+                              }))
+                            }
+                            placeholder="Nombre completo"
+                            className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-2 text-sm focus:border-amber-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-bg dark:text-dracula-foreground"
+                          />
+                          <input
+                            type="text"
+                            required
+                            value={formState.trabajadorRutManual}
+                            onChange={(event) =>
+                              setFormState((prev) => ({
+                                ...prev,
+                                trabajadorRutManual: event.target.value,
+                              }))
+                            }
+                            placeholder="RUT"
+                            className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-2 text-sm focus:border-amber-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-bg dark:text-dracula-foreground"
+                          />
+                          <input
+                            type="text"
+                            required
+                            value={formState.trabajadorCargo}
+                            onChange={(event) =>
+                              setFormState((prev) => ({
+                                ...prev,
+                                trabajadorCargo: event.target.value,
+                              }))
+                            }
+                            placeholder="Cargo"
+                            className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-2 text-sm focus:border-amber-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-bg dark:text-dracula-foreground"
+                          />
+                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <input
+                              type="text"
+                              required
+                              value={formState.areaTrabajoManual}
+                              onChange={(event) =>
+                                setFormState((prev) => ({
+                                  ...prev,
+                                  areaTrabajoManual: event.target.value,
+                                }))
+                              }
+                              placeholder="Área"
+                              className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-2 text-sm focus:border-amber-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-bg dark:text-dracula-foreground"
+                            />
+                            <input
+                              type="text"
+                              value={formState.subAreaTrabajoManual}
+                              onChange={(event) =>
+                                setFormState((prev) => ({
+                                  ...prev,
+                                  subAreaTrabajoManual: event.target.value,
+                                }))
+                              }
+                              placeholder="Sub-área (opcional)"
+                              className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-2 text-sm focus:border-amber-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-bg dark:text-dracula-foreground"
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <div>
                       <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-foreground">
@@ -3017,7 +3234,7 @@ export default function EppEntregas() {
                     </div>
                   </div>
 
-                  {selectedTrabajador && (
+                  {!isManualWorkerMode && selectedTrabajador && (
                     <div className="grid grid-cols-1 gap-3 rounded-2xl border border-soft-gray-200/70 bg-soft-gray-50/70 px-4 py-3 text-sm text-slate-600 dark:border-dracula-current dark:bg-dracula-current/30 dark:text-dracula-comment md:grid-cols-2">
                       <div>
                         <p className="text-xs uppercase tracking-[0.25em] text-slate-400 dark:text-dracula-comment/80">
@@ -3038,6 +3255,30 @@ export default function EppEntregas() {
                           {formState.trabajadorCargo ||
                             selectedTrabajador.cargo ||
                             "Sin cargo"}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {isManualWorkerMode && (
+                    <div className="grid grid-cols-1 gap-3 rounded-2xl border border-amber-200/70 bg-amber-50/60 px-4 py-3 text-sm text-amber-700 dark:border-dracula-orange/40 dark:bg-dracula-orange/10 dark:text-amber-200 md:grid-cols-2">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.25em]">
+                          Área / Sub-área
+                        </p>
+                        <p className="font-semibold">
+                          {formState.areaTrabajoManual.trim() || "Sin área"}
+                        </p>
+                        <p className="text-xs">
+                          {formState.subAreaTrabajoManual.trim() || "Sin sub-área"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.25em]">
+                          Cargo
+                        </p>
+                        <p className="font-semibold">
+                          {formState.trabajadorCargo.trim() || "Sin cargo"}
                         </p>
                       </div>
                     </div>
