@@ -1259,6 +1259,35 @@ const Riesgos = () => {
     rows,
   ]);
 
+  const companyAddressLine = [
+    matrixDocument.header?.direccion?.trim(),
+    matrixDocument.header?.comuna?.trim(),
+    matrixDocument.header?.region?.trim(),
+  ]
+    .filter((value) => value && value.length > 0)
+    .join(", ");
+
+  const fallbackCompanyAddressLine = [
+    companyHeader?.direccion?.trim(),
+    companyHeader?.comuna?.trim(),
+    companyHeader?.region?.trim(),
+  ]
+    .filter((value) => value && value.length > 0)
+    .join(", ");
+
+  const displayedCompanyName =
+    matrixDocument.header?.nombreEmpresa ||
+    companyHeader?.nombreEmpresa ||
+    "Sin razón social";
+
+  const displayedCompanyRut =
+    matrixDocument.header?.rutEmpleador ||
+    companyHeader?.rutEmpleador ||
+    "No registrado";
+
+  const displayedCompanyAddress =
+    companyAddressLine || fallbackCompanyAddressLine || "Dirección no registrada";
+
   const catalogFactorOptions = useMemo(
     () => RISK_FACTOR_CATALOG.map((factor) => factor.label),
     []
@@ -1614,6 +1643,7 @@ const Riesgos = () => {
     const headerInfo = [
       ["Empresa", matrixDocument.header.nombreEmpresa || ""],
       ["RUT", matrixDocument.header.rutEmpleador || ""],
+      ["Dirección", companyAddressLine],
       ["Centro de trabajo", matrixDocument.header.nombreCentroTrabajo || ""],
       ["Dirección centro", matrixDocument.header.direccionCentroTrabajo || ""],
       [
@@ -1898,10 +1928,15 @@ const Riesgos = () => {
                 Empresa
               </p>
               <p className="mt-2 text-base font-semibold text-slate-800 dark:text-dracula-foreground">
-                {matrixDocument.header.nombreEmpresa}
+                {displayedCompanyName}
               </p>
               <p className="mt-1 text-xs text-slate-500 dark:text-dracula-comment">
-                RUT {matrixDocument.header.rutEmpleador}
+                {displayedCompanyRut === "No registrado"
+                  ? "RUT no registrado"
+                  : `RUT ${displayedCompanyRut}`}
+              </p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-dracula-comment">
+                📍 {displayedCompanyAddress}
               </p>
             </div>
             <div className="rounded-3xl border border-celeste-200/70 bg-celeste-50/70 p-4 shadow-sm transition hover:border-celeste-300 hover:bg-celeste-100/70 hover:shadow-lg dark:border-dracula-cyan/40 dark:bg-dracula-current dark:hover:border-dracula-cyan/60 dark:hover:bg-dracula-cyan/10 sm:p-5">

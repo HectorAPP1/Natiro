@@ -53,7 +53,8 @@ export interface RiskMatrixHeader {
   rutEmpleador: string;
   nombreEmpresa: string;
   direccion: string;
-  comuna: string;
+  comuna?: string;
+  region: string;
   codigoActividadEconomica: string;
   nombreCentroTrabajo: string;
   direccionCentroTrabajo: string;

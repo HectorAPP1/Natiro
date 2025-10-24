@@ -26,6 +26,7 @@ export const createDefaultRiskMatrixDocument = (): RiskMatrixDocument => {
       nombreEmpresa: "",
       direccion: "",
       comuna: "",
+      region: "",
       codigoActividadEconomica: "",
       nombreCentroTrabajo: "",
       direccionCentroTrabajo: "",

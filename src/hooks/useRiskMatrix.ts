@@ -80,6 +80,7 @@ export const useRiskMatrix = () => {
       nombreEmpresa: general.legalName || general.tradeName,
       direccion: `${general.address.street} ${general.address.number}`.trim(),
       comuna: general.address.commune,
+      region: general.address.region,
       codigoActividadEconomica: general.businessActivity,
       nombreCentroTrabajo: general.tradeName || general.legalName,
       direccionCentroTrabajo:
@@ -150,6 +151,7 @@ export const useRiskMatrix = () => {
         nombreEmpresa: "",
         direccion: "",
         comuna: "",
+        region: "",
         codigoActividadEconomica: "",
         nombreCentroTrabajo: "",
         direccionCentroTrabajo: "",

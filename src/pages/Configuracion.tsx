@@ -1020,6 +1020,76 @@ export default function Configuracion() {
       "Actualiza la razón social, contacto y dirección principal.",
       <>
         <div className="grid gap-4 md:grid-cols-2">
+          <div className="md:col-span-2">
+            <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-comment">
+              Logo corporativo 🖼️
+            </label>
+            <div className="flex flex-col gap-3 rounded-xl border border-dashed border-soft-gray-300 bg-white/70 p-4 dark:border-dracula-selection dark:bg-dracula-current/40">
+              <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-xl border border-soft-gray-200 bg-soft-gray-50 shadow-sm dark:border-dracula-selection dark:bg-dracula-bg">
+                    {companySettings.general.logoUrl ? (
+                      <img
+                        src={companySettings.general.logoUrl}
+                        alt="Logo de la empresa"
+                        className="h-full w-full object-contain"
+                      />
+                    ) : (
+                      <Image className="h-8 w-8 text-slate-300 dark:text-dracula-comment" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-700 dark:text-dracula-foreground">
+                      {companySettings.general.logoUrl ? "Logo actual" : "Añade un logo"}
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-dracula-comment">
+                      Formato PNG/JPG, máximo 2 MB. Se mostrará en reportes y dashboards.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-gradient-to-r from-celeste-500 to-mint-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:shadow-md">
+                    <Camera className="h-4 w-4" />
+                    {companySettings.general.logoUrl ? "Actualizar logo" : "Subir logo"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={async (event) => {
+                        const file = event.target.files?.[0];
+                        if (!file) {
+                          return;
+                        }
+                        if (file.size > 2 * 1024 * 1024) {
+                          alert("El logo debe pesar menos de 2 MB.");
+                          event.target.value = "";
+                          return;
+                        }
+                        try {
+                          const dataUrl = await readFileAsDataUrl(file);
+                          handleGeneralChange("logoUrl", dataUrl);
+                        } catch (error) {
+                          console.error("Error al leer logo", error);
+                          alert("No pudimos cargar el logo. Intenta nuevamente.");
+                        } finally {
+                          event.target.value = "";
+                        }
+                      }}
+                    />
+                  </label>
+                  {companySettings.general.logoUrl ? (
+                    <button
+                      type="button"
+                      onClick={() => handleGeneralChange("logoUrl", "")}
+                      className="inline-flex items-center gap-2 rounded-full border border-soft-gray-300 px-4 py-2 text-xs font-semibold text-slate-500 transition hover:border-rose-200 hover:text-rose-500 dark:border-dracula-selection dark:text-dracula-comment dark:hover:border-dracula-red/60 dark:hover:text-dracula-red"
+                    >
+                      <Trash2 className="h-4 w-4" /> Quitar logo
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </div>
           <div>
             <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-dracula-comment">
               Razón social 🏢

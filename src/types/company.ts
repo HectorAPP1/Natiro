@@ -141,6 +141,7 @@ export interface CompanySettings {
     contactEmail: string
     contactPhone: string
     website: string
+    logoUrl: string
     address: CompanyAddress
   }
   representatives: {
@@ -171,6 +172,7 @@ export const createDefaultCompanySettings = (): CompanySettings => ({
     contactEmail: '',
     contactPhone: '',
     website: '',
+    logoUrl: '',
     address: {
       street: '',
       number: '',
