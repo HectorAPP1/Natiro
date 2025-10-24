@@ -8,6 +8,9 @@ import Configuracion from '../pages/Configuracion.tsx'
 import Ajustes from '../pages/Ajustes.tsx'
 import ComingSoon from '../pages/ComingSoon.tsx'
 import Riesgos from '../pages/Riesgos.tsx'
+import InspectionsPage from '../pages/inspecciones/InspectionsPage.tsx'
+import InspectionsComingSoon from '../pages/inspecciones/InspectionsComingSoon.tsx'
+import InspectionsProgramming from '../pages/inspecciones/InspectionsProgramming.tsx'
 
 export default function AppRouter() {
   return (
@@ -19,10 +22,46 @@ export default function AppRouter() {
           <Route path="/epp" element={<EppDashboard />} />
           <Route path="/epp/entregas" element={<EppEntregas />} />
           <Route path="/trabajadores" element={<Trabajadores />} />
-          <Route
-            path="/inspecciones"
-            element={<ComingSoon title="Inspecciones" moduleKey="inspecciones" />}
-          />
+          <Route path="/inspecciones" element={<InspectionsPage />}>
+            <Route index element={<InspectionsProgramming />} />
+            <Route path="programacion" element={<InspectionsProgramming />} />
+            <Route
+              path="ejecucion"
+              element={
+                <InspectionsComingSoon
+                  title="Ejecución en terreno"
+                  moduleKey="inspecciones"
+                />
+              }
+            />
+            <Route
+              path="hallazgos"
+              element={
+                <InspectionsComingSoon
+                  title="Hallazgos y acciones"
+                  moduleKey="inspecciones"
+                />
+              }
+            />
+            <Route
+              path="reportes"
+              element={
+                <InspectionsComingSoon
+                  title="Reportes & analytics"
+                  moduleKey="inspecciones"
+                />
+              }
+            />
+            <Route
+              path="automatizaciones"
+              element={
+                <InspectionsComingSoon
+                  title="Automatizaciones & integraciones"
+                  moduleKey="inspecciones"
+                />
+              }
+            />
+          </Route>
           <Route
             path="/capacitaciones"
             element={<ComingSoon title="Capacitaciones" moduleKey="capacitaciones" />}

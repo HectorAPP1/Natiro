@@ -481,7 +481,6 @@ export default function ProtectedLayout() {
         label: "Inspecciones",
         to: "/inspecciones",
         icon: ClipboardCheck,
-        soon: true,
         module: "inspecciones",
       },
       {
