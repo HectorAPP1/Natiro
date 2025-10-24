@@ -9,7 +9,7 @@ import {
 } from "firebase/firestore";
 
 import { db } from "../lib/firebase";
-import type { RiskMatrixDocument, RiskMatrixRow } from "../types/riskMatrix";
+import type { RiskMatrixDocument, RiskMatrixRow, RiskMatrixVersion } from "../types/riskMatrix";
 import { DEFAULT_RISK_EVALUATION_CRITERIA } from "../constants/riskMatrix";
 
 const COLLECTION = "riskMatrix";
@@ -46,6 +46,7 @@ export const createDefaultRiskMatrixDocument = (): RiskMatrixDocument => {
     createdBy: "",
     updatedBy: "",
     reviewers: [],
+    versions: [],
   };
 };
 
@@ -65,11 +66,30 @@ const normalizeRow = (row: RiskMatrixRow): RiskMatrixRow => {
 
 const normalizeDocument = (doc: RiskMatrixDocument): RiskMatrixDocument => {
   const defaults = createDefaultRiskMatrixDocument();
+  const normalizeVersion = (version: RiskMatrixVersion, index: number): RiskMatrixVersion => {
+    const versionId = version.id ?? `${index}-${Date.now()}`;
+    return {
+      id: versionId,
+      versionNumber: Number.isFinite(version.versionNumber)
+        ? version.versionNumber
+        : index + 1,
+      updatedAt: version.updatedAt ?? new Date().toISOString(),
+      updatedBy: {
+        memberId: version.updatedBy?.memberId ?? null,
+        name: version.updatedBy?.name ?? "Usuario desconocido",
+        position: version.updatedBy?.position,
+        email: version.updatedBy?.email,
+      },
+      comment: version.comment,
+    } satisfies RiskMatrixVersion;
+  };
+
   return {
     ...doc,
     header: doc.header ?? defaults.header,
     rows: (doc.rows ?? []).map((row) => normalizeRow(row)),
     criterios: doc.criterios ?? defaults.criterios,
+    versions: (doc.versions ?? []).map(normalizeVersion),
   };
 };
 

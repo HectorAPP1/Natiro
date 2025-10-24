@@ -36,6 +36,8 @@ import type {
   RiskControlStatus,
   RiskControlType,
   RiskMatrixControl,
+  RiskMatrixDocument,
+  RiskMatrixVersion,
 } from "../types/riskMatrix";
 
 const formatDate = (iso: string) => {
@@ -45,6 +47,18 @@ const formatDate = (iso: string) => {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
+  });
+};
+
+const formatDateTime = (iso: string) => {
+  if (!iso) return "";
+  const date = new Date(iso);
+  return date.toLocaleString("es-CL", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 };
 
@@ -90,6 +104,12 @@ const CONTROL_STATUS_META = CONTROL_STATUS_OPTIONS.reduce((acc, option) => {
   acc[option.value] = option;
   return acc;
 }, {} as Record<RiskControlStatus, (typeof CONTROL_STATUS_OPTIONS)[number]>);
+
+type VersionModalState = {
+  open: boolean;
+  draftComment: string;
+  submitting: boolean;
+};
 
 const CONTROLLED_OPTIONS: { label: string; value: ControlledFilterValue }[] = [
   { label: "Todos", value: "all" },
@@ -1108,6 +1128,11 @@ const Riesgos = () => {
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [pendingNewRowId, setPendingNewRowId] = useState<string | null>(null);
   const [showCriteriaModal, setShowCriteriaModal] = useState(false);
+  const [versionModal, setVersionModal] = useState<VersionModalState>({
+    open: false,
+    draftComment: "",
+    submitting: false,
+  });
   const [previewModal, setPreviewModal] = useState<{
     fieldKey: string;
     label: string;
@@ -1221,8 +1246,9 @@ const Riesgos = () => {
       Boolean(editingRowId) ||
       showCriteriaModal ||
       Boolean(previewModal) ||
-      Boolean(controlModalState),
-    [editingRowId, showCriteriaModal, previewModal, controlModalState]
+      Boolean(controlModalState) ||
+      versionModal.open,
+    [editingRowId, showCriteriaModal, previewModal, controlModalState, versionModal.open]
   );
 
   useEffect(() => {
@@ -1249,6 +1275,7 @@ const Riesgos = () => {
       ...base,
       header: header ?? base.header,
       rows,
+      versions: base.versions ?? [],
       criterios: evaluationCriteria.classification,
     };
   }, [
@@ -1287,6 +1314,108 @@ const Riesgos = () => {
 
   const displayedCompanyAddress =
     companyAddressLine || fallbackCompanyAddressLine || "Dirección no registrada";
+
+  const latestVersionNumber = useMemo(() => {
+    const versions = matrixDocument.versions ?? [];
+    if (versions.length === 0) {
+      return 0;
+    }
+    return versions.reduce((max, version) => Math.max(max, version.versionNumber), 0);
+  }, [matrixDocument.versions]);
+
+  const orderedVersions = useMemo(() => {
+    return [...(matrixDocument.versions ?? [])]
+      .filter((version) => version.versionNumber && version.updatedAt)
+      .sort((a, b) => (b.versionNumber ?? 0) - (a.versionNumber ?? 0));
+  }, [matrixDocument.versions]);
+
+  const handleOpenVersionModal = useCallback(() => {
+    setVersionModal({ open: true, draftComment: "", submitting: false });
+  }, []);
+
+  const handleCloseVersionModal = useCallback(() => {
+    setVersionModal({ open: false, draftComment: "", submitting: false });
+  }, []);
+
+  const resolveCurrentUserInfo = useCallback((): RiskMatrixVersion["updatedBy"] => {
+    if (!user) {
+      return {
+        memberId: null,
+        name: "Usuario desconocido",
+        position: undefined,
+        email: undefined,
+      };
+    }
+
+    const normalizedEmail = user.email?.toLowerCase() ?? "";
+    const member = members.find(
+      (candidate) => candidate.email.toLowerCase() === normalizedEmail
+    );
+
+    if (!member) {
+      return {
+        memberId: null,
+        name: user.displayName ?? user.email ?? "Usuario desconocido",
+        position: undefined,
+        email: user.email ?? undefined,
+      };
+    }
+
+    return {
+      memberId: member.id,
+      name: member.displayName || normalizedEmail,
+      position: member.role,
+      email: member.email,
+    };
+  }, [members, user]);
+
+  const handleSubmitVersion = useCallback(async () => {
+    if (!matrixDocument) {
+      return;
+    }
+
+    setVersionModal((prev) => ({ ...prev, submitting: true }));
+
+    try {
+      const nextVersionNumber = latestVersionNumber + 1;
+      const updatedAt = new Date().toISOString();
+      const updatedBy = resolveCurrentUserInfo();
+
+      const newVersion: RiskMatrixVersion = {
+        id: crypto.randomUUID(),
+        versionNumber: nextVersionNumber,
+        updatedAt,
+        updatedBy,
+        comment: versionModal.draftComment.trim() || undefined,
+      };
+
+      const nextDocument: RiskMatrixDocument = {
+        ...matrixDocument,
+        versions: [...(matrixDocument.versions ?? []), newVersion],
+        header: {
+          ...matrixDocument.header,
+          fechaActualizacion: updatedAt,
+          nombreRevisor: updatedBy.name,
+        },
+        updatedAt,
+        updatedBy: updatedBy.email ?? updatedBy.name,
+      };
+
+      await saveMatrix(nextDocument);
+      handleCloseVersionModal();
+    } catch (error) {
+      console.error("Error al registrar versión", error);
+      alert("No se pudo registrar la versión. Intenta nuevamente.");
+      setVersionModal((prev) => ({ ...prev, submitting: false }));
+    }
+  }, [
+    handleCloseVersionModal,
+    latestVersionNumber,
+    matrixDocument,
+    resolveCurrentUserInfo,
+    saveMatrix,
+    versionModal.draftComment,
+  ]);
 
   const catalogFactorOptions = useMemo(
     () => RISK_FACTOR_CATALOG.map((factor) => factor.label),
@@ -1640,10 +1769,28 @@ const Riesgos = () => {
   const handleExportMatrix = useCallback(() => {
     const workbook = XLSX.utils.book_new();
 
-    const headerInfo = [
-      ["Empresa", matrixDocument.header.nombreEmpresa || ""],
-      ["RUT", matrixDocument.header.rutEmpleador || ""],
-      ["Dirección", companyAddressLine],
+    const latestVersionEntry = orderedVersions[0];
+    const latestVersionMetadata = latestVersionEntry
+      ? {
+          number: latestVersionEntry.versionNumber,
+          date: formatDateTime(latestVersionEntry.updatedAt),
+          responsible:
+            latestVersionEntry.updatedBy?.position
+              ? `${latestVersionEntry.updatedBy.name} • ${latestVersionEntry.updatedBy.position}`
+              : latestVersionEntry.updatedBy?.name ?? "",
+          comment: latestVersionEntry.comment ?? "",
+        }
+      : {
+          number: latestVersionNumber,
+          date: formatDateTime(matrixDocument.header.fechaActualizacion),
+          responsible: matrixDocument.header.nombreRevisor ?? "",
+          comment: "",
+        };
+
+    const summaryInfo = [
+      ["Empresa", displayedCompanyName],
+      ["RUT", displayedCompanyRut === "No registrado" ? "" : displayedCompanyRut],
+      ["Dirección", displayedCompanyAddress],
       ["Centro de trabajo", matrixDocument.header.nombreCentroTrabajo || ""],
       ["Dirección centro", matrixDocument.header.direccionCentroTrabajo || ""],
       [
@@ -1651,34 +1798,61 @@ const Riesgos = () => {
         formatDate(matrixDocument.header.fechaActualizacion || ""),
       ],
       ["Revisor", matrixDocument.header.nombreRevisor || ""],
-      [],
+      [
+        "Versión actual",
+        latestVersionMetadata.number > 0
+          ? `Versión ${latestVersionMetadata.number}`
+          : "Sin versiones registradas",
+      ],
+      ["Detalle última actualización", latestVersionMetadata.date || ""],
+      ["Responsable", latestVersionMetadata.responsible || ""],
+      ["Comentario", latestVersionMetadata.comment || ""],
     ];
 
-    const tableHeader = [
-      "#",
-      "Actividad",
-      "Tarea",
-      "Puesto",
-      "Lugar específico",
-      "Personas mujeres",
-      "Personas hombres",
-      "Otras identidades",
-      "Rutina",
-      "Peligro / factor",
-      "Factor de riesgo",
-      "Riesgo",
-      "Daño probable",
-      "Probabilidad",
-      "Consecuencia",
-      "Puntaje",
-      "Clasificación",
-      "Evaluador",
-      "Fecha de evaluación",
-      "Estado",
+    const summarySheet = XLSX.utils.aoa_to_sheet(summaryInfo);
+
+    const headerInfo = [
+      [
+        "#",
+        "Actividad",
+        "Tarea",
+        "Puesto",
+        "Lugar específico",
+        "Personas mujeres",
+        "Personas hombres",
+        "Otras identidades",
+        "Rutina",
+        "Peligro / factor",
+        "Factor de riesgo",
+        "Riesgo",
+        "Daño probable",
+        "Probabilidad",
+        "Consecuencia",
+        "Puntaje",
+        "Clasificación",
+        "Estado",
+        "Evaluador",
+        "Fecha de evaluación",
+        "Medidas gestión de control",
+      ],
     ];
 
     const tableRows = rows.map((row, index) => {
       const exportStatus = resolveRowControlStatus(row);
+      const controlsSummary = (row.controles ?? [])
+        .map((control, controlIndex) => {
+          const due = control.dueDate ? formatDate(control.dueDate) : "Sin fecha";
+          const applied = control.applied ? "Aplicada" : "Pendiente";
+          const implementer = control.implementer?.trim()
+            ? `Responsable: ${control.implementer}`
+            : "Responsable: No asignado";
+          const description = control.controlDescription?.trim()
+            ? control.controlDescription
+            : `Control ${controlIndex + 1}`;
+          return `${description} (${control.controlType}) • ${implementer} • Vence: ${due} • Estado: ${applied}`;
+        })
+        .join("\n");
+
       return [
         index + 1,
         row.actividad,
@@ -1700,16 +1874,14 @@ const Riesgos = () => {
         exportStatus,
         row.responsable,
         row.plazo ? formatDate(row.plazo) : "",
+        controlsSummary,
       ];
     });
 
-    const worksheet = XLSX.utils.aoa_to_sheet([
-      ...headerInfo,
-      tableHeader,
-      ...tableRows,
-    ]);
+    const matrixSheet = XLSX.utils.aoa_to_sheet([...headerInfo, ...tableRows]);
 
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Matriz de riesgos");
+    XLSX.utils.book_append_sheet(workbook, summarySheet, "Resumen empresa");
+    XLSX.utils.book_append_sheet(workbook, matrixSheet, "Matriz de riesgos");
 
     const companySlug = (matrixDocument.header.nombreEmpresa || "matriz")
       .toLowerCase()
@@ -1951,15 +2123,65 @@ const Riesgos = () => {
               </p>
             </div>
             <div className="rounded-3xl border border-purple-200/70 bg-purple-50/60 p-4 shadow-sm transition hover:border-purple-300 hover:bg-purple-100/70 hover:shadow-lg dark:border-dracula-purple/40 dark:bg-dracula-current dark:hover:border-dracula-purple/60 dark:hover:bg-dracula-purple/10 sm:p-5">
-              <p className="text-xs font-medium uppercase tracking-[0.2em] text-purple-400 dark:text-dracula-purple">
-                Fecha de actualización
-              </p>
-              <p className="mt-2 text-base font-semibold text-slate-800 dark:text-dracula-foreground">
-                {formatDate(matrixDocument.header.fechaActualizacion)}
-              </p>
-              <p className="mt-1 text-xs text-slate-500 dark:text-dracula-comment">
-                Revisor: {matrixDocument.header.nombreRevisor}
-              </p>
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-[0.2em] text-purple-400 dark:text-dracula-purple">
+                    Versionado matriz
+                  </p>
+                  <p className="mt-2 text-base font-semibold text-slate-800 dark:text-dracula-foreground">
+                    {latestVersionNumber > 0
+                      ? `Versión ${latestVersionNumber}`
+                      : "Sin versiones"}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-dracula-comment">
+                    Actualizada el {formatDate(matrixDocument.header.fechaActualizacion)}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-dracula-comment">
+                    Revisor: {matrixDocument.header.nombreRevisor || "No registrado"}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleOpenVersionModal}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-purple-300/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-purple-500 transition hover:border-purple-400 hover:bg-purple-50/70 dark:border-dracula-purple/40 dark:text-dracula-purple dark:hover:border-dracula-purple/60 dark:hover:bg-dracula-purple/10"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Nuevo
+                </button>
+              </div>
+              {orderedVersions.length > 0 ? (
+                <ul className="mt-3 space-y-2 text-xs text-slate-500 dark:text-dracula-comment">
+                  {orderedVersions.slice(0, 3).map((version) => (
+                    <li
+                      key={version.id}
+                      className="rounded-2xl border border-purple-100/70 bg-purple-50/50 px-3 py-2 dark:border-dracula-purple/30 dark:bg-dracula-purple/10"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold text-slate-700 dark:text-dracula-foreground">
+                          Versión {version.versionNumber}
+                        </span>
+                        <span>{formatDate(version.updatedAt)}</span>
+                      </div>
+                      <p className="mt-1">{version.comment || "Sin comentario"}</p>
+                      <p className="mt-1 text-[11px] uppercase tracking-[0.2em]">
+                        {version.updatedBy?.name ?? "Usuario desconocido"}
+                        {version.updatedBy?.position
+                          ? ` • ${version.updatedBy.position}`
+                          : ""}
+                      </p>
+                    </li>
+                  ))}
+                  {orderedVersions.length > 3 ? (
+                    <li className="pt-1 text-[11px] uppercase tracking-[0.2em] text-purple-400">
+                      + {orderedVersions.length - 3} registros
+                    </li>
+                  ) : null}
+                </ul>
+              ) : (
+                <p className="mt-3 rounded-2xl border border-dashed border-purple-200/70 bg-white/60 p-3 text-xs text-slate-400 dark:border-dracula-purple/40 dark:bg-dracula-current/20 dark:text-dracula-comment">
+                  Aún no registras versiones de la matriz. Haz clic en "Nuevo" para crear el primer registro.
+                </p>
+              )}
             </div>
           </div>
         </header>
@@ -2565,6 +2787,94 @@ const Riesgos = () => {
         onClose={() => setShowCriteriaModal(false)}
         criteria={evaluationCriteria}
       />
+
+      {versionModal.open ? (
+        <div className="fixed inset-0 z-[140] flex items-center justify-center bg-slate-900/60 px-4 py-8 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-3xl border border-white/70 bg-white/90 p-6 shadow-2xl dark:border-dracula-current dark:bg-dracula-bg/95">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-purple-400 dark:text-dracula-purple">
+                  Nuevo registro de versión
+                </p>
+                <h3 className="mt-1 text-lg font-semibold text-slate-800 dark:text-dracula-foreground">
+                  Versión {latestVersionNumber + 1}
+                </h3>
+                <p className="mt-1 text-xs text-slate-500 dark:text-dracula-comment">
+                  Registra cambios relevantes realizados el {formatDateTime(new Date().toISOString())}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseVersionModal}
+                className="rounded-full p-2 text-slate-400 transition hover:bg-soft-gray-100 hover:text-slate-600 dark:text-dracula-comment dark:hover:bg-dracula-selection"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-4 text-sm">
+              <div className="rounded-2xl border border-soft-gray-200/70 bg-white/80 p-3 dark:border-dracula-current dark:bg-dracula-current/40">
+                <p className="text-xs font-semibold uppercase text-slate-500 dark:text-dracula-comment">
+                  Fecha de actualización
+                </p>
+                <p className="mt-1 text-sm font-semibold text-slate-700 dark:text-dracula-foreground">
+                  {formatDateTime(new Date().toISOString())}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-soft-gray-200/70 bg-white/80 p-3 dark:border-dracula-current dark:bg-dracula-current/40">
+                <p className="text-xs font-semibold uppercase text-slate-500 dark:text-dracula-comment">
+                  Responsable
+                </p>
+                <p className="mt-1 text-sm font-semibold text-slate-700 dark:text-dracula-foreground">
+                  {(() => {
+                    const info = resolveCurrentUserInfo();
+                    const base = info.name;
+                    return info.position ? `${base} • ${info.position}` : base;
+                  })()}
+                </p>
+              </div>
+              <label className="block text-xs font-semibold uppercase text-slate-500 dark:text-dracula-comment">
+                Comentario de la actualización
+                <textarea
+                  rows={4}
+                  value={versionModal.draftComment}
+                  onChange={(event) =>
+                    setVersionModal((prev) => ({
+                      ...prev,
+                      draftComment: event.target.value,
+                    }))
+                  }
+                  placeholder="Ej: Se incorporó evaluación de riesgo por trabajos en altura."
+                  className="mt-2 w-full rounded-2xl border border-soft-gray-200 px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-purple-300 focus:ring-2 focus:ring-purple-200 dark:border-dracula-selection dark:bg-dracula-current/40 dark:text-dracula-foreground"
+                />
+              </label>
+            </div>
+
+            <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={handleCloseVersionModal}
+                className="w-full rounded-full border border-soft-gray-300 px-5 py-2 text-sm font-semibold text-slate-600 transition hover:bg-soft-gray-50 dark:border-dracula-current dark:text-dracula-comment dark:hover:bg-dracula-selection sm:w-auto"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmitVersion}
+                disabled={versionModal.submitting}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-purple-500 to-celeste-500 px-6 py-2 text-sm font-semibold text-white shadow-md transition hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              >
+                {versionModal.submitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="h-4 w-4" />
+                )}
+                Guardar versión
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };

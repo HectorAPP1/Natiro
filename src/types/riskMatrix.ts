@@ -68,6 +68,19 @@ export interface RiskMatrixHeader {
   nombreAprobador: string;
 }
 
+export interface RiskMatrixVersion {
+  id: string;
+  versionNumber: number;
+  updatedAt: string;
+  updatedBy: {
+    memberId?: string | null;
+    name: string;
+    position?: string;
+    email?: string;
+  };
+  comment?: string;
+}
+
 export interface RiskMatrixControl {
   id: string;
   controlDescription: string;
@@ -115,6 +128,7 @@ export interface RiskMatrixDocument {
   updatedBy: string;
   reviewers: string[];
   linkedMembers?: AccessMember[];
+  versions: RiskMatrixVersion[];
 }
 
 export interface RiskEvaluationCriteria {

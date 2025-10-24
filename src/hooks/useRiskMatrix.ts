@@ -172,6 +172,7 @@ export const useRiskMatrix = () => {
       updatedBy: "",
       reviewers: members.map((member) => member.displayName),
       linkedMembers: members,
+      versions: [],
     };
   };
 
