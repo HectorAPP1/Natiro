@@ -7,6 +7,7 @@ import {
   Edit,
   Info,
   Loader2,
+  PartyPopper,
   Plus,
   Save,
   Trash2,
@@ -1150,10 +1151,10 @@ const Riesgos = () => {
     riskFactor: "all",
     riskName: "all",
   });
-
   const [header, setHeader] = useState<RiskMatrixHeader | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [showSaveToast, setShowSaveToast] = useState(false);
 
   useEffect(() => {
     if (!remoteMatrix) {
@@ -1880,6 +1881,58 @@ const Riesgos = () => {
 
     const matrixSheet = XLSX.utils.aoa_to_sheet([...headerInfo, ...tableRows]);
 
+    const headerStyle = {
+      font: { bold: true, color: { rgb: "FFFFFFFF" } },
+      fill: { patternType: "solid", fgColor: { rgb: "FF15803D" } },
+      alignment: { horizontal: "center", vertical: "center", wrapText: true },
+      border: {
+        top: { style: "thin", color: { rgb: "FF0F172A" } },
+        bottom: { style: "thin", color: { rgb: "FF0F172A" } },
+        left: { style: "thin", color: { rgb: "FF0F172A" } },
+        right: { style: "thin", color: { rgb: "FF0F172A" } },
+      },
+    } as const;
+
+    const baseDataStyle = {
+      font: { color: { rgb: "FF1F2937" } },
+      alignment: { vertical: "center", wrapText: true },
+      border: {
+        top: { style: "thin", color: { rgb: "FFE2E8F0" } },
+        bottom: { style: "thin", color: { rgb: "FFE2E8F0" } },
+        left: { style: "thin", color: { rgb: "FFE2E8F0" } },
+        right: { style: "thin", color: { rgb: "FFE2E8F0" } },
+      },
+    } as const;
+
+    const headerRowLength = headerInfo[0]?.length ?? 0;
+
+    for (let columnIndex = 0; columnIndex < headerRowLength; columnIndex += 1) {
+      const cellAddress = XLSX.utils.encode_cell({ r: 0, c: columnIndex });
+      const cell = matrixSheet[cellAddress];
+      if (cell) {
+        cell.s = headerStyle;
+      }
+    }
+
+    const totalRows = headerInfo.length + tableRows.length;
+    for (let rowIndex = 1; rowIndex < totalRows; rowIndex += 1) {
+      const isStriped = rowIndex % 2 === 0;
+      const fillColor = isStriped ? "FFE6F4EA" : "FFFFFFFF";
+
+      for (let columnIndex = 0; columnIndex < headerRowLength; columnIndex += 1) {
+        const cellAddress = XLSX.utils.encode_cell({ r: rowIndex, c: columnIndex });
+        let cell = matrixSheet[cellAddress];
+        if (!cell) {
+          cell = { t: "s", v: "" };
+          matrixSheet[cellAddress] = cell;
+        }
+        cell.s = {
+          ...baseDataStyle,
+          fill: { patternType: "solid", fgColor: { rgb: fillColor } },
+        };
+      }
+    }
+
     XLSX.utils.book_append_sheet(workbook, summarySheet, "Resumen empresa");
     XLSX.utils.book_append_sheet(workbook, matrixSheet, "Matriz de riesgos");
 
@@ -2011,12 +2064,15 @@ const Riesgos = () => {
         ...matrixDocument,
         updatedAt: new Date().toISOString(),
         updatedBy: user?.uid ?? user?.email ?? "",
-      };
+      } satisfies RiskMatrixDocument;
+
       await saveMatrix(nextDocument);
-      setSaving(false);
+      setShowSaveToast(true);
+      setTimeout(() => setShowSaveToast(false), 6500);
     } catch (error) {
-      console.error("Error al guardar la matriz:", error);
+      console.error("Error al guardar matriz", error);
       setSaveError("No se pudo guardar la matriz. Intenta nuevamente.");
+    } finally {
       setSaving(false);
     }
   }, [matrixDocument, saveMatrix, user?.email, user?.uid]);
@@ -2779,6 +2835,29 @@ const Riesgos = () => {
               </button>
             </footer>
           </div>
+        </div>
+      ) : null}
+
+      {showSaveToast ? (
+        <div className="fixed right-6 top-6 z-[150] flex w-full max-w-sm items-start gap-3 rounded-2xl border border-emerald-200/70 bg-white/95 p-4 shadow-2xl backdrop-blur-sm transition dark:border-dracula-green/40 dark:bg-dracula-current/90">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/90 text-white dark:bg-dracula-green/70">
+            <PartyPopper className="h-5 w-5" />
+          </div>
+          <div className="flex-1 text-sm text-slate-700 dark:text-dracula-foreground">
+            <p className="font-semibold text-emerald-700 dark:text-dracula-green">
+              Cambios guardados en la matriz
+            </p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-dracula-comment">
+              Recuerda que, al finalizar tu jornada, registra una nueva versión para mantener el historial actualizado.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowSaveToast(false)}
+            className="rounded-full p-1 text-slate-400 transition hover:bg-soft-gray-100 hover:text-slate-600 dark:text-dracula-comment dark:hover:bg-dracula-selection"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
       ) : null}
 
