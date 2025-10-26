@@ -745,25 +745,6 @@ export default function Configuracion() {
       };
     };
 
-    const formatRepresentativeInfo = (rep: CompanyRepresentative) => {
-      const hasName = rep.fullName?.trim();
-      const hasPosition = rep.position?.trim();
-
-      if (hasName && hasPosition) {
-        return `${rep.fullName} • ${rep.position}`;
-      }
-
-      if (hasName) {
-        return rep.fullName;
-      }
-
-      if (hasPosition) {
-        return rep.position;
-      }
-
-      return "Sin asignar";
-    };
-
     const riskLevelStyles: Record<
       RiskLevel,
       { container: string; value: string }
@@ -789,16 +770,10 @@ export default function Configuracion() {
     const generalSummary = [
       companySettings.general.legalName,
       companySettings.general.contactEmail,
+      companySettings.representatives.legalRepresentative.fullName,
     ]
       .filter(Boolean)
       .join(" • ");
-
-    const representativeSummary = Object.values(
-      companySettings.representatives
-    )
-      .map((rep) => rep.fullName)
-      .filter(Boolean)
-      .join(", ");
 
     const healthSummary = `🏢 ${companySettings.healthAndSafety.mutualOrganization} • ⚖️ Riesgo ${companySettings.healthAndSafety.riskLevel}`;
 
@@ -842,6 +817,18 @@ export default function Configuracion() {
               value: safeText(companySettings.general.rut, "Sin RUT"),
             },
             {
+              label: "Representante legal",
+              icon: "⚖️",
+              value: safeText(
+                companySettings.representatives.legalRepresentative.fullName,
+                "Sin asignar"
+              ),
+              secondary: safeText(
+                companySettings.representatives.legalRepresentative.rut,
+                "Sin RUT"
+              ),
+            },
+            {
               label: "Sitio web",
               icon: "🔗",
               value: websiteInfo.value,
@@ -859,50 +846,6 @@ export default function Configuracion() {
             label: "Editar",
             variant: "primary",
             openSectionKey: "general",
-          },
-        ],
-      },
-      {
-        key: "representatives",
-        title: "Representantes clave",
-        description: "Encargados legales, de seguridad y RRHH",
-        icon: Users,
-        summary:
-          representativeSummary ||
-          "Designa los responsables y datos de contacto principales",
-        quickInfo: [
-          {
-            label: "Representante Legal",
-            icon: "⚖️",
-            value: formatRepresentativeInfo(
-              companySettings.representatives.legalRepresentative
-            ),
-          },
-          {
-            label: "Encargado HSE",
-            icon: "🦺",
-            value: formatRepresentativeInfo(
-              companySettings.representatives.safetyManager
-            ),
-          },
-          {
-            label: "Capital Humano",
-            icon: "👥",
-            value: formatRepresentativeInfo(
-              companySettings.representatives.hrManager
-            ),
-          },
-        ],
-        actions: [
-          {
-            label: "Ver datos",
-            variant: "secondary",
-            openSectionKey: "representatives",
-          },
-          {
-            label: "Editar",
-            variant: "primary",
-            openSectionKey: "representatives",
           },
         ],
       },
@@ -1274,6 +1217,81 @@ export default function Configuracion() {
               placeholder="https://empresa.cl"
             />
           </div>
+          <div className="md:col-span-2 rounded-xl border border-dashed border-soft-gray-200/80 bg-white/70 p-4 dark:border-dracula-selection dark:bg-dracula-current/30">
+            <h3 className="text-sm font-semibold text-slate-700 dark:text-dracula-foreground">
+              Representante legal ⚖️
+            </h3>
+            <p className="mt-1 text-xs text-slate-500 dark:text-dracula-comment">
+              Estos datos se muestran también en la tarjeta de datos generales.
+            </p>
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              <input
+                type="text"
+                value={companySettings.representatives.legalRepresentative.fullName}
+                onChange={(event) =>
+                  handleRepresentativeChange(
+                    "legalRepresentative",
+                    "fullName",
+                    event.target.value
+                  )
+                }
+                className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-selection dark:bg-dracula-bg dark:text-dracula-foreground"
+                placeholder="Nombre completo"
+              />
+              <input
+                type="text"
+                value={companySettings.representatives.legalRepresentative.rut}
+                onChange={(event) =>
+                  handleRepresentativeChange(
+                    "legalRepresentative",
+                    "rut",
+                    event.target.value
+                  )
+                }
+                className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-selection dark:bg-dracula-bg dark:text-dracula-foreground"
+                placeholder="RUT"
+              />
+              <input
+                type="text"
+                value={companySettings.representatives.legalRepresentative.position}
+                onChange={(event) =>
+                  handleRepresentativeChange(
+                    "legalRepresentative",
+                    "position",
+                    event.target.value
+                  )
+                }
+                className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-selection dark:bg-dracula-bg dark:text-dracula-foreground"
+                placeholder="Cargo"
+              />
+              <input
+                type="email"
+                value={companySettings.representatives.legalRepresentative.email}
+                onChange={(event) =>
+                  handleRepresentativeChange(
+                    "legalRepresentative",
+                    "email",
+                    event.target.value
+                  )
+                }
+                className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-selection dark:bg-dracula-bg dark:text-dracula-foreground"
+                placeholder="Correo electrónico"
+              />
+              <input
+                type="tel"
+                value={companySettings.representatives.legalRepresentative.phone}
+                onChange={(event) =>
+                  handleRepresentativeChange(
+                    "legalRepresentative",
+                    "phone",
+                    event.target.value
+                  )
+                }
+                className="md:col-span-2 w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-selection dark:bg-dracula-bg dark:text-dracula-foreground"
+                placeholder="Teléfono"
+              />
+            </div>
+          </div>
         </div>
         <div className="rounded-xl border border-soft-gray-200/70 bg-white p-4 dark:border-dracula-current dark:bg-dracula-current">
           <h3 className="text-sm font-semibold text-slate-700 dark:text-dracula-foreground">
@@ -1346,80 +1364,6 @@ export default function Configuracion() {
           </div>
         </div>
       </>
-    );
-
-  const representativeFields = (
-    [
-      { key: "legalRepresentative", label: "Representante legal ⚖️", helper: "Firma documentos y representa legalmente a la empresa." },
-      { key: "safetyManager", label: "Encargado HSE 🦺", helper: "Coordina el sistema de seguridad y salud ocupacional (HSE)." },
-      { key: "hrManager", label: "Encargado Cap. Humano 👥", helper: "Gestiona el talento, contratos y comunicaciones internas." },
-    ] as const
-  ).map(({ key, label, helper }) => (
-    <div
-      key={key}
-      className="rounded-xl border border-soft-gray-200/70 bg-white p-4 dark:border-dracula-current dark:bg-dracula-current"
-    >
-      <h3 className="text-sm font-semibold text-slate-700 dark:text-dracula-foreground">
-        {label}
-      </h3>
-      <p className="mt-1 text-xs text-slate-500 dark:text-dracula-comment">
-        {helper}
-      </p>
-      <div className="mt-4 space-y-3">
-        <input
-          type="text"
-          value={companySettings.representatives[key].fullName}
-          onChange={(event) =>
-            handleRepresentativeChange(key, "fullName", event.target.value)
-          }
-          className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-selection dark:bg-dracula-bg dark:text-dracula-foreground"
-          placeholder="Nombre completo"
-        />
-        <input
-          type="text"
-          value={companySettings.representatives[key].rut}
-          onChange={(event) =>
-            handleRepresentativeChange(key, "rut", event.target.value)
-          }
-          className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-selection dark:bg-dracula-bg dark:text-dracula-foreground"
-          placeholder="RUT"
-        />
-        <input
-          type="text"
-          value={companySettings.representatives[key].position}
-          onChange={(event) =>
-            handleRepresentativeChange(key, "position", event.target.value)
-          }
-          className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-selection dark:bg-dracula-bg dark:text-dracula-foreground"
-          placeholder="Cargo"
-        />
-        <input
-          type="email"
-          value={companySettings.representatives[key].email}
-          onChange={(event) =>
-            handleRepresentativeChange(key, "email", event.target.value)
-          }
-          className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-selection dark:bg-dracula-bg dark:text-dracula-foreground"
-          placeholder="Correo electrónico"
-        />
-        <input
-          type="tel"
-          value={companySettings.representatives[key].phone}
-          onChange={(event) =>
-            handleRepresentativeChange(key, "phone", event.target.value)
-          }
-          className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-selection dark:bg-dracula-bg dark:text-dracula-foreground"
-          placeholder="Teléfono"
-        />
-      </div>
-    </div>
-  ));
-
-  const renderRepresentativesModal = () =>
-    renderModal(
-      "Representantes clave",
-      "Designa los responsables legales, de seguridad y recursos humanos.",
-      <div className="grid gap-4 md:grid-cols-3">{representativeFields}</div>
     );
 
   const renderHealthAndSafetyModal = () =>
@@ -3108,7 +3052,6 @@ export default function Configuracion() {
       )}
 
       {activeSection === "general" && renderGeneralModal()}
-      {activeSection === "representatives" && renderRepresentativesModal()}
       {activeSection === "healthAndSafety" && renderHealthAndSafetyModal()}
       {activeSection === "workforce" && renderWorkforceModal()}
       {activeSection === "documents" && renderDocumentsModal()}
