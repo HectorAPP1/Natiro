@@ -1671,6 +1671,18 @@ const Riesgos = () => {
     [deriveControlStatus]
   );
 
+  const criticalRiskCount = useMemo(() => {
+    return rows.filter((row) =>
+      row.clasificacion === "Intolerable" || row.clasificacion === "Importante"
+    ).length;
+  }, [rows]);
+
+  const controlledRiskCount = useMemo(() => {
+    return rows.filter(
+      (row) => resolveRowControlStatus(row) === "Controlado"
+    ).length;
+  }, [resolveRowControlStatus, rows]);
+
   const handleRowChange = useCallback(
     (id: string, patch: Partial<RiskMatrixRow>) => {
       setRows((prev) =>
@@ -2361,11 +2373,40 @@ const Riesgos = () => {
                 Centro de trabajo
               </p>
               <p className="mt-2 text-base font-semibold text-slate-800 dark:text-dracula-foreground">
-                {matrixDocument.header.nombreCentroTrabajo}
+                {matrixDocument.header.nombreCentroTrabajo || "Sin registro"}
               </p>
               <p className="mt-1 text-xs text-slate-500 dark:text-dracula-comment">
-                {matrixDocument.header.direccionCentroTrabajo}
+                {matrixDocument.header.direccionCentroTrabajo || "Dirección no registrada"}
               </p>
+
+              <dl className="mt-4 grid gap-3 text-xs text-slate-600 dark:text-dracula-comment">
+                <div className="flex items-center justify-between rounded-2xl bg-white/80 px-3 py-2 shadow-sm dark:bg-dracula-bg/60">
+                  <dt className="font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-dracula-comment">
+                    Riesgos registrados
+                  </dt>
+                  <dd className="text-sm font-semibold text-celeste-600 dark:text-dracula-cyan">
+                    {rows.length}
+                  </dd>
+                </div>
+
+                <div className="flex items-center justify-between rounded-2xl bg-white/80 px-3 py-2 shadow-sm dark:bg-dracula-bg/60">
+                  <dt className="font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-dracula-comment">
+                    Riesgos críticos
+                  </dt>
+                  <dd className="text-sm font-semibold text-rose-600 dark:text-dracula-red">
+                    {criticalRiskCount}
+                  </dd>
+                </div>
+
+                <div className="flex items-center justify-between rounded-2xl bg-white/80 px-3 py-2 shadow-sm dark:bg-dracula-bg/60">
+                  <dt className="font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-dracula-comment">
+                    Controlados
+                  </dt>
+                  <dd className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                    {controlledRiskCount}/{rows.length}
+                  </dd>
+                </div>
+              </dl>
             </div>
             <div className="rounded-3xl border border-purple-200/70 bg-purple-50/60 p-4 shadow-sm transition hover:border-purple-300 hover:bg-purple-100/70 hover:shadow-lg dark:border-dracula-purple/40 dark:bg-dracula-current dark:hover:border-dracula-purple/60 dark:hover:bg-dracula-purple/10 sm:p-5">
               <div className="flex items-start justify-between gap-2">
