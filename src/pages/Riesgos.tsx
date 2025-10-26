@@ -1218,9 +1218,7 @@ const Riesgos = () => {
 
   const catalogWorkAreas = useMemo(() => {
     const areas = companySettings?.catalogs?.workAreas ?? [];
-    return areas
-      .map((area) => area.trim())
-      .filter((area) => area.length > 0);
+    return areas.map((area) => area.trim()).filter((area) => area.length > 0);
   }, [companySettings]);
 
   useEffect(() => {
@@ -1320,7 +1318,13 @@ const Riesgos = () => {
       Boolean(previewModal) ||
       Boolean(controlModalState) ||
       versionModal.open,
-    [editingRowId, showCriteriaModal, previewModal, controlModalState, versionModal.open]
+    [
+      editingRowId,
+      showCriteriaModal,
+      previewModal,
+      controlModalState,
+      versionModal.open,
+    ]
   );
 
   useEffect(() => {
@@ -1385,14 +1389,19 @@ const Riesgos = () => {
     "No registrado";
 
   const displayedCompanyAddress =
-    companyAddressLine || fallbackCompanyAddressLine || "Dirección no registrada";
+    companyAddressLine ||
+    fallbackCompanyAddressLine ||
+    "Dirección no registrada";
 
   const latestVersionNumber = useMemo(() => {
     const versions = matrixDocument.versions ?? [];
     if (versions.length === 0) {
       return 0;
     }
-    return versions.reduce((max, version) => Math.max(max, version.versionNumber), 0);
+    return versions.reduce(
+      (max, version) => Math.max(max, version.versionNumber),
+      0
+    );
   }, [matrixDocument.versions]);
 
   const orderedVersions = useMemo(() => {
@@ -1409,37 +1418,38 @@ const Riesgos = () => {
     setVersionModal({ open: false, draftComment: "", submitting: false });
   }, []);
 
-  const resolveCurrentUserInfo = useCallback((): RiskMatrixVersion["updatedBy"] => {
-    if (!user) {
+  const resolveCurrentUserInfo =
+    useCallback((): RiskMatrixVersion["updatedBy"] => {
+      if (!user) {
+        return {
+          memberId: null,
+          name: "Usuario desconocido",
+          position: undefined,
+          email: undefined,
+        };
+      }
+
+      const normalizedEmail = user.email?.toLowerCase() ?? "";
+      const member = members.find(
+        (candidate) => candidate.email.toLowerCase() === normalizedEmail
+      );
+
+      if (!member) {
+        return {
+          memberId: null,
+          name: user.displayName ?? user.email ?? "Usuario desconocido",
+          position: undefined,
+          email: user.email ?? undefined,
+        };
+      }
+
       return {
-        memberId: null,
-        name: "Usuario desconocido",
-        position: undefined,
-        email: undefined,
+        memberId: member.id,
+        name: member.displayName || normalizedEmail,
+        position: member.role,
+        email: member.email,
       };
-    }
-
-    const normalizedEmail = user.email?.toLowerCase() ?? "";
-    const member = members.find(
-      (candidate) => candidate.email.toLowerCase() === normalizedEmail
-    );
-
-    if (!member) {
-      return {
-        memberId: null,
-        name: user.displayName ?? user.email ?? "Usuario desconocido",
-        position: undefined,
-        email: user.email ?? undefined,
-      };
-    }
-
-    return {
-      memberId: member.id,
-      name: member.displayName || normalizedEmail,
-      position: member.role,
-      email: member.email,
-    };
-  }, [members, user]);
+    }, [members, user]);
 
   const handleSubmitVersion = useCallback(async () => {
     if (!matrixDocument) {
@@ -1700,8 +1710,12 @@ const Riesgos = () => {
   );
 
   const handleAddRow = () => {
-    const selectedArea = filters.areaTrabajo !== "all" ? filters.areaTrabajo : "";
-    const newRow = buildRiskRow({ responsable: responsibleName, areaTrabajo: selectedArea });
+    const selectedArea =
+      filters.areaTrabajo !== "all" ? filters.areaTrabajo : "";
+    const newRow = buildRiskRow({
+      responsable: responsibleName,
+      areaTrabajo: selectedArea,
+    });
     setRows((prev) => {
       const updated = [...prev, newRow];
       setCurrentPage(Math.ceil(updated.length / ROWS_PER_PAGE));
@@ -1926,10 +1940,9 @@ const Riesgos = () => {
       ? {
           number: latestVersionEntry.versionNumber,
           date: formatDateTime(latestVersionEntry.updatedAt),
-          responsible:
-            latestVersionEntry.updatedBy?.position
-              ? `${latestVersionEntry.updatedBy.name} • ${latestVersionEntry.updatedBy.position}`
-              : latestVersionEntry.updatedBy?.name ?? "",
+          responsible: latestVersionEntry.updatedBy?.position
+            ? `${latestVersionEntry.updatedBy.name} • ${latestVersionEntry.updatedBy.position}`
+            : latestVersionEntry.updatedBy?.name ?? "",
           comment: latestVersionEntry.comment ?? "",
         }
       : {
@@ -1941,7 +1954,10 @@ const Riesgos = () => {
 
     const summaryInfo = [
       ["Empresa", displayedCompanyName],
-      ["RUT", displayedCompanyRut === "No registrado" ? "" : displayedCompanyRut],
+      [
+        "RUT",
+        displayedCompanyRut === "No registrado" ? "" : displayedCompanyRut,
+      ],
       ["Dirección", displayedCompanyAddress],
       ["Centro de trabajo", matrixDocument.header.nombreCentroTrabajo || ""],
       ["Dirección centro", matrixDocument.header.direccionCentroTrabajo || ""],
@@ -1994,7 +2010,9 @@ const Riesgos = () => {
       const exportStatus = resolveRowControlStatus(row);
       const controlsSummary = (row.controles ?? [])
         .map((control, controlIndex) => {
-          const due = control.dueDate ? formatDate(control.dueDate) : "Sin fecha";
+          const due = control.dueDate
+            ? formatDate(control.dueDate)
+            : "Sin fecha";
           const applied = control.applied ? "Aplicada" : "Pendiente";
           const implementer = control.implementer?.trim()
             ? `Responsable: ${control.implementer}`
@@ -2072,8 +2090,15 @@ const Riesgos = () => {
       const isStriped = rowIndex % 2 === 0;
       const fillColor = isStriped ? "FFE6F4EA" : "FFFFFFFF";
 
-      for (let columnIndex = 0; columnIndex < headerRowLength; columnIndex += 1) {
-        const cellAddress = XLSX.utils.encode_cell({ r: rowIndex, c: columnIndex });
+      for (
+        let columnIndex = 0;
+        columnIndex < headerRowLength;
+        columnIndex += 1
+      ) {
+        const cellAddress = XLSX.utils.encode_cell({
+          r: rowIndex,
+          c: columnIndex,
+        });
         let cell = matrixSheet[cellAddress];
         if (!cell) {
           cell = { t: "s", v: "" };
@@ -2354,10 +2379,12 @@ const Riesgos = () => {
                       : "Sin versiones"}
                   </p>
                   <p className="mt-1 text-xs text-slate-500 dark:text-dracula-comment">
-                    Actualizada el {formatDate(matrixDocument.header.fechaActualizacion)}
+                    Actualizada el{" "}
+                    {formatDate(matrixDocument.header.fechaActualizacion)}
                   </p>
                   <p className="mt-1 text-xs text-slate-500 dark:text-dracula-comment">
-                    Revisor: {matrixDocument.header.nombreRevisor || "No registrado"}
+                    Revisor:{" "}
+                    {matrixDocument.header.nombreRevisor || "No registrado"}
                   </p>
                 </div>
                 <button
@@ -2382,7 +2409,9 @@ const Riesgos = () => {
                         </span>
                         <span>{formatDate(version.updatedAt)}</span>
                       </div>
-                      <p className="mt-1">{version.comment || "Sin comentario"}</p>
+                      <p className="mt-1">
+                        {version.comment || "Sin comentario"}
+                      </p>
                       <p className="mt-1 text-[11px] uppercase tracking-[0.2em]">
                         {version.updatedBy?.name ?? "Usuario desconocido"}
                         {version.updatedBy?.position
@@ -2399,7 +2428,8 @@ const Riesgos = () => {
                 </ul>
               ) : (
                 <p className="mt-3 rounded-2xl border border-dashed border-purple-200/70 bg-white/60 p-3 text-xs text-slate-400 dark:border-dracula-purple/40 dark:bg-dracula-current/20 dark:text-dracula-comment">
-                  Aún no registras versiones de la matriz. Haz clic en "Nuevo" para crear el primer registro.
+                  Aún no registras versiones de la matriz. Haz clic en "Nuevo"
+                  para crear el primer registro.
                 </p>
               )}
             </div>
@@ -2761,7 +2791,9 @@ const Riesgos = () => {
                               type="button"
                               onClick={() => handleEditRow(row.id)}
                               className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-celeste-200/70 text-celeste-500 transition hover:border-celeste-300 hover:text-celeste-600 focus:outline-none focus:ring-2 focus:ring-celeste-300 dark:border-dracula-current dark:text-dracula-cyan"
-                              aria-label={`Ver riesgo ${startIndex + index + 1}`}
+                              aria-label={`Ver riesgo ${
+                                startIndex + index + 1
+                              }`}
                             >
                               {startIndex + index + 1}
                             </button>
@@ -3066,7 +3098,8 @@ const Riesgos = () => {
               Cambios guardados en la matriz
             </p>
             <p className="mt-1 text-xs text-slate-500 dark:text-dracula-comment">
-              Recuerda que, al finalizar tu jornada, registra una nueva versión para mantener el historial actualizado.
+              Recuerda que, al finalizar tu jornada, registra una nueva versión
+              para mantener el historial actualizado.
             </p>
           </div>
           <button
@@ -3097,7 +3130,8 @@ const Riesgos = () => {
                   Versión {latestVersionNumber + 1}
                 </h3>
                 <p className="mt-1 text-xs text-slate-500 dark:text-dracula-comment">
-                  Registra cambios relevantes realizados el {formatDateTime(new Date().toISOString())}
+                  Registra cambios relevantes realizados el{" "}
+                  {formatDateTime(new Date().toISOString())}
                 </p>
               </div>
               <button

@@ -44,6 +44,7 @@ import {
 } from "../hooks/useEppEntregasFirestore";
 import { useAccessControl } from "../hooks/useAccessControl";
 import { useCompanyMembers } from "../hooks/useCompanyMembers";
+import { useCompanySettings } from "../hooks/useCompanySettings";
 
 type DraftItem = {
   tempId: string;
@@ -284,6 +285,7 @@ export default function EppEntregas() {
   } = useEppEntregasFirestore();
   const { canManageModule, role } = useAccessControl();
   const { members } = useCompanyMembers();
+  const { data: companySettings } = useCompanySettings();
   const canManageDeliveries = canManageModule("epp");
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -385,6 +387,23 @@ export default function EppEntregas() {
     });
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [trabajadores]);
+
+  const catalogWorkAreas = useMemo(() => {
+    const list = companySettings?.catalogs?.workAreas ?? [];
+    return list
+      .map((area) => area.trim())
+      .filter((area) => area.length > 0)
+      .sort((a, b) => a.localeCompare(b));
+  }, [companySettings]);
+
+  const manualWorkAreaOptions = useMemo(() => {
+    const merged = new Set<string>(catalogWorkAreas);
+    const current = formState.areaTrabajoManual.trim();
+    if (current.length > 0) {
+      merged.add(current);
+    }
+    return Array.from(merged).sort((a, b) => a.localeCompare(b));
+  }, [catalogWorkAreas, formState.areaTrabajoManual]);
 
   const subAreaOptions = useMemo(() => {
     if (areaFilter === "all") return []; // Si no hay área, no hay sub-áreas
@@ -3181,19 +3200,40 @@ export default function EppEntregas() {
                             className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-2 text-sm focus:border-amber-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-bg dark:text-dracula-foreground"
                           />
                           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                            <input
-                              type="text"
-                              required
-                              value={formState.areaTrabajoManual}
-                              onChange={(event) =>
-                                setFormState((prev) => ({
-                                  ...prev,
-                                  areaTrabajoManual: event.target.value,
-                                }))
-                              }
-                              placeholder="Área"
-                              className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-2 text-sm focus:border-amber-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-bg dark:text-dracula-foreground"
-                            />
+                            {manualWorkAreaOptions.length > 0 ? (
+                              <select
+                                required
+                                value={formState.areaTrabajoManual}
+                                onChange={(event) =>
+                                  setFormState((prev) => ({
+                                    ...prev,
+                                    areaTrabajoManual: event.target.value,
+                                  }))
+                                }
+                                className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-2 text-sm focus:border-amber-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-bg dark:text-dracula-foreground"
+                              >
+                                <option value="">Selecciona un área…</option>
+                                {manualWorkAreaOptions.map((option) => (
+                                  <option key={option} value={option}>
+                                    {option}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <input
+                                type="text"
+                                required
+                                value={formState.areaTrabajoManual}
+                                onChange={(event) =>
+                                  setFormState((prev) => ({
+                                    ...prev,
+                                    areaTrabajoManual: event.target.value,
+                                  }))
+                                }
+                                placeholder="Área"
+                                className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-2 text-sm focus:border-amber-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-bg dark:text-dracula-foreground"
+                              />
+                            )}
                             <input
                               type="text"
                               value={formState.subAreaTrabajoManual}
