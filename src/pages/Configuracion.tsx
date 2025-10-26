@@ -1,8 +1,10 @@
 import {
+  useCallback,
   useEffect,
   useMemo,
   useState,
   type FormEvent,
+  type KeyboardEvent,
   type ReactNode,
 } from "react";
 import {
@@ -25,6 +27,7 @@ import {
   Smile,
   Image,
   Camera,
+  MapPin,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { usePushNotifications } from "../hooks/usePushNotifications";
@@ -116,6 +119,7 @@ export default function Configuracion() {
   );
   const [avatarSavingId, setAvatarSavingId] = useState<string | null>(null);
   const [expandedModulesMemberId, setExpandedModulesMemberId] = useState<string | null>(null);
+  const [newWorkArea, setNewWorkArea] = useState("");
 
   const defaultRoleModules = useMemo(
     () => createDefaultCompanySettings().access.roleDefaults,
@@ -148,6 +152,10 @@ export default function Configuracion() {
           ...defaults.documents,
           ...remoteSettings.documents,
         },
+        catalogs: {
+          ...defaults.catalogs,
+          ...remoteSettings.catalogs,
+        },
         access: {
           ...defaults.access,
           ...remoteSettings.access,
@@ -178,6 +186,67 @@ export default function Configuracion() {
   useEffect(() => {
     setNewMemberModules(defaultRoleModules[newMemberRole]);
   }, [defaultRoleModules, newMemberRole]);
+
+  useEffect(() => {
+    if (activeSection !== "catalogs") {
+      setNewWorkArea("");
+    }
+  }, [activeSection]);
+
+  const sortedWorkAreas = useMemo(() => {
+    return [...companySettings.catalogs.workAreas].sort((a, b) =>
+      a.localeCompare(b)
+    );
+  }, [companySettings.catalogs.workAreas]);
+
+  const handleAddWorkArea = useCallback(() => {
+    const trimmed = newWorkArea.trim();
+    if (trimmed.length === 0) {
+      return;
+    }
+
+    setCompanySettings((prev) => {
+      const exists = prev.catalogs.workAreas.some(
+        (area) => area.toLowerCase() === trimmed.toLowerCase()
+      );
+      if (exists) {
+        return prev;
+      }
+      const updatedAreas = [...prev.catalogs.workAreas, trimmed].sort((a, b) =>
+        a.localeCompare(b)
+      );
+      return {
+        ...prev,
+        catalogs: {
+          ...prev.catalogs,
+          workAreas: updatedAreas,
+        },
+      };
+    });
+    setNewWorkArea("");
+  }, [newWorkArea]);
+
+  const handleRemoveWorkArea = useCallback((area: string) => {
+    setCompanySettings((prev) => ({
+      ...prev,
+      catalogs: {
+        ...prev.catalogs,
+        workAreas: prev.catalogs.workAreas.filter(
+          (item) => item.toLowerCase() !== area.toLowerCase()
+        ),
+      },
+    }));
+  }, []);
+
+  const handleWorkAreaInputKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        handleAddWorkArea();
+      }
+    },
+    [handleAddWorkArea]
+  );
 
   const roleOrder: AccessRole[] = useMemo(
     () => ["Administrador", "Editor", "Comentarista", "Lector"],
@@ -956,6 +1025,39 @@ export default function Configuracion() {
             label: "Editar",
             variant: "primary",
             openSectionKey: "documents",
+          },
+        ],
+      },
+      {
+        key: "catalogs",
+        title: "Catálogos compartidos",
+        description: "Mantén listas maestras reutilizables en todos los módulos",
+        icon: MapPin,
+        summary:
+          sortedWorkAreas.length > 0
+            ? `${sortedWorkAreas.length} áreas registradas`
+            : "Define las áreas de trabajo de tu empresa",
+        quickInfo: [
+          {
+            label: "Áreas de trabajo",
+            icon: "🏢",
+            value:
+              sortedWorkAreas.length > 0
+                ? sortedWorkAreas.slice(0, 3).join(", ") +
+                  (sortedWorkAreas.length > 3 ? "…" : "")
+                : "Sin áreas registradas",
+          },
+        ],
+        actions: [
+          {
+            label: "Ver catálogo",
+            variant: "secondary",
+            openSectionKey: "catalogs",
+          },
+          {
+            label: "Editar",
+            variant: "primary",
+            openSectionKey: "catalogs",
           },
         ],
       },
@@ -1773,6 +1875,74 @@ export default function Configuracion() {
             </div>
           </div>
         </div>
+      </div>
+    );
+
+  const renderCatalogsModal = () =>
+    renderModal(
+      "Catálogos compartidos",
+      "Configura listas maestras reutilizables en todos los módulos.",
+      <div className="space-y-6">
+        <section className="rounded-2xl border border-soft-gray-200/80 bg-white p-4 shadow-sm dark:border-dracula-selection dark:bg-dracula-current/40">
+          <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-700 dark:text-dracula-foreground">
+                Áreas de trabajo
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-dracula-comment">
+                Estas áreas estarán disponibles como opciones en módulos como Riesgos, Trabajadores e Inspecciones.
+              </p>
+            </div>
+          </header>
+
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+            <div className="flex flex-1 items-center gap-2 rounded-2xl border border-soft-gray-200/80 bg-white px-3 py-2 shadow-sm transition focus-within:border-celeste-300 focus-within:ring-2 focus-within:ring-celeste-200 dark:border-dracula-selection dark:bg-dracula-current/60">
+              <MapPin className="h-4 w-4 text-celeste-400 dark:text-dracula-cyan" />
+              <input
+                value={newWorkArea}
+                onChange={(event) => setNewWorkArea(event.target.value)}
+                onKeyDown={handleWorkAreaInputKeyDown}
+                className="flex-1 bg-transparent text-sm text-slate-700 placeholder-slate-400 outline-none dark:text-dracula-foreground"
+                placeholder="Ej. Planta de producción"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleAddWorkArea}
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-celeste-500 to-mint-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={newWorkArea.trim().length === 0}
+            >
+              Agregar área
+            </button>
+          </div>
+
+          <div className="mt-5">
+            {sortedWorkAreas.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-soft-gray-200/80 bg-soft-gray-50/60 p-4 text-center text-sm text-slate-500 dark:border-dracula-selection/60 dark:bg-dracula-current/30 dark:text-dracula-comment">
+                Aún no registras áreas de trabajo. Agrega la primera para reutilizarla en toda la plataforma.
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {sortedWorkAreas.map((area) => (
+                  <span
+                    key={area}
+                    className="inline-flex items-center gap-2 rounded-full border border-celeste-200/70 bg-celeste-50/60 px-3 py-1 text-xs font-semibold text-celeste-700 shadow-sm dark:border-dracula-purple/50 dark:bg-dracula-purple/20 dark:text-dracula-purple"
+                  >
+                    {area}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveWorkArea(area)}
+                      className="rounded-full p-1 text-celeste-500 transition hover:bg-white/80 hover:text-celeste-700 dark:text-dracula-comment dark:hover:bg-dracula-current/60 dark:hover:text-dracula-foreground"
+                      aria-label={`Quitar área ${area}`}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
       </div>
     );
 
@@ -2942,6 +3112,7 @@ export default function Configuracion() {
       {activeSection === "healthAndSafety" && renderHealthAndSafetyModal()}
       {activeSection === "workforce" && renderWorkforceModal()}
       {activeSection === "documents" && renderDocumentsModal()}
+      {activeSection === "catalogs" && renderCatalogsModal()}
       {activeSection === "access" && renderAccessModal()}
 
     </div>

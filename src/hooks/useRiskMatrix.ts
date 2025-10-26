@@ -117,6 +117,7 @@ export const useRiskMatrix = () => {
       id: row.id ?? crypto.randomUUID(),
       actividad: row.actividad ?? "",
       tarea: row.tarea ?? "",
+      areaTrabajo: row.areaTrabajo ?? "",
       puestoTrabajo: row.puestoTrabajo ?? "",
       lugarEspecifico: row.lugarEspecifico ?? "",
       numeroTrabajadores: row.numeroTrabajadores ?? {

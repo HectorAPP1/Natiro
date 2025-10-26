@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import {
   BookOpen,
   Check,
+  Copy,
   Download,
   Edit,
   Info,
@@ -17,8 +18,8 @@ import * as XLSX from "xlsx";
 import { useRiskMatrix } from "../hooks/useRiskMatrix";
 import { useAuth } from "../context/AuthContext";
 import FullScreenLoader from "../components/FullScreenLoader";
+import { useCompanySettings } from "../hooks/useCompanySettings";
 import {
-  ALL_RISK_NAME_LABELS,
   RISK_FACTOR_CATALOG,
   RISK_OPTIONS_BY_FACTOR_LABEL,
 } from "../constants/riskCatalog";
@@ -67,6 +68,7 @@ type ControlledFilterValue = "all" | RiskControlStatus;
 
 type FilterState = {
   search: string;
+  areaTrabajo: string | "all";
   classification: RiskClassification | "all";
   probability: RiskProbabilityLevel | "all";
   consequence: RiskConsequenceLevel | "all";
@@ -179,6 +181,7 @@ const MAX_CELL_PREVIEW_LENGTH = 25;
 const FIELD_LABELS: Record<string, string> = {
   actividad: "Actividad",
   tarea: "Tarea",
+  areaTrabajo: "Área de trabajo",
   puestoTrabajo: "Puesto de trabajo",
   lugarEspecifico: "Lugar específico",
   peligro: "Peligro",
@@ -196,6 +199,7 @@ type RiskMatrixRowEditorProps = {
   onChange: (id: string, patch: Partial<RiskMatrixRow>) => void;
   factorOptions: string[];
   resolveRiskOptions: (factorLabel: string | null | undefined) => string[];
+  areaOptions: string[];
 };
 
 type RiskMatrixEditorModalProps = {
@@ -211,6 +215,7 @@ type RiskMatrixEditorModalProps = {
   isNew: boolean;
   factorOptions: string[];
   resolveRiskOptions: (factorLabel: string | null | undefined) => string[];
+  areaOptions: string[];
 };
 
 type RiskControlModalProps = {
@@ -236,6 +241,7 @@ const RiskMatrixRowEditor = ({
   onChange,
   factorOptions,
   resolveRiskOptions,
+  areaOptions,
 }: RiskMatrixRowEditorProps) => {
   const descriptor =
     descriptors.find(
@@ -297,9 +303,59 @@ const RiskMatrixRowEditor = ({
     return [row.riesgo, ...resolvedRiskOptions];
   }, [resolvedRiskOptions, row.riesgo]);
 
+  const effectiveAreaOptions = useMemo(() => {
+    const unique = new Set<string>();
+    areaOptions.forEach((option) => {
+      const trimmed = option.trim();
+      if (trimmed.length > 0) {
+        unique.add(trimmed);
+      }
+    });
+
+    const result = Array.from(unique).sort((a, b) => a.localeCompare(b));
+    const current = row.areaTrabajo?.trim();
+    if (current && !unique.has(current)) {
+      result.unshift(current);
+    }
+    return result;
+  }, [areaOptions, row.areaTrabajo]);
+
   return (
     <div className="grid gap-4 text-sm">
       <div className="grid gap-2 md:grid-cols-2">
+        <label className="flex flex-col gap-1">
+          <span className="text-xs font-semibold uppercase text-slate-500">
+            🏢 Área de trabajo
+          </span>
+          <span className="text-[11px] font-medium text-slate-400 dark:text-dracula-comment">
+            Selecciona el área configurada donde se desarrolla la actividad.
+          </span>
+          {effectiveAreaOptions.length > 0 ? (
+            <select
+              className="rounded-xl border border-soft-gray-200 px-3 py-2 text-slate-700 outline-none transition focus:border-celeste-300 focus:ring-2 focus:ring-celeste-200 dark:border-dracula-selection dark:bg-dracula-current/40 dark:text-dracula-foreground"
+              value={row.areaTrabajo?.trim() ?? ""}
+              onChange={(event) =>
+                onChange(row.id, { areaTrabajo: event.target.value })
+              }
+            >
+              <option value="">Selecciona un área…</option>
+              {effectiveAreaOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              className="rounded-xl border border-soft-gray-200 px-3 py-2 text-slate-700 outline-none transition focus:border-celeste-300 focus:ring-2 focus:ring-celeste-200 dark:border-dracula-selection dark:bg-dracula-current/40 dark:text-dracula-foreground"
+              value={row.areaTrabajo}
+              maxLength={TEXT_FIELD_MAX_LENGTH}
+              onChange={(event) =>
+                onChange(row.id, { areaTrabajo: event.target.value })
+              }
+            />
+          )}
+        </label>
         <label className="flex flex-col gap-1">
           <span className="text-xs font-semibold uppercase text-slate-500">
             ✨ Actividad
@@ -316,7 +372,7 @@ const RiskMatrixRowEditor = ({
             }
           />
         </label>
-        <label className="flex flex-col gap-1">
+        <label className="flex flex-col gap-1 md:col-span-2">
           <span className="text-xs font-semibold uppercase text-slate-500">
             🧩 Tarea
           </span>
@@ -324,7 +380,7 @@ const RiskMatrixRowEditor = ({
             Detalla la acción puntual que ejecuta el equipo.
           </span>
           <input
-            className="rounded-xl border border-soft-gray-200 px-3 py-2 text-slate-700 outline-none transition focus:border-celeste-300 focus:ring-2 focus:ring-celeste-200 dark:border-dracula-selection dark:bg-dracula-current/40 dark:text-dracula-foreground"
+            className="rounded-xl border border-soft-gray-200 px-3 py-2 text-slate-700 outline-none transición focus:border-celeste-300 focus:ring-2 focus:ring-celeste-200 dark:border-dracula-selection dark:bg-dracula-current/40 dark:text-dracula-foreground"
             value={row.tarea}
             maxLength={TEXT_FIELD_MAX_LENGTH}
             onChange={(event) =>
@@ -889,6 +945,7 @@ const RiskMatrixEditorModal = ({
   isNew,
   factorOptions,
   resolveRiskOptions,
+  areaOptions,
 }: RiskMatrixEditorModalProps) => {
   if (!open || !row) {
     return null;
@@ -928,6 +985,7 @@ const RiskMatrixEditorModal = ({
             onChange={onChange}
             factorOptions={factorOptions}
             resolveRiskOptions={resolveRiskOptions}
+            areaOptions={areaOptions}
           />
         </div>
 
@@ -1125,6 +1183,7 @@ const Riesgos = () => {
     save: saveMatrix,
   } = useRiskMatrixFirestore();
   const { user } = useAuth();
+  const { data: companySettings } = useCompanySettings();
   const [rows, setRows] = useState<RiskMatrixRow[]>([]);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [pendingNewRowId, setPendingNewRowId] = useState<string | null>(null);
@@ -1144,6 +1203,7 @@ const Riesgos = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [filters, setFilters] = useState<FilterState>({
     search: "",
+    areaTrabajo: "all",
     classification: "all",
     probability: "all",
     consequence: "all",
@@ -1155,6 +1215,13 @@ const Riesgos = () => {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [showSaveToast, setShowSaveToast] = useState(false);
+
+  const catalogWorkAreas = useMemo(() => {
+    const areas = companySettings?.catalogs?.workAreas ?? [];
+    return areas
+      .map((area) => area.trim())
+      .filter((area) => area.length > 0);
+  }, [companySettings]);
 
   useEffect(() => {
     if (!remoteMatrix) {
@@ -1190,6 +1257,10 @@ const Riesgos = () => {
       const value = rawValue.trim();
       if (!value) {
         return "—";
+      }
+
+      if (fieldKey === "actividad") {
+        return <span>{value}</span>;
       }
 
       const words = value.split(/\s+/);
@@ -1423,10 +1494,17 @@ const Riesgos = () => {
     []
   );
 
-  const catalogRiskOptions = useMemo(
-    () => Array.from(new Set(ALL_RISK_NAME_LABELS)),
-    []
-  );
+  const catalogRiskOptions = useMemo<string[]>(() => {
+    const all: string[] = [];
+    RISK_FACTOR_CATALOG.forEach((factor) => {
+      factor.risks.forEach((risk) => {
+        if (!all.includes(risk.label)) {
+          all.push(risk.label);
+        }
+      });
+    });
+    return all;
+  }, []);
 
   const observedFactorLabels = useMemo(() => {
     const registry = new Set<string>();
@@ -1495,6 +1573,35 @@ const Riesgos = () => {
     },
     [combinedRiskOptions, rows]
   );
+
+  const combinedAreaOptions = useMemo(() => {
+    const unique = new Set<string>();
+    catalogWorkAreas.forEach((area) => {
+      if (area.length > 0) {
+        unique.add(area);
+      }
+    });
+    rows.forEach((row) => {
+      const value = row.areaTrabajo?.trim();
+      if (value) {
+        unique.add(value);
+      }
+    });
+    return Array.from(unique).sort((a, b) => a.localeCompare(b));
+  }, [catalogWorkAreas, rows]);
+
+  const areaFilterOptions = useMemo(() => {
+    const options: string[] = ["all"];
+    if (filters.areaTrabajo !== "all") {
+      options.push(filters.areaTrabajo);
+    }
+    combinedAreaOptions.forEach((option) => {
+      if (!options.includes(option)) {
+        options.push(option);
+      }
+    });
+    return options;
+  }, [combinedAreaOptions, filters.areaTrabajo]);
 
   const factorFilterOptions = useMemo<string[]>(
     () => ["all", ...combinedFactorOptions],
@@ -1593,7 +1700,8 @@ const Riesgos = () => {
   );
 
   const handleAddRow = () => {
-    const newRow = buildRiskRow({ responsable: responsibleName });
+    const selectedArea = filters.areaTrabajo !== "all" ? filters.areaTrabajo : "";
+    const newRow = buildRiskRow({ responsable: responsibleName, areaTrabajo: selectedArea });
     setRows((prev) => {
       const updated = [...prev, newRow];
       setCurrentPage(Math.ceil(updated.length / ROWS_PER_PAGE));
@@ -1601,6 +1709,48 @@ const Riesgos = () => {
     });
     setEditingRowId(newRow.id);
     setPendingNewRowId(newRow.id);
+  };
+
+  const handleDuplicateRow = (rowId: string) => {
+    let newRowId: string | null = null;
+    let targetPage = currentPage;
+    setRows((prev) => {
+      const index = prev.findIndex((row) => row.id === rowId);
+      if (index === -1) {
+        return prev;
+      }
+
+      const source = prev[index];
+      const cloneId = crypto.randomUUID();
+      newRowId = cloneId;
+
+      const clonedControls = (source.controles ?? []).map((control) => ({
+        ...control,
+        id: crypto.randomUUID(),
+      }));
+
+      const clonedRow = buildRiskRow({
+        ...source,
+        id: cloneId,
+        numeroTrabajadores: {
+          ...source.numeroTrabajadores,
+        },
+        controles: clonedControls,
+        responsable: responsibleName,
+      });
+
+      const updated = [...prev];
+      const insertIndex = index + 1;
+      updated.splice(insertIndex, 0, clonedRow);
+      targetPage = Math.floor(insertIndex / ROWS_PER_PAGE) + 1;
+      return updated;
+    });
+
+    if (newRowId) {
+      setEditingRowId(newRowId);
+      setPendingNewRowId(newRowId);
+      setCurrentPage(targetPage);
+    }
   };
 
   const handleEditRow = (rowId: string) => {
@@ -1757,6 +1907,7 @@ const Riesgos = () => {
   const clearFilters = useCallback(() => {
     setFilters({
       search: "",
+      areaTrabajo: "all",
       classification: "all",
       probability: "all",
       consequence: "all",
@@ -1815,6 +1966,7 @@ const Riesgos = () => {
     const headerInfo = [
       [
         "#",
+        "Área de trabajo",
         "Actividad",
         "Tarea",
         "Puesto",
@@ -1856,6 +2008,7 @@ const Riesgos = () => {
 
       return [
         index + 1,
+        row.areaTrabajo,
         row.actividad,
         row.tarea,
         row.puestoTrabajo,
@@ -1946,6 +2099,7 @@ const Riesgos = () => {
   const filtersActive = useMemo(() => {
     return (
       filters.search.trim().length > 0 ||
+      filters.areaTrabajo !== "all" ||
       filters.classification !== "all" ||
       filters.probability !== "all" ||
       filters.consequence !== "all" ||
@@ -1959,12 +2113,22 @@ const Riesgos = () => {
     const normalizedSearch = filters.search.trim().toLowerCase();
 
     return rows.filter((row) => {
+      const normalizedArea = row.areaTrabajo?.trim() ?? "";
+
+      if (
+        filters.areaTrabajo !== "all" &&
+        normalizedArea !== filters.areaTrabajo
+      ) {
+        return false;
+      }
+
       const rowStatus = resolveRowControlStatus(row);
 
       if (normalizedSearch.length > 0) {
         const haystack = [
           row.actividad,
           row.tarea,
+          row.areaTrabajo,
           row.puestoTrabajo,
           row.lugarEspecifico,
           row.peligro,
@@ -2245,9 +2409,37 @@ const Riesgos = () => {
         <main className="min-w-0 space-y-8">
           <section className="rounded-4xl border border-white/70 bg-white/95 p-4 shadow-[0_30px_60px_-40px_rgba(15,23,42,0.35)] backdrop-blur dark:border-dracula-current dark:bg-dracula-bg/90 sm:p-6 lg:p-8">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold text-slate-800 dark:text-dracula-foreground">
-                Listado de riesgos
-              </h2>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-dracula-foreground">
+                  Listado de riesgos
+                </h2>
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="flex min-w-[200px] flex-col gap-1">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-slate-400 dark:text-dracula-comment">
+                      Área de trabajo
+                    </span>
+                    <select
+                      value={filters.areaTrabajo}
+                      onChange={(event) =>
+                        updateFilter(
+                          "areaTrabajo",
+                          event.target.value === "all"
+                            ? "all"
+                            : (event.target.value as string | "all")
+                        )
+                      }
+                      className="rounded-2xl border border-soft-gray-200 px-3 py-2 text-sm text-slate-600 outline-none transition focus:border-celeste-300 focus:ring-2 focus:ring-celeste-200 dark:border-dracula-selection dark:bg-dracula-current/40 dark:text-dracula-foreground"
+                    >
+                      <option value="all">Todas las áreas</option>
+                      {areaFilterOptions.slice(1).map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              </div>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
                 {hasUnsavedChanges ? (
                   <>
@@ -2474,6 +2666,9 @@ const Riesgos = () => {
                   <tr>
                     <th className="w-12 px-3 py-3 text-center whitespace-nowrap"></th>
                     <th className="min-w-[200px] px-4 py-3 text-left whitespace-nowrap">
+                      Área de trabajo
+                    </th>
+                    <th className="min-w-[200px] px-4 py-3 text-left whitespace-nowrap">
                       Actividad
                     </th>
                     <th className="min-w-[200px] px-4 py-3 text-left whitespace-nowrap">
@@ -2562,7 +2757,21 @@ const Riesgos = () => {
                           }
                         >
                           <td className="w-12 px-3 py-3 text-center text-sm font-semibold text-slate-500 dark:text-dracula-comment align-top whitespace-nowrap">
-                            {startIndex + index + 1}
+                            <button
+                              type="button"
+                              onClick={() => handleEditRow(row.id)}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-celeste-200/70 text-celeste-500 transition hover:border-celeste-300 hover:text-celeste-600 focus:outline-none focus:ring-2 focus:ring-celeste-300 dark:border-dracula-current dark:text-dracula-cyan"
+                              aria-label={`Ver riesgo ${startIndex + index + 1}`}
+                            >
+                              {startIndex + index + 1}
+                            </button>
+                          </td>
+                          <td className="px-4 py-3 align-top whitespace-normal break-words">
+                            {renderTruncatedText(
+                              row.id,
+                              "areaTrabajo",
+                              row.areaTrabajo
+                            )}
                           </td>
                           <td className="px-4 py-3 align-top whitespace-normal break-words">
                             {renderTruncatedText(
@@ -2672,7 +2881,7 @@ const Riesgos = () => {
                               </span>
                             </div>
                           </td>
-                          <td className="w-28 px-3 py-3 text-center align-top whitespace-nowrap">
+                          <td className="w-32 px-3 py-3 text-center align-top whitespace-nowrap">
                             <div className="flex items-center justify-center gap-2">
                               <button
                                 type="button"
@@ -2681,6 +2890,14 @@ const Riesgos = () => {
                                 aria-label="Editar registro"
                               >
                                 <Edit className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-soft-gray-200/80 bg-white/80 text-slate-500 shadow-sm transition hover:border-celeste-300 hover:bg-celeste-50 hover:text-celeste-600 dark:border-dracula-selection dark:bg-dracula-current dark:text-dracula-comment"
+                                onClick={() => handleDuplicateRow(row.id)}
+                                aria-label="Duplicar registro"
+                              >
+                                <Copy className="h-4 w-4" />
                               </button>
                               {pendingNewRowId !== row.id ? (
                                 <button
@@ -2780,6 +2997,7 @@ const Riesgos = () => {
         isNew={editingRow ? pendingNewRowId === editingRow.id : false}
         factorOptions={combinedFactorOptions}
         resolveRiskOptions={resolveRiskOptions}
+        areaOptions={combinedAreaOptions}
       />
 
       <RiskControlModal

@@ -29,6 +29,54 @@ export function useCompanySettings(): UseCompanySettingsState {
 
   const docRef = useMemo<DocumentReference>(() => doc(db, COLLECTION, DOCUMENT_ID), []);
 
+  const mergeSettingsWithDefaults = useCallback(
+    (settings: CompanySettings): CompanySettings => {
+      const defaults = createDefaultCompanySettings();
+
+      return {
+        ...defaults,
+        ...settings,
+        general: {
+          ...defaults.general,
+          ...settings.general,
+        },
+        representatives: {
+          ...defaults.representatives,
+          ...settings.representatives,
+        },
+        healthAndSafety: {
+          ...defaults.healthAndSafety,
+          ...settings.healthAndSafety,
+        },
+        workforce: {
+          ...defaults.workforce,
+          ...settings.workforce,
+        },
+        documents: {
+          ...defaults.documents,
+          ...settings.documents,
+        },
+        access: {
+          ...defaults.access,
+          ...settings.access,
+          members:
+            settings.access?.members?.map((member) => ({
+              ...member,
+              modules:
+                member.modules ?? defaults.access.roleDefaults[member.role] ?? [],
+            })) ?? defaults.access.members,
+          roleDefaults:
+            settings.access?.roleDefaults ?? defaults.access.roleDefaults,
+        },
+        catalogs: {
+          ...defaults.catalogs,
+          ...settings.catalogs,
+        },
+      };
+    },
+    []
+  );
+
   useEffect(() => {
     let unsubscribe: Unsubscribe | undefined;
     let isMounted = true;
@@ -40,10 +88,13 @@ export function useCompanySettings(): UseCompanySettingsState {
         if (!snapshot.exists()) {
           const defaults = createDefaultCompanySettings();
           await setDoc(docRef, defaults);
+          if (isMounted) {
+            setData(defaults);
+          }
         } else {
           const currentData = snapshot.data() as CompanySettings;
           if (isMounted) {
-            setData(currentData);
+            setData(mergeSettingsWithDefaults(currentData));
           }
         }
 
@@ -55,7 +106,7 @@ export function useCompanySettings(): UseCompanySettingsState {
             }
             const settings = snap.data() as CompanySettings;
             if (isMounted) {
-              setData(settings);
+              setData(mergeSettingsWithDefaults(settings));
               setError(null);
               setLoading(false);
             }
@@ -89,7 +140,7 @@ export function useCompanySettings(): UseCompanySettingsState {
         unsubscribe();
       }
     };
-  }, [docRef]);
+  }, [docRef, mergeSettingsWithDefaults]);
 
   const save = useCallback(
     async (settings: CompanySettings) => {

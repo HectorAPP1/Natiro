@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import {
   Users,
   Plus,
@@ -22,23 +22,7 @@ import * as XLSX from "xlsx";
 import { useTrabajadoresFirestore, type TrabajadorFormData } from "../hooks/useTrabajadoresFirestore";
 import { useAccessControl } from "../hooks/useAccessControl";
 import FullScreenLoader from "../components/FullScreenLoader";
-
-const AREAS_TRABAJO = [
-  "Producción",
-  "Mantenimiento",
-  "Administración",
-  "Logística",
-  "Operaciones",
-  "Calidad",
-  "Seguridad",
-  "Capital Humano",
-  "Finanzas",
-  "Ventas",
-  "Compras",
-  "Bodega",
-  "Transporte",
-  "Servicios Generales",
-];
+import { useCompanySettings } from "../hooks/useCompanySettings";
 
 const LICENCIAS_CHILE = [
   "A1",
@@ -136,22 +120,28 @@ export default function Trabajadores() {
   const [viewMode, setViewMode] = useState<"card" | "list">(() =>
     typeof window !== "undefined" && window.innerWidth >= 1024 ? "list" : "card"
   );
-  const [isDesktop, setIsDesktop] = useState<boolean>(() =>
-    typeof window !== "undefined" ? window.innerWidth >= 1024 : true
-  );
+  const isBrowser = typeof window !== "undefined";
+  const isDesktop = isBrowser ? window.innerWidth >= 1024 : true;
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
+  const { data: companySettings } = useCompanySettings();
+  const catalogWorkAreas = useMemo(() => {
+    const list = companySettings?.catalogs?.workAreas ?? [];
+    return list
+      .map((area) => area.trim())
+      .filter((area) => area.length > 0)
+      .sort((a, b) => a.localeCompare(b));
+  }, [companySettings]);
 
-    const handleResize = () => {
-      const matches = window.innerWidth >= 1024;
-      setIsDesktop(matches);
-      setViewMode(matches ? "list" : "card");
-    };
-
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  const workAreaOptions = useMemo(() => {
+    const combined = new Set<string>(catalogWorkAreas);
+    trabajadores.forEach((trabajador) => {
+      const area = trabajador.areaTrabajo?.trim();
+      if (area) {
+        combined.add(area);
+      }
+    });
+    return Array.from(combined).sort((a, b) => a.localeCompare(b));
+  }, [catalogWorkAreas, trabajadores]);
 
   const subAreaOptions = useMemo(() => {
     const options = new Set<string>();
@@ -181,8 +171,9 @@ export default function Trabajadores() {
         correo.includes(normalizedQuery) ||
         clases.includes(normalizedQuery);
 
+      const normalizedArea = trabajador.areaTrabajo?.trim() ?? "";
       const matchesArea =
-        areaFilter === "all" || trabajador.areaTrabajo === areaFilter;
+        areaFilter === "all" || normalizedArea === areaFilter;
 
       const matchesSubArea =
         subAreaFilter === "all" || trabajador.subAreaTrabajo === subAreaFilter;
@@ -490,7 +481,7 @@ export default function Trabajadores() {
               className="rounded-2xl border border-soft-gray-200/70 bg-white px-4 py-2.5 text-sm text-slate-700 shadow-sm focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
             >
               <option value="all">Todas las áreas</option>
-              {AREAS_TRABAJO.map((area) => (
+              {workAreaOptions.map((area) => (
                 <option key={area} value={area}>
                   {area}
                 </option>
@@ -937,7 +928,7 @@ export default function Trabajadores() {
                         className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-2 text-sm focus:border-celeste-300 focus:outline-none dark:border-dracula-current dark:bg-dracula-bg dark:text-dracula-foreground"
                       >
                         <option value="">Seleccionar...</option>
-                        {AREAS_TRABAJO.map((area) => (
+                        {workAreaOptions.map((area) => (
                           <option key={area} value={area}>{area}</option>
                         ))}
                       </select>

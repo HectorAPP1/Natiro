@@ -60,6 +60,7 @@ const normalizeRow = (row: RiskMatrixRow): RiskMatrixRow => {
     ...row,
     factorDeRiesgo: row.factorDeRiesgo.trim(),
     riesgo: row.riesgo.trim(),
+    areaTrabajo: row.areaTrabajo?.trim() ?? "",
     controles,
   };
 };

@@ -97,6 +97,10 @@ export interface CompanyDocuments {
   contractorControlPlan: string
 }
 
+export interface CompanyCatalogs {
+  workAreas: string[]
+}
+
 export type AccessRole = 'Administrador' | 'Editor' | 'Comentarista' | 'Lector'
 
 export type AccessModule =
@@ -153,6 +157,7 @@ export interface CompanySettings {
   workforce: WorkforceProfile
   documents: CompanyDocuments
   access: AccessSettings
+  catalogs: CompanyCatalogs
 }
 
 export type CompanySettingsSection = keyof CompanySettings
@@ -284,5 +289,8 @@ export const createDefaultCompanySettings = (): CompanySettings => ({
       Comentarista: ['dashboard', 'epp', 'trabajadores', 'ajustes', 'reportes', 'documentos', 'proximamente'],
       Lector: ['dashboard', 'epp', 'trabajadores', 'ajustes', 'documentos', 'proximamente'],
     },
+  },
+  catalogs: {
+    workAreas: [],
   },
 })

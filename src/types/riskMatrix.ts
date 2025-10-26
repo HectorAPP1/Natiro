@@ -94,6 +94,7 @@ export interface RiskMatrixRow {
   id: string;
   actividad: string;
   tarea: string;
+  areaTrabajo: string;
   puestoTrabajo: string;
   lugarEspecifico: string;
   numeroTrabajadores: {
