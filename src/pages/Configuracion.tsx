@@ -97,12 +97,11 @@ export default function Configuracion() {
     updateMemberAvatar,
     removeMember,
   } = useCompanyMembers();
-  const [companySettings, setCompanySettings] = useState<CompanySettings>(
-    () => createDefaultCompanySettings()
+  const [companySettings, setCompanySettings] = useState<CompanySettings>(() =>
+    createDefaultCompanySettings()
   );
-  const [activeSection, setActiveSection] = useState<
-    CompanySettingsSection | null
-  >(null);
+  const [activeSection, setActiveSection] =
+    useState<CompanySettingsSection | null>(null);
   const [saving, setSaving] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [title, setTitle] = useState("⚠️ Stock crítico en EPP");
@@ -114,11 +113,13 @@ export default function Configuracion() {
   const [newMemberEmail, setNewMemberEmail] = useState("");
   const [newMemberRole, setNewMemberRole] = useState<AccessRole>("Editor");
   const [newMemberModules, setNewMemberModules] = useState<AccessModule[]>([]);
-  const [avatarEditorMemberId, setAvatarEditorMemberId] = useState<string | null>(
-    null
-  );
+  const [avatarEditorMemberId, setAvatarEditorMemberId] = useState<
+    string | null
+  >(null);
   const [avatarSavingId, setAvatarSavingId] = useState<string | null>(null);
-  const [expandedModulesMemberId, setExpandedModulesMemberId] = useState<string | null>(null);
+  const [expandedModulesMemberId, setExpandedModulesMemberId] = useState<
+    string | null
+  >(null);
   const [newWorkArea, setNewWorkArea] = useState("");
 
   const defaultRoleModules = useMemo(
@@ -162,7 +163,10 @@ export default function Configuracion() {
           members:
             remoteSettings.access?.members?.map((member) => ({
               ...member,
-              modules: member.modules ?? defaults.access.roleDefaults[member.role] ?? [],
+              modules:
+                member.modules ??
+                defaults.access.roleDefaults[member.role] ??
+                [],
             })) ?? defaults.access.members,
           roleDefaults:
             remoteSettings.access?.roleDefaults ?? defaults.access.roleDefaults,
@@ -176,7 +180,8 @@ export default function Configuracion() {
           members:
             prev.access.members.map((member) => ({
               ...member,
-              modules: member.modules ?? prev.access.roleDefaults[member.role] ?? [],
+              modules:
+                member.modules ?? prev.access.roleDefaults[member.role] ?? [],
             })) ?? [],
         },
       }));
@@ -254,13 +259,10 @@ export default function Configuracion() {
   );
 
   const membersByRole = useMemo(() => {
-    return members.reduce(
-      (acc, member) => {
-        acc[member.role] = (acc[member.role] ?? 0) + 1;
-        return acc;
-      },
-      {} as Record<AccessRole, number>
-    );
+    return members.reduce((acc, member) => {
+      acc[member.role] = (acc[member.role] ?? 0) + 1;
+      return acc;
+    }, {} as Record<AccessRole, number>);
   }, [members]);
 
   const defaultRoleEmojis: Record<AccessRole, string> = useMemo(
@@ -286,14 +288,17 @@ export default function Configuracion() {
   );
 
   const accessSummaryCards = useMemo(() => {
-    const roleStyles: Record<AccessRole, {
-      icon: LucideIcon;
-      gradient: string;
-      iconBg: string;
-      iconColor: string;
-      valueColor: string;
-      labelColor: string;
-    }> = {
+    const roleStyles: Record<
+      AccessRole,
+      {
+        icon: LucideIcon;
+        gradient: string;
+        iconBg: string;
+        iconColor: string;
+        valueColor: string;
+        labelColor: string;
+      }
+    > = {
       Administrador: {
         icon: Crown,
         gradient: "from-purple-50/80 via-white/70 to-purple-100/70",
@@ -368,15 +373,23 @@ export default function Configuracion() {
           reject(new Error("No se pudo leer la imagen"));
         }
       };
-      reader.onerror = () => reject(reader.error ?? new Error("Error al leer archivo"));
+      reader.onerror = () =>
+        reject(reader.error ?? new Error("Error al leer archivo"));
       reader.readAsDataURL(file);
     });
 
-  const handleAvatarEmojiSelect = async (member: AccessMember, emoji: string) => {
+  const handleAvatarEmojiSelect = async (
+    member: AccessMember,
+    emoji: string
+  ) => {
     setActionError(null);
     setAvatarSavingId(member.id);
     try {
-      await updateMemberAvatar({ id: member.id, avatarEmoji: emoji, avatarUrl: null });
+      await updateMemberAvatar({
+        id: member.id,
+        avatarEmoji: emoji,
+        avatarUrl: null,
+      });
     } catch (error) {
       console.error("Error al actualizar avatar emoji", error);
       setActionError("No se pudo actualizar el avatar. Intenta nuevamente.");
@@ -401,7 +414,11 @@ export default function Configuracion() {
     setAvatarSavingId(member.id);
     try {
       const dataUrl = await readFileAsDataUrl(file);
-      await updateMemberAvatar({ id: member.id, avatarEmoji: null, avatarUrl: dataUrl });
+      await updateMemberAvatar({
+        id: member.id,
+        avatarEmoji: null,
+        avatarUrl: dataUrl,
+      });
     } catch (error) {
       console.error("Error al subir avatar", error);
       setActionError("No se pudo subir la imagen. Intenta nuevamente.");
@@ -415,7 +432,11 @@ export default function Configuracion() {
     setActionError(null);
     setAvatarSavingId(member.id);
     try {
-      await updateMemberAvatar({ id: member.id, avatarEmoji: null, avatarUrl: null });
+      await updateMemberAvatar({
+        id: member.id,
+        avatarEmoji: null,
+        avatarUrl: null,
+      });
     } catch (error) {
       console.error("Error al restablecer avatar", error);
       setActionError("No se pudo restablecer el avatar. Intenta nuevamente.");
@@ -445,9 +466,7 @@ export default function Configuracion() {
     }));
   }, [members, defaultRoleModules]);
 
-  const handleGeneralChange = <
-    K extends keyof CompanySettings["general"]
-  >(
+  const handleGeneralChange = <K extends keyof CompanySettings["general"]>(
     field: K,
     value: CompanySettings["general"][K]
   ) => {
@@ -473,9 +492,7 @@ export default function Configuracion() {
     }));
   };
 
-  const handleHealthAndSafetyChange = <
-    K extends keyof HealthAndSafetyInfo
-  >(
+  const handleHealthAndSafetyChange = <K extends keyof HealthAndSafetyInfo>(
     field: K,
     value: HealthAndSafetyInfo[K]
   ) => {
@@ -488,9 +505,7 @@ export default function Configuracion() {
     }));
   };
 
-  const handleJointCommitteeChange = <
-    K extends keyof JointCommitteeInfo
-  >(
+  const handleJointCommitteeChange = <K extends keyof JointCommitteeInfo>(
     field: K,
     value: JointCommitteeInfo[K]
   ) => {
@@ -549,7 +564,9 @@ export default function Configuracion() {
       await updateMemberModules({ id: memberId, modules });
     } catch (error) {
       console.error("Error al actualizar permisos del miembro", error);
-      setActionError("No se pudieron cambiar los permisos. Intenta nuevamente.");
+      setActionError(
+        "No se pudieron cambiar los permisos. Intenta nuevamente."
+      );
     }
   };
 
@@ -585,9 +602,7 @@ export default function Configuracion() {
     }
   };
 
-  const handleISO45001Change = <
-    K extends keyof ISO45001Info
-  >(
+  const handleISO45001Change = <K extends keyof ISO45001Info>(
     field: K,
     value: ISO45001Info[K]
   ) => {
@@ -750,19 +765,23 @@ export default function Configuracion() {
       { container: string; value: string }
     > = {
       Bajo: {
-        container: "border-emerald-100 bg-emerald-50/80 dark:border-emerald-900/40 dark:bg-emerald-900/30",
+        container:
+          "border-emerald-100 bg-emerald-50/80 dark:border-emerald-900/40 dark:bg-emerald-900/30",
         value: "text-emerald-600 dark:text-emerald-300",
       },
       Medio: {
-        container: "border-amber-100 bg-amber-50/80 dark:border-amber-900/40 dark:bg-amber-900/30",
+        container:
+          "border-amber-100 bg-amber-50/80 dark:border-amber-900/40 dark:bg-amber-900/30",
         value: "text-amber-600 dark:text-amber-300",
       },
       Alto: {
-        container: "border-orange-100 bg-orange-50/80 dark:border-orange-900/40 dark:bg-orange-900/30",
+        container:
+          "border-orange-100 bg-orange-50/80 dark:border-orange-900/40 dark:bg-orange-900/30",
         value: "text-orange-600 dark:text-orange-300",
       },
       Crítico: {
-        container: "border-red-100 bg-red-50/80 dark:border-red-900/40 dark:bg-red-900/30",
+        container:
+          "border-red-100 bg-red-50/80 dark:border-red-900/40 dark:bg-red-900/30",
         value: "text-red-600 dark:text-red-300",
       },
     };
@@ -799,7 +818,8 @@ export default function Configuracion() {
         title: "Datos generales",
         description: "Razón social, actividad económica y contacto principal",
         icon: Building2,
-        summary: generalSummary || "Completa la información general de tu empresa",
+        summary:
+          generalSummary || "Completa la información general de tu empresa",
         quickInfo: (() => {
           const websiteInfo = formatWebsite(companySettings.general.website);
           return [
@@ -873,7 +893,8 @@ export default function Configuracion() {
             icon: "⚖️",
             value: companySettings.healthAndSafety.riskLevel,
             containerClass:
-              riskLevelStyles[companySettings.healthAndSafety.riskLevel].container,
+              riskLevelStyles[companySettings.healthAndSafety.riskLevel]
+                .container,
             valueClass:
               riskLevelStyles[companySettings.healthAndSafety.riskLevel].value,
             labelClass:
@@ -915,7 +936,9 @@ export default function Configuracion() {
           {
             label: "Índice de gravedad",
             icon: "🚑",
-            value: formatPercent(companySettings.workforce.accidentSeverityRate),
+            value: formatPercent(
+              companySettings.workforce.accidentSeverityRate
+            ),
           },
         ],
         actions: [
@@ -942,15 +965,12 @@ export default function Configuracion() {
             label: "Política SST",
             icon: "📄",
             value:
-              companySettings.documents.occupationalHealthPolicy ||
-              "Pendiente",
+              companySettings.documents.occupationalHealthPolicy || "Pendiente",
           },
           {
             label: "Plan emergencia",
             icon: "🧯",
-            value:
-              companySettings.documents.emergencyPlan ||
-              "Pendiente",
+            value: companySettings.documents.emergencyPlan || "Pendiente",
           },
           {
             label: "Matriz riesgos",
@@ -974,7 +994,8 @@ export default function Configuracion() {
       {
         key: "catalogs",
         title: "Catálogos compartidos",
-        description: "Mantén listas maestras reutilizables en todos los módulos",
+        description:
+          "Mantén listas maestras reutilizables en todos los módulos",
         icon: MapPin,
         summary:
           sortedWorkAreas.length > 0
@@ -1033,7 +1054,10 @@ export default function Configuracion() {
             <X className="h-5 w-5" />
           </button>
         </div>
-        <form onSubmit={handleModalSubmit} className="mt-4 flex flex-1 flex-col overflow-hidden">
+        <form
+          onSubmit={handleModalSubmit}
+          className="mt-4 flex flex-1 flex-col overflow-hidden"
+        >
           <div className="flex-1 space-y-6 overflow-y-auto pr-1">
             {modalContent}
           </div>
@@ -1085,17 +1109,22 @@ export default function Configuracion() {
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-slate-700 dark:text-dracula-foreground">
-                      {companySettings.general.logoUrl ? "Logo actual" : "Añade un logo"}
+                      {companySettings.general.logoUrl
+                        ? "Logo actual"
+                        : "Añade un logo"}
                     </p>
                     <p className="text-xs text-slate-500 dark:text-dracula-comment">
-                      Formato PNG/JPG, máximo 2 MB. Se mostrará en reportes y dashboards.
+                      Formato PNG/JPG, máximo 2 MB. Se mostrará en reportes y
+                      dashboards.
                     </p>
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <label className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-gradient-to-r from-celeste-500 to-mint-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:shadow-md">
                     <Camera className="h-4 w-4" />
-                    {companySettings.general.logoUrl ? "Actualizar logo" : "Subir logo"}
+                    {companySettings.general.logoUrl
+                      ? "Actualizar logo"
+                      : "Subir logo"}
                     <input
                       type="file"
                       accept="image/*"
@@ -1115,7 +1144,9 @@ export default function Configuracion() {
                           handleGeneralChange("logoUrl", dataUrl);
                         } catch (error) {
                           console.error("Error al leer logo", error);
-                          alert("No pudimos cargar el logo. Intenta nuevamente.");
+                          alert(
+                            "No pudimos cargar el logo. Intenta nuevamente."
+                          );
                         } finally {
                           event.target.value = "";
                         }
@@ -1170,7 +1201,9 @@ export default function Configuracion() {
             <input
               type="text"
               value={companySettings.general.rut}
-              onChange={(event) => handleGeneralChange("rut", event.target.value)}
+              onChange={(event) =>
+                handleGeneralChange("rut", event.target.value)
+              }
               className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
               placeholder="12.345.678-9"
             />
@@ -1227,7 +1260,9 @@ export default function Configuracion() {
             <div className="mt-3 grid gap-3 md:grid-cols-2">
               <input
                 type="text"
-                value={companySettings.representatives.legalRepresentative.fullName}
+                value={
+                  companySettings.representatives.legalRepresentative.fullName
+                }
                 onChange={(event) =>
                   handleRepresentativeChange(
                     "legalRepresentative",
@@ -1253,7 +1288,9 @@ export default function Configuracion() {
               />
               <input
                 type="text"
-                value={companySettings.representatives.legalRepresentative.position}
+                value={
+                  companySettings.representatives.legalRepresentative.position
+                }
                 onChange={(event) =>
                   handleRepresentativeChange(
                     "legalRepresentative",
@@ -1266,7 +1303,9 @@ export default function Configuracion() {
               />
               <input
                 type="email"
-                value={companySettings.representatives.legalRepresentative.email}
+                value={
+                  companySettings.representatives.legalRepresentative.email
+                }
                 onChange={(event) =>
                   handleRepresentativeChange(
                     "legalRepresentative",
@@ -1279,7 +1318,9 @@ export default function Configuracion() {
               />
               <input
                 type="tel"
-                value={companySettings.representatives.legalRepresentative.phone}
+                value={
+                  companySettings.representatives.legalRepresentative.phone
+                }
                 onChange={(event) =>
                   handleRepresentativeChange(
                     "legalRepresentative",
@@ -1381,7 +1422,8 @@ export default function Configuracion() {
               onChange={(event) =>
                 handleHealthAndSafetyChange(
                   "mutualOrganization",
-                  event.target.value as HealthAndSafetyInfo["mutualOrganization"]
+                  event.target
+                    .value as HealthAndSafetyInfo["mutualOrganization"]
                 )
               }
               className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
@@ -1439,7 +1481,10 @@ export default function Configuracion() {
               type="text"
               value={companySettings.healthAndSafety.hseManagerName}
               onChange={(event) =>
-                handleHealthAndSafetyChange("hseManagerName", event.target.value)
+                handleHealthAndSafetyChange(
+                  "hseManagerName",
+                  event.target.value
+                )
               }
               className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
               placeholder="Nombre completo"
@@ -1453,7 +1498,10 @@ export default function Configuracion() {
               type="text"
               value={companySettings.healthAndSafety.hseManagerIdCard}
               onChange={(event) =>
-                handleHealthAndSafetyChange("hseManagerIdCard", event.target.value)
+                handleHealthAndSafetyChange(
+                  "hseManagerIdCard",
+                  event.target.value
+                )
               }
               className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
               placeholder="ID o credencial del encargado"
@@ -1467,7 +1515,10 @@ export default function Configuracion() {
               type="email"
               value={companySettings.healthAndSafety.hseManagerEmail}
               onChange={(event) =>
-                handleHealthAndSafetyChange("hseManagerEmail", event.target.value)
+                handleHealthAndSafetyChange(
+                  "hseManagerEmail",
+                  event.target.value
+                )
               }
               className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
               placeholder="hse@empresa.cl"
@@ -1481,7 +1532,10 @@ export default function Configuracion() {
               type="tel"
               value={companySettings.healthAndSafety.hseManagerPhone}
               onChange={(event) =>
-                handleHealthAndSafetyChange("hseManagerPhone", event.target.value)
+                handleHealthAndSafetyChange(
+                  "hseManagerPhone",
+                  event.target.value
+                )
               }
               className="w-full rounded-xl border border-soft-gray-200/70 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-current dark:bg-dracula-current dark:text-dracula-foreground"
               placeholder="+56 9 9876 5432"
@@ -1543,12 +1597,15 @@ export default function Configuracion() {
               </label>
             </div>
             <p className="mt-2 text-xs text-slate-500 dark:text-dracula-comment">
-              Registra el alcance, organismo certificador y cronograma de auditorías para mantener la norma ISO 45001 al día.
+              Registra el alcance, organismo certificador y cronograma de
+              auditorías para mantener la norma ISO 45001 al día.
             </p>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               <input
                 type="text"
-                value={companySettings.healthAndSafety.iso45001.certificationScope}
+                value={
+                  companySettings.healthAndSafety.iso45001.certificationScope
+                }
                 onChange={(event) =>
                   handleISO45001Change("certificationScope", event.target.value)
                 }
@@ -1557,7 +1614,9 @@ export default function Configuracion() {
               />
               <input
                 type="text"
-                value={companySettings.healthAndSafety.iso45001.certificationBody}
+                value={
+                  companySettings.healthAndSafety.iso45001.certificationBody
+                }
                 onChange={(event) =>
                   handleISO45001Change("certificationBody", event.target.value)
                 }
@@ -1565,11 +1624,14 @@ export default function Configuracion() {
                 placeholder="Organismo"
               />
               <p className="col-span-2 text-xs text-slate-500 dark:text-dracula-comment">
-                Usa formato dd-mm-aaaa para las fechas. Mantén las renovaciones y auditorías planificadas.
+                Usa formato dd-mm-aaaa para las fechas. Mantén las renovaciones
+                y auditorías planificadas.
               </p>
               <input
                 type="date"
-                value={companySettings.healthAndSafety.iso45001.certificationDate}
+                value={
+                  companySettings.healthAndSafety.iso45001.certificationDate
+                }
                 onChange={(event) =>
                   handleISO45001Change("certificationDate", event.target.value)
                 }
@@ -1577,9 +1639,14 @@ export default function Configuracion() {
               />
               <input
                 type="date"
-                value={companySettings.healthAndSafety.iso45001.certificationExpiry}
+                value={
+                  companySettings.healthAndSafety.iso45001.certificationExpiry
+                }
                 onChange={(event) =>
-                  handleISO45001Change("certificationExpiry", event.target.value)
+                  handleISO45001Change(
+                    "certificationExpiry",
+                    event.target.value
+                  )
                 }
                 className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus-border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark-border-dracula-selection dark:bg-dracula-bg dark-text-dracula-foreground"
               />
@@ -1592,7 +1659,9 @@ export default function Configuracion() {
                 className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus-border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark-border-dracula-selection dark:bg-dracula-bg dark-text-dracula-foreground"
               />
               <textarea
-                value={companySettings.healthAndSafety.iso45001.lastAuditFindings}
+                value={
+                  companySettings.healthAndSafety.iso45001.lastAuditFindings
+                }
                 onChange={(event) =>
                   handleISO45001Change("lastAuditFindings", event.target.value)
                 }
@@ -1610,7 +1679,9 @@ export default function Configuracion() {
               <label className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-dracula-comment">
                 <input
                   type="checkbox"
-                  checked={companySettings.healthAndSafety.jointCommittee.hasCommittee}
+                  checked={
+                    companySettings.healthAndSafety.jointCommittee.hasCommittee
+                  }
                   onChange={(event) =>
                     handleJointCommitteeChange(
                       "hasCommittee",
@@ -1625,7 +1696,10 @@ export default function Configuracion() {
             <div className="mt-4 space-y-3">
               <input
                 type="text"
-                value={companySettings.healthAndSafety.jointCommittee.resolutionNumber}
+                value={
+                  companySettings.healthAndSafety.jointCommittee
+                    .resolutionNumber
+                }
                 onChange={(event) =>
                   handleJointCommitteeChange(
                     "resolutionNumber",
@@ -1637,7 +1711,9 @@ export default function Configuracion() {
               />
               <input
                 type="date"
-                value={companySettings.healthAndSafety.jointCommittee.resolutionDate}
+                value={
+                  companySettings.healthAndSafety.jointCommittee.resolutionDate
+                }
                 onChange={(event) =>
                   handleJointCommitteeChange(
                     "resolutionDate",
@@ -1654,7 +1730,10 @@ export default function Configuracion() {
                   <div className="mt-2 space-y-2">
                     <input
                       type="text"
-                      value={companySettings.healthAndSafety.jointCommittee.titularCompanyMember1}
+                      value={
+                        companySettings.healthAndSafety.jointCommittee
+                          .titularCompanyMember1
+                      }
                       onChange={(event) =>
                         handleJointCommitteeChange(
                           "titularCompanyMember1",
@@ -1666,7 +1745,10 @@ export default function Configuracion() {
                     />
                     <input
                       type="text"
-                      value={companySettings.healthAndSafety.jointCommittee.titularCompanyMember2}
+                      value={
+                        companySettings.healthAndSafety.jointCommittee
+                          .titularCompanyMember2
+                      }
                       onChange={(event) =>
                         handleJointCommitteeChange(
                           "titularCompanyMember2",
@@ -1678,7 +1760,10 @@ export default function Configuracion() {
                     />
                     <input
                       type="text"
-                      value={companySettings.healthAndSafety.jointCommittee.titularCompanyMember3}
+                      value={
+                        companySettings.healthAndSafety.jointCommittee
+                          .titularCompanyMember3
+                      }
                       onChange={(event) =>
                         handleJointCommitteeChange(
                           "titularCompanyMember3",
@@ -1695,7 +1780,10 @@ export default function Configuracion() {
                   <div className="mt-2 space-y-2">
                     <input
                       type="text"
-                      value={companySettings.healthAndSafety.jointCommittee.titularWorkerMember1}
+                      value={
+                        companySettings.healthAndSafety.jointCommittee
+                          .titularWorkerMember1
+                      }
                       onChange={(event) =>
                         handleJointCommitteeChange(
                           "titularWorkerMember1",
@@ -1707,7 +1795,10 @@ export default function Configuracion() {
                     />
                     <input
                       type="text"
-                      value={companySettings.healthAndSafety.jointCommittee.titularWorkerMember2}
+                      value={
+                        companySettings.healthAndSafety.jointCommittee
+                          .titularWorkerMember2
+                      }
                       onChange={(event) =>
                         handleJointCommitteeChange(
                           "titularWorkerMember2",
@@ -1719,7 +1810,10 @@ export default function Configuracion() {
                     />
                     <input
                       type="text"
-                      value={companySettings.healthAndSafety.jointCommittee.titularWorkerMember3}
+                      value={
+                        companySettings.healthAndSafety.jointCommittee
+                          .titularWorkerMember3
+                      }
                       onChange={(event) =>
                         handleJointCommitteeChange(
                           "titularWorkerMember3",
@@ -1738,7 +1832,10 @@ export default function Configuracion() {
                   <div className="mt-2 space-y-2">
                     <input
                       type="text"
-                      value={companySettings.healthAndSafety.jointCommittee.alternateCompanyMember1}
+                      value={
+                        companySettings.healthAndSafety.jointCommittee
+                          .alternateCompanyMember1
+                      }
                       onChange={(event) =>
                         handleJointCommitteeChange(
                           "alternateCompanyMember1",
@@ -1750,7 +1847,10 @@ export default function Configuracion() {
                     />
                     <input
                       type="text"
-                      value={companySettings.healthAndSafety.jointCommittee.alternateCompanyMember2}
+                      value={
+                        companySettings.healthAndSafety.jointCommittee
+                          .alternateCompanyMember2
+                      }
                       onChange={(event) =>
                         handleJointCommitteeChange(
                           "alternateCompanyMember2",
@@ -1762,7 +1862,10 @@ export default function Configuracion() {
                     />
                     <input
                       type="text"
-                      value={companySettings.healthAndSafety.jointCommittee.alternateCompanyMember3}
+                      value={
+                        companySettings.healthAndSafety.jointCommittee
+                          .alternateCompanyMember3
+                      }
                       onChange={(event) =>
                         handleJointCommitteeChange(
                           "alternateCompanyMember3",
@@ -1779,7 +1882,10 @@ export default function Configuracion() {
                   <div className="mt-2 space-y-2">
                     <input
                       type="text"
-                      value={companySettings.healthAndSafety.jointCommittee.alternateWorkerMember1}
+                      value={
+                        companySettings.healthAndSafety.jointCommittee
+                          .alternateWorkerMember1
+                      }
                       onChange={(event) =>
                         handleJointCommitteeChange(
                           "alternateWorkerMember1",
@@ -1791,7 +1897,10 @@ export default function Configuracion() {
                     />
                     <input
                       type="text"
-                      value={companySettings.healthAndSafety.jointCommittee.alternateWorkerMember2}
+                      value={
+                        companySettings.healthAndSafety.jointCommittee
+                          .alternateWorkerMember2
+                      }
                       onChange={(event) =>
                         handleJointCommitteeChange(
                           "alternateWorkerMember2",
@@ -1803,7 +1912,10 @@ export default function Configuracion() {
                     />
                     <input
                       type="text"
-                      value={companySettings.healthAndSafety.jointCommittee.alternateWorkerMember3}
+                      value={
+                        companySettings.healthAndSafety.jointCommittee
+                          .alternateWorkerMember3
+                      }
                       onChange={(event) =>
                         handleJointCommitteeChange(
                           "alternateWorkerMember3",
@@ -1834,7 +1946,8 @@ export default function Configuracion() {
                 Áreas de trabajo
               </h3>
               <p className="text-xs text-slate-500 dark:text-dracula-comment">
-                Estas áreas estarán disponibles como opciones en módulos como Riesgos, Trabajadores e Inspecciones.
+                Estas áreas estarán disponibles como opciones en módulos como
+                Riesgos, Trabajadores e Inspecciones.
               </p>
             </div>
           </header>
@@ -1863,7 +1976,8 @@ export default function Configuracion() {
           <div className="mt-5">
             {sortedWorkAreas.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-soft-gray-200/80 bg-soft-gray-50/60 p-4 text-center text-sm text-slate-500 dark:border-dracula-selection/60 dark:bg-dracula-current/30 dark:text-dracula-comment">
-                Aún no registras áreas de trabajo. Agrega la primera para reutilizarla en toda la plataforma.
+                Aún no registras áreas de trabajo. Agrega la primera para
+                reutilizarla en toda la plataforma.
               </div>
             ) : (
               <div className="flex flex-wrap gap-2">
@@ -1900,7 +2014,8 @@ export default function Configuracion() {
             Política de SST 📄
           </label>
           <p className="text-xs text-slate-500 dark:text-dracula-comment">
-            Describe el compromiso de la empresa con la seguridad y salud en el trabajo (SST).
+            Describe el compromiso de la empresa con la seguridad y salud en el
+            trabajo (SST).
           </p>
           <textarea
             value={companySettings.documents.occupationalHealthPolicy}
@@ -1920,7 +2035,8 @@ export default function Configuracion() {
             Plan de emergencia 🧯
           </label>
           <p className="text-xs text-slate-500 dark:text-dracula-comment">
-            Incluye procedimientos para actuar ante incendios, sismos u otras emergencias.
+            Incluye procedimientos para actuar ante incendios, sismos u otras
+            emergencias.
           </p>
           <textarea
             value={companySettings.documents.emergencyPlan}
@@ -1937,7 +2053,8 @@ export default function Configuracion() {
             Matriz de riesgos ⚠️
           </label>
           <p className="text-xs text-slate-500 dark:text-dracula-comment">
-            Detalla los peligros identificados y las medidas de control vigentes.
+            Detalla los peligros identificados y las medidas de control
+            vigentes.
           </p>
           <textarea
             value={companySettings.documents.riskMatrix}
@@ -1954,7 +2071,8 @@ export default function Configuracion() {
             Programa de inducción 📘
           </label>
           <p className="text-xs text-slate-500 dark:text-dracula-comment">
-            Contiene el material para capacitar a nuevos colaboradores y contratistas.
+            Contiene el material para capacitar a nuevos colaboradores y
+            contratistas.
           </p>
           <textarea
             value={companySettings.documents.inductionProgram}
@@ -1976,10 +2094,7 @@ export default function Configuracion() {
           <textarea
             value={companySettings.documents.contractorControlPlan}
             onChange={(event) =>
-              handleDocumentsChange(
-                "contractorControlPlan",
-                event.target.value
-              )
+              handleDocumentsChange("contractorControlPlan", event.target.value)
             }
             rows={4}
             className="mt-3 w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark-border-dracula-selection dark:bg-dracula-bg dark-text-dracula-foreground"
@@ -1989,19 +2104,71 @@ export default function Configuracion() {
       </div>
     );
 
-  const accessModules: { id: AccessModule; label: string; description: string }[] = [
-    { id: "dashboard", label: "Panel", description: "Resumen general y métricas." },
-    { id: "epp", label: "EPP", description: "Gestión de equipos de protección personal." },
-    { id: "trabajadores", label: "Trabajadores", description: "Información y seguimiento del personal." },
-    { id: "ajustes", label: "Ajustes", description: "Preferencias personales del usuario." },
-    { id: "configuracion", label: "Configuraciones", description: "Ajustes de la empresa y modales." },
-    { id: "documentos", label: "Documentos", description: "Repositorio de políticas y planes." },
-    { id: "reportes", label: "Reportes", description: "Indicadores y estadísticas avanzadas." },
-    { id: "inspecciones", label: "Inspecciones", description: "Módulo de inspecciones y hallazgos." },
-    { id: "capacitaciones", label: "Capacitaciones", description: "Formaciones y entrenamientos." },
-    { id: "riesgos", label: "Riesgos", description: "Gestión de riesgos y matrices." },
-    { id: "protocolos", label: "Protocolos", description: "Protocolos HSE y procedimientos." },
-    { id: "proximamente", label: "Próximamente", description: "Módulos en desarrollo." },
+  const accessModules: {
+    id: AccessModule;
+    label: string;
+    description: string;
+  }[] = [
+    {
+      id: "dashboard",
+      label: "Panel",
+      description: "Resumen general y métricas.",
+    },
+    {
+      id: "epp",
+      label: "EPP",
+      description: "Gestión de equipos de protección personal.",
+    },
+    {
+      id: "trabajadores",
+      label: "Trabajadores",
+      description: "Información y seguimiento del personal.",
+    },
+    {
+      id: "ajustes",
+      label: "Ajustes",
+      description: "Preferencias personales del usuario.",
+    },
+    {
+      id: "configuracion",
+      label: "Configuraciones",
+      description: "Ajustes de la empresa y modales.",
+    },
+    {
+      id: "documentos",
+      label: "Documentos",
+      description: "Repositorio de políticas y planes.",
+    },
+    {
+      id: "reportes",
+      label: "Reportes",
+      description: "Indicadores y estadísticas avanzadas.",
+    },
+    {
+      id: "inspecciones",
+      label: "Inspecciones",
+      description: "Módulo de inspecciones y hallazgos.",
+    },
+    {
+      id: "capacitaciones",
+      label: "Capacitaciones",
+      description: "Formaciones y entrenamientos.",
+    },
+    {
+      id: "riesgos",
+      label: "Riesgos",
+      description: "Gestión de riesgos y matrices.",
+    },
+    {
+      id: "protocolos",
+      label: "Protocolos",
+      description: "Protocolos HSE y procedimientos.",
+    },
+    {
+      id: "proximamente",
+      label: "Próximamente",
+      description: "Módulos en desarrollo.",
+    },
   ];
 
   const renderAccessModal = () =>
@@ -2014,7 +2181,8 @@ export default function Configuracion() {
             Invitar nuevo miembro 👤
           </h3>
           <p className="mt-1 text-xs text-slate-500 dark:text-dracula-comment">
-            Envía una invitación indicando correo y rol inicial. Podrás ajustar los módulos después.
+            Envía una invitación indicando correo y rol inicial. Podrás ajustar
+            los módulos después.
           </p>
           <div className="mt-4 grid gap-3 md:grid-cols-3">
             <input
@@ -2026,7 +2194,9 @@ export default function Configuracion() {
             />
             <select
               value={newMemberRole}
-              onChange={(event) => setNewMemberRole(event.target.value as AccessRole)}
+              onChange={(event) =>
+                setNewMemberRole(event.target.value as AccessRole)
+              }
               className="w-full rounded-lg border border-soft-gray-200/70 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-selection dark:bg-dracula-bg dark:text-dracula-foreground"
             >
               <option value="Administrador">Administrador</option>
@@ -2115,7 +2285,10 @@ export default function Configuracion() {
                       <select
                         value={member.role}
                         onChange={(event) =>
-                          handleAccessMemberRoleChange(member.id, event.target.value as AccessRole)
+                          handleAccessMemberRoleChange(
+                            member.id,
+                            event.target.value as AccessRole
+                          )
                         }
                         className="rounded-lg border border-soft-gray-200/70 bg-white px-2 py-1 text-xs text-slate-700 transition focus:border-celeste-300 focus:outline-none focus:ring-2 focus:ring-celeste-200/50 dark:border-dracula-selection dark:bg-dracula-bg dark:text-dracula-foreground"
                       >
@@ -2168,7 +2341,9 @@ export default function Configuracion() {
                     })}
                   </div>
                   <p className="mt-2 text-[11px] text-slate-400 dark:text-dracula-comment">
-                    Invitado el {new Date(member.invitedAt).toLocaleDateString()} por {member.invitedBy || "Administrador"}
+                    Invitado el{" "}
+                    {new Date(member.invitedAt).toLocaleDateString()} por{" "}
+                    {member.invitedBy || "Administrador"}
                   </p>
                 </div>
               ))}
@@ -2603,7 +2778,8 @@ export default function Configuracion() {
                       <div key={info.label} className={containerClasses}>
                         <span
                           className={`font-semibold ${
-                            info.labelClass ?? "text-slate-600 dark:text-dracula-foreground"
+                            info.labelClass ??
+                            "text-slate-600 dark:text-dracula-foreground"
                           }`}
                         >
                           {info.icon} {info.label}
@@ -2614,7 +2790,8 @@ export default function Configuracion() {
                             target="_blank"
                             rel="noopener noreferrer"
                             className={`mt-1 inline-flex items-center gap-1 text-base font-semibold underline-offset-2 hover:underline ${
-                              info.valueClass ?? "text-celeste-600 dark:text-dracula-cyan"
+                              info.valueClass ??
+                              "text-celeste-600 dark:text-dracula-cyan"
                             }`}
                           >
                             {info.value}
@@ -2622,7 +2799,8 @@ export default function Configuracion() {
                         ) : (
                           <span
                             className={`mt-1 text-base font-semibold ${
-                              info.valueClass ?? "text-slate-800 dark:text-dracula-cyan"
+                              info.valueClass ??
+                              "text-slate-800 dark:text-dracula-cyan"
                             }`}
                           >
                             {info.value}
@@ -2664,7 +2842,8 @@ export default function Configuracion() {
                   Notificaciones Push
                 </h2>
                 <p className="mt-1 text-sm text-slate-500 dark:text-dracula-comment">
-                  Envía notificaciones personalizadas a todos los usuarios de la aplicación
+                  Envía notificaciones personalizadas a todos los usuarios de la
+                  aplicación
                 </p>
               </div>
             </div>
@@ -2710,7 +2889,8 @@ export default function Configuracion() {
                 Gestionar acceso
               </h2>
               <p className="mt-1 text-sm text-slate-500 dark:text-dracula-comment">
-                Controla roles, invitaciones y permisos por módulo para cada miembro del equipo.
+                Controla roles, invitaciones y permisos por módulo para cada
+                miembro del equipo.
               </p>
             </div>
           </div>
@@ -2744,12 +2924,20 @@ export default function Configuracion() {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className={`text-[11px] font-semibold uppercase tracking-[0.25em] ${card.labelColor} dark:text-dracula-comment`}>{card.label}</p>
-                    <p className={`mt-2 text-2xl font-semibold ${card.valueColor} dark:text-dracula-foreground`}>
+                    <p
+                      className={`text-[11px] font-semibold uppercase tracking-[0.25em] ${card.labelColor} dark:text-dracula-comment`}
+                    >
+                      {card.label}
+                    </p>
+                    <p
+                      className={`mt-2 text-2xl font-semibold ${card.valueColor} dark:text-dracula-foreground`}
+                    >
                       {card.value}
                     </p>
                   </div>
-                  <div className={`flex h-10 w-10 items-center justify-center rounded-full ${card.iconBg}`}>
+                  <div
+                    className={`flex h-10 w-10 items-center justify-center rounded-full ${card.iconBg}`}
+                  >
                     <Icon className={`h-5 w-5 ${card.iconColor}`} />
                   </div>
                 </div>
@@ -2768,7 +2956,8 @@ export default function Configuracion() {
             </p>
           ) : members.length === 0 ? (
             <p className="mt-2 text-sm text-slate-500 dark:text-dracula-comment">
-              Todavía no hay integrantes registrados. Invita a tu equipo para comenzar.
+              Todavía no hay integrantes registrados. Invita a tu equipo para
+              comenzar.
             </p>
           ) : (
             <div className="mt-3 grid gap-3 md:grid-cols-2">
@@ -2832,7 +3021,8 @@ export default function Configuracion() {
                             </button>
                           ) : null}
                         </div>
-                        {member.modules.length > 3 && expandedModulesMemberId === member.id ? (
+                        {member.modules.length > 3 &&
+                        expandedModulesMemberId === member.id ? (
                           <div className="mt-2 flex flex-wrap gap-1 rounded-xl border border-soft-gray-200/70 bg-soft-gray-50/80 p-2 text-[10px] text-slate-500 dark:border-dracula-selection dark:bg-dracula-current/20 dark:text-dracula-comment">
                             {member.modules.slice(3).map((module) => (
                               <span
@@ -2877,7 +3067,12 @@ export default function Configuracion() {
                                 <button
                                   key={option.emoji}
                                   type="button"
-                                  onClick={() => handleAvatarEmojiSelect(member, option.emoji)}
+                                  onClick={() =>
+                                    handleAvatarEmojiSelect(
+                                      member,
+                                      option.emoji
+                                    )
+                                  }
                                   disabled={isSaving}
                                   className={`flex flex-col items-center justify-center rounded-xl border px-2 py-2 text-[11px] font-medium transition ${
                                     option.emoji === member.avatarEmoji
@@ -2885,19 +3080,28 @@ export default function Configuracion() {
                                       : "border-soft-gray-200 bg-white/70 text-slate-500 hover:border-celeste-200 hover:text-celeste-600"
                                   } disabled:opacity-60`}
                                 >
-                                  <span className="text-xl">{option.emoji}</span>
-                                  <span className="mt-1 line-clamp-1">{option.label}</span>
+                                  <span className="text-xl">
+                                    {option.emoji}
+                                  </span>
+                                  <span className="mt-1 line-clamp-1">
+                                    {option.label}
+                                  </span>
                                 </button>
                               ))}
                             </div>
                             <div className="flex flex-wrap items-center gap-2">
                               <button
                                 type="button"
-                                onClick={() => document.getElementById(uploadInputId)?.click()}
+                                onClick={() =>
+                                  document
+                                    .getElementById(uploadInputId)
+                                    ?.click()
+                                }
                                 disabled={isSaving}
                                 className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-celeste-500 to-mint-500 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:shadow-md disabled:opacity-60"
                               >
-                                <Camera className="h-4 w-4" /> {isSaving ? "Guardando..." : "Subir foto"}
+                                <Camera className="h-4 w-4" />{" "}
+                                {isSaving ? "Guardando..." : "Subir foto"}
                               </button>
                               <button
                                 type="button"
@@ -2912,13 +3116,17 @@ export default function Configuracion() {
                                 type="file"
                                 accept="image/*"
                                 className="hidden"
-                                onChange={(event) => handleAvatarFileChange(member, event)}
+                                onChange={(event) =>
+                                  handleAvatarFileChange(member, event)
+                                }
                               />
                             </div>
                           </div>
                         ) : null}
                         <p className="text-[11px] text-slate-400 dark:text-dracula-comment">
-                          Invitado el {new Date(member.invitedAt).toLocaleDateString()} por {member.invitedBy || "Administrador"}
+                          Invitado el{" "}
+                          {new Date(member.invitedAt).toLocaleDateString()} por{" "}
+                          {member.invitedBy || "Administrador"}
                         </p>
                       </div>
                     </div>
@@ -3057,7 +3265,6 @@ export default function Configuracion() {
       {activeSection === "documents" && renderDocumentsModal()}
       {activeSection === "catalogs" && renderCatalogsModal()}
       {activeSection === "access" && renderAccessModal()}
-
     </div>
   );
 }
