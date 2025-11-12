@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { PDFDocument, StandardFonts, rgb, type PDFImage } from "pdf-lib";
 import SignaturePad from "signature_pad";
 import * as XLSX from "xlsx";
 import {
@@ -93,6 +93,11 @@ const getCurrentTime = () => {
     .getMinutes()
     .toString()
     .padStart(2, "0")}`;
+};
+
+const parseLocalDate = (value: string): Date => {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year ?? 0, (month ?? 1) - 1, day ?? 1);
 };
 
 const initialFormState = (): FormState => ({
@@ -190,17 +195,84 @@ const dataUrlToUint8Array = (dataUrl: string): Uint8Array => {
   const parts = dataUrl.split(",");
   if (parts.length < 2) return new Uint8Array();
   const base64 = parts[1];
-  if (typeof atob !== "function") {
-    throw new Error(
-      "No se puede decodificar la firma digital en este entorno."
-    );
+
+  let binaryString: string;
+  if (typeof window === "undefined") {
+    binaryString = Buffer.from(base64, "base64").toString("binary");
+  } else {
+    binaryString = atob(base64);
   }
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index);
+
+  const bytes = new Uint8Array(binaryString.length);
+  for (let index = 0; index < binaryString.length; index += 1) {
+    bytes[index] = binaryString.charCodeAt(index);
   }
   return bytes;
+};
+
+const blobToDataUrl = (blob: Blob): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () =>
+      resolve(typeof reader.result === "string" ? reader.result : "");
+    reader.onerror = () =>
+      reject(new Error("No se pudo procesar el logo configurado."));
+    reader.readAsDataURL(blob);
+  });
+
+const convertDataUrlToPng = (dataUrl: string): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        const width = image.naturalWidth || image.width;
+        const height = image.naturalHeight || image.height;
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext("2d");
+        if (!context) {
+          reject(
+            new Error("No se pudo preparar el lienzo para convertir el logo.")
+          );
+          return;
+        }
+        context.drawImage(image, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/png"));
+      } catch (error) {
+        reject(
+          error instanceof Error
+            ? error
+            : new Error("No se pudo convertir el logo para el comprobante.")
+        );
+      }
+    };
+    image.onerror = () =>
+      reject(new Error("No se pudo cargar el logo configurado."));
+    image.src = dataUrl;
+  });
+
+const ensurePngDataUrl = async (dataUrl: string): Promise<string> => {
+  if (dataUrl.startsWith("data:image/png")) {
+    return dataUrl;
+  }
+
+  return convertDataUrlToPng(dataUrl);
+};
+
+const fetchImageAsDataUrl = async (url: string): Promise<string | null> => {
+  try {
+    const response = await fetch(url, { mode: "cors" });
+    if (!response.ok) {
+      return null;
+    }
+    const blob = await response.blob();
+    return await blobToDataUrl(blob);
+  } catch (error) {
+    console.warn("No se pudo descargar el logo configurado", error);
+    return null;
+  }
 };
 
 const toArrayBuffer = (view: Uint8Array): ArrayBuffer => {
@@ -1171,8 +1243,7 @@ export default function EppEntregas() {
         generarPdf: entrega.firmaTipo === "digital",
       } as Omit<
         FormState,
-        |
-          "workerMode"
+        | "workerMode"
         | "trabajadorId"
         | "trabajadorCargo"
         | "trabajadorNombreManual"
@@ -1490,6 +1561,29 @@ export default function EppEntregas() {
     const bodyFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
+    const logoDataUrl = companySettings?.general?.logoUrl?.trim() || null;
+    let logoImage: PDFImage | null = null;
+
+    if (logoDataUrl) {
+      try {
+        const sourcedDataUrl = logoDataUrl.startsWith("data:")
+          ? logoDataUrl
+          : await fetchImageAsDataUrl(logoDataUrl);
+
+        if (sourcedDataUrl) {
+          const pngDataUrl = await ensurePngDataUrl(sourcedDataUrl);
+          const logoBytes = dataUrlToUint8Array(pngDataUrl);
+          logoImage = await pdfDoc.embedPng(logoBytes);
+        }
+      } catch (logoError) {
+        console.warn(
+          "No se pudo incrustar el logo en el PDF de entrega",
+          logoError
+        );
+        logoImage = null;
+      }
+    }
+
     const ensureSpace = (lines = 1) => {
       if (cursorY - lines * 14 < margin) {
         page = pdfDoc.addPage([pageWidth, pageHeight]);
@@ -1506,34 +1600,55 @@ export default function EppEntregas() {
 
     // 2. --- ENCABEZADO CON ESPACIO PARA EL LOGO ---
     const drawHeader = () => {
-      const logoHeight = 40;
-      const logoWidth = 140;
+      const logoHeight = 80;
+      const logoWidth = 110;
+      const logoBoxX = margin;
+      const logoBoxY = cursorY - logoHeight;
+
       page.drawRectangle({
-        x: margin,
-        y: cursorY - logoHeight,
+        x: logoBoxX,
+        y: logoBoxY,
         width: logoWidth,
         height: logoHeight,
+        color: colors.bgWhite,
         borderColor: colors.border,
         borderWidth: 1,
-        borderDashArray: [5, 5],
-      });
-      page.drawText("Espacio para el Logo", {
-        x: margin + 25,
-        y: cursorY - 25,
-        font: bodyFont,
-        size: 9,
-        color: colors.textMuted,
+        borderRadius: 8,
       });
 
+      if (logoImage) {
+        const maxWidth = logoWidth - 4;
+        const maxHeight = logoHeight - 10;
+        const baseScale = Math.min(
+          maxWidth / logoImage.width,
+          maxHeight / logoImage.height
+        );
+        const dims = logoImage.scale(baseScale * 1.0);
+        page.drawImage(logoImage, {
+          x: logoBoxX + (logoWidth - dims.width) / 2,
+          y: logoBoxY + (logoHeight - dims.height) / 2,
+          width: dims.width,
+          height: dims.height,
+        });
+      } else {
+        page.drawText("Logo pendiente", {
+          x: logoBoxX + 20,
+          y: logoBoxY + logoHeight / 2 - 5,
+          font: bodyFont,
+          size: 9,
+          color: colors.textMuted,
+        });
+      }
+
       page.drawText("Comprobante de Entrega de EPP", {
-        x: pageWidth - margin - 220,
-        y: cursorY - 15,
+        x: pageWidth - margin - 240,
+        y: cursorY - 20,
         font: boldFont,
         size: 14,
         color: colors.textMuted,
       });
 
-      cursorY -= 55;
+      cursorY -= logoHeight + 15;
       page.drawLine({
         start: { x: margin, y: cursorY },
         end: { x: pageWidth - margin, y: cursorY },
@@ -1900,9 +2015,8 @@ export default function EppEntregas() {
         return;
       }
 
-      trabajador = trabajadores.find(
-        (t) => t.id === formState.trabajadorId
-      ) ?? null;
+      trabajador =
+        trabajadores.find((t) => t.id === formState.trabajadorId) ?? null;
 
       if (!trabajador) {
         setFormError(
@@ -1985,9 +2099,7 @@ export default function EppEntregas() {
           }`;
 
     const payload: CreateEntregaInput = {
-      trabajadorId: isManualWorkerMode
-        ? manualWorkerId
-        : trabajador!.id,
+      trabajadorId: isManualWorkerMode ? manualWorkerId : trabajador!.id,
       trabajadorNombre: isManualWorkerMode
         ? formState.trabajadorNombreManual.trim()
         : trabajador!.nombre,
@@ -2003,7 +2115,7 @@ export default function EppEntregas() {
       subAreaTrabajo: isManualWorkerMode
         ? formState.subAreaTrabajoManual.trim()
         : trabajador!.subAreaTrabajo,
-      fechaEntrega: new Date(formState.fechaEntrega),
+      fechaEntrega: parseLocalDate(formState.fechaEntrega),
       firmaFecha: formState.firmaFecha || getTodayDate(),
       firmaHora: formState.firmaHora || getCurrentTime(),
       observaciones: formState.observaciones.trim(),
@@ -3310,7 +3422,8 @@ export default function EppEntregas() {
                           {formState.areaTrabajoManual.trim() || "Sin área"}
                         </p>
                         <p className="text-xs">
-                          {formState.subAreaTrabajoManual.trim() || "Sin sub-área"}
+                          {formState.subAreaTrabajoManual.trim() ||
+                            "Sin sub-área"}
                         </p>
                       </div>
                       <div>

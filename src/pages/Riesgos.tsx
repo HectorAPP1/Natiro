@@ -42,9 +42,16 @@ import type {
   RiskMatrixVersion,
 } from "../types/riskMatrix";
 
+const parseDateOnlyString = (isoDate: string): Date => {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  return new Date(year ?? 0, (month ?? 1) - 1, day ?? 1);
+};
+
 const formatDate = (iso: string) => {
   if (!iso) return "";
-  const date = new Date(iso);
+  const isDateOnly =
+    iso.length <= 10 && iso.includes("-") && !iso.includes("T");
+  const date = isDateOnly ? parseDateOnlyString(iso) : new Date(iso);
   return date.toLocaleDateString("es-CL", {
     day: "2-digit",
     month: "2-digit",
@@ -1672,15 +1679,16 @@ const Riesgos = () => {
   );
 
   const criticalRiskCount = useMemo(() => {
-    return rows.filter((row) =>
-      row.clasificacion === "Intolerable" || row.clasificacion === "Importante"
+    return rows.filter(
+      (row) =>
+        row.clasificacion === "Intolerable" ||
+        row.clasificacion === "Importante"
     ).length;
   }, [rows]);
 
   const controlledRiskCount = useMemo(() => {
-    return rows.filter(
-      (row) => resolveRowControlStatus(row) === "Controlado"
-    ).length;
+    return rows.filter((row) => resolveRowControlStatus(row) === "Controlado")
+      .length;
   }, [resolveRowControlStatus, rows]);
 
   const handleRowChange = useCallback(
@@ -2263,6 +2271,28 @@ const Riesgos = () => {
     try {
       const nextDocument = {
         ...matrixDocument,
+        header: matrixDocument.header
+          ? {
+              ...matrixDocument.header,
+              fechaActualizacion: matrixDocument.header.fechaActualizacion
+                ? parseDateOnlyString(
+                    matrixDocument.header.fechaActualizacion
+                  ).toISOString()
+                : matrixDocument.header.fechaActualizacion,
+            }
+          : matrixDocument.header,
+        rows: (matrixDocument.rows ?? []).map((row) => ({
+          ...row,
+          plazo: row.plazo
+            ? parseDateOnlyString(row.plazo).toISOString()
+            : row.plazo,
+          controles: (row.controles ?? []).map((control) => ({
+            ...control,
+            dueDate: control.dueDate
+              ? parseDateOnlyString(control.dueDate).toISOString()
+              : control.dueDate,
+          })),
+        })),
         updatedAt: new Date().toISOString(),
         updatedBy: user?.uid ?? user?.email ?? "",
       } satisfies RiskMatrixDocument;
@@ -2370,15 +2400,8 @@ const Riesgos = () => {
             </div>
             <div className="rounded-3xl border border-celeste-200/70 bg-celeste-50/70 p-4 shadow-sm transition hover:border-celeste-300 hover:bg-celeste-100/70 hover:shadow-lg dark:border-dracula-cyan/40 dark:bg-dracula-current dark:hover:border-dracula-cyan/60 dark:hover:bg-dracula-cyan/10 sm:p-5">
               <p className="text-xs font-medium uppercase tracking-[0.2em] text-celeste-500 dark:text-dracula-cyan">
-                Centro de trabajo
+                Estado de la matriz
               </p>
-              <p className="mt-2 text-base font-semibold text-slate-800 dark:text-dracula-foreground">
-                {matrixDocument.header.nombreCentroTrabajo || "Sin registro"}
-              </p>
-              <p className="mt-1 text-xs text-slate-500 dark:text-dracula-comment">
-                {matrixDocument.header.direccionCentroTrabajo || "Dirección no registrada"}
-              </p>
-
               <dl className="mt-4 grid gap-3 text-xs text-slate-600 dark:text-dracula-comment">
                 <div className="flex items-center justify-between rounded-2xl bg-white/80 px-3 py-2 shadow-sm dark:bg-dracula-bg/60">
                   <dt className="font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-dracula-comment">
